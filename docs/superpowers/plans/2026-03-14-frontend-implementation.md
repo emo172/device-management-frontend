@@ -284,13 +284,13 @@ export const DeviceStatusTagType: Record<DeviceStatus, string> = {
 其余枚举文件按同模式定义：
 
 - `UserRole`: USER / DEVICE_ADMIN / SYSTEM_ADMIN
-- `ReservationStatus`: PENDING_DEVICE_APPROVAL / PENDING_SYSTEM_APPROVAL / PENDING_MANUAL / APPROVED / REJECTED / CANCELLED / EXPIRED / COMPLETED
+- `ReservationStatus`: PENDING_DEVICE_APPROVAL / PENDING_SYSTEM_APPROVAL / PENDING_MANUAL / APPROVED / REJECTED / CANCELLED / EXPIRED
 - `CheckInStatus`: NOT_SIGNED / SIGNED_IN / TIMEOUT
 - `BorrowStatus`: BORROWED / RETURNED / OVERDUE
 - `OverdueStatus`: PENDING / PROCESSED
 - `FreezeStatus`: NORMAL / RESTRICTED / FROZEN
 - `NotificationType`: 17种通知类型
-- `ApprovalMode`: AUTO_APPROVE / DEVICE_ONLY / DEVICE_AND_SYSTEM
+- `ApprovalMode`: DEVICE_ONLY / DEVICE_AND_SYSTEM
 - `AiIntentType`: RESERVE / QUERY / CANCEL / HELP / UNKNOWN
 
 `src/enums/index.ts` 统一导出所有枚举。
