@@ -46,3 +46,13 @@ npm run build
 ```sh
 npm run test:unit
 ```
+
+### WSL2 Notes
+
+- 在 WSL2 的 `/mnt/*` 挂载目录下直接启动 `vitest` 可能触发 `Bus error (core dumped)`。
+- 项目已经把 `npm run test:unit` 包装为镜像执行：检测到 `/mnt/*` 路径时，会把仓库同步到 Linux 原生临时目录后再运行测试。
+- 如果要验证这层兼容逻辑是否正常，可执行：
+
+```sh
+npm run test:runner
+```
