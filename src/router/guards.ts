@@ -55,6 +55,7 @@ export function setupRouterGuards(router: Router) {
         /**
          * 只有 401 才代表令牌失效。
          * 若只是 `/auth/me` 临时失败，不应立即清空会话并把用户踢回登录页，否则会与认证 Store 的会话恢复口径冲突。
+         * 但也不能直接放行受限页面，后续仍需继续走角色校验，让缺失角色信息的场景回落到 403。
          */
         if (isUnauthorizedError(error)) {
           authStore.clearAuthState()
@@ -64,8 +65,6 @@ export function setupRouterGuards(router: Router) {
             query: { redirect: to.fullPath },
           }
         }
-
-        return true
       }
     }
 

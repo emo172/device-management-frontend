@@ -98,18 +98,18 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/statistics')
   })
 
-  it('非 401 的用户资料补拉失败时，不会直接清空会话并打回登录页', async () => {
+  it('非 401 的用户资料补拉失败时，仍会拦截受角色保护的路由', async () => {
     setAccessToken('access-token')
     setRefreshToken('refresh-token')
     getCurrentUserMock.mockRejectedValue({ response: { status: 500 } })
 
     const router = createGuardedRouter()
 
-    await router.push('/dashboard')
+    await router.push('/statistics')
 
     const authStore = useAuthStore()
 
-    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(router.currentRoute.value.path).toBe('/403')
     expect(authStore.accessToken).toBe('access-token')
   })
 
