@@ -1,0 +1,16 @@
+// 在基础设施阶段先把视觉变量收口，后续业务模块只消费变量而不直接写死颜色。
+:root {
+  --app-color-primary: #2563eb;
+  --app-color-primary-soft: rgba(37, 99, 235, 0.14);
+  --app-color-surface: rgba(255, 255, 255, 0.84);
+  --app-color-page-start: #edf4ff;
+  --app-color-page-end: #fdf7ed;
+  --app-text-primary: #102033;
+  --app-text-secondary: #526277;
+  --app-text-placeholder: #8a97a8;
+  --app-border-color: rgba(148, 163, 184, 0.28);
+  --app-radius-lg: 24px;
+  --app-radius-md: 16px;
+  --app-shadow-card: 0 20px 60px rgba(15, 23, 42, 0.12);
+  --app-font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
