@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
+import { STORAGE_KEYS } from '@/constants'
 import { UserRole } from '@/enums/UserRole'
 
 const {
@@ -124,6 +125,77 @@ describe('auth store', () => {
     expect(store.userRole).toBe(UserRole.USER)
     expect(store.accessToken).toBe('access-1')
     expect(store.isAuthenticated).toBe(true)
+  })
+
+  it('rolls back session state when login succeeds but current user hydration fails', async () => {
+    loginMock.mockResolvedValue({
+      userId: 'user-1',
+      username: 'demo',
+      role: UserRole.USER,
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+    })
+    getCurrentUserMock.mockRejectedValue(new Error('load current user failed'))
+
+    const store = useAuthStore()
+    store.currentUser = {
+      userId: 'stale-user',
+      username: 'stale',
+      email: 'stale@example.com',
+      realName: '旧用户',
+      phone: '13800000000',
+      role: UserRole.SYSTEM_ADMIN,
+    }
+    localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(store.currentUser))
+
+    await expect(store.login({ account: 'demo', password: 'Password123' })).rejects.toThrow(
+      'load current user failed',
+    )
+
+    expect(clearTokensMock).toHaveBeenCalledTimes(1)
+    expect(store.accessToken).toBeNull()
+    expect(store.refreshToken).toBeNull()
+    expect(store.currentUser).toBeNull()
+    expect(store.initialized).toBe(false)
+    expect(routerPushMock).not.toHaveBeenCalled()
+  })
+
+  it('rolls back session state when register succeeds but current user hydration fails', async () => {
+    registerMock.mockResolvedValue({
+      userId: 'user-2',
+      username: 'new-user',
+      role: UserRole.USER,
+      accessToken: 'access-2',
+      refreshToken: 'refresh-2',
+    })
+    getCurrentUserMock.mockRejectedValue(new Error('load registered user failed'))
+
+    const store = useAuthStore()
+    store.currentUser = {
+      userId: 'stale-user',
+      username: 'stale',
+      email: 'stale@example.com',
+      realName: '旧用户',
+      phone: '13800000000',
+      role: UserRole.DEVICE_ADMIN,
+    }
+
+    await expect(
+      store.register({
+        username: 'new-user',
+        password: 'Password123',
+        email: 'new@example.com',
+        realName: '新用户',
+        phone: '13900000000',
+      }),
+    ).rejects.toThrow('load registered user failed')
+
+    expect(clearTokensMock).toHaveBeenCalledTimes(1)
+    expect(store.accessToken).toBeNull()
+    expect(store.refreshToken).toBeNull()
+    expect(store.currentUser).toBeNull()
+    expect(store.initialized).toBe(false)
+    expect(routerPushMock).not.toHaveBeenCalled()
   })
 
   it('hydrates auth state from token utilities when session exists', async () => {

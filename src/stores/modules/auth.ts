@@ -123,15 +123,30 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 登录后必须先保存令牌，再查询当前用户详情，避免仅凭登录返回的最小字段驱动后续页面权限判断。
      */
+    async finalizeAuthenticatedSession(result: authApi.AuthResult) {
+      this.applyAuthResult(result)
+
+      try {
+        await this.fetchCurrentUser()
+        this.initialized = true
+        return result
+      } catch (error) {
+        // 若令牌已落地但 `/auth/me` 回填失败，必须立即回滚本地会话，
+        // 否则会留下“新 token + 旧用户资料”的混合状态，后续菜单与鉴权判断都会失真。
+        this.clearAuthState()
+        throw error
+      }
+    },
+
+    /**
+     * 登录后必须先保存令牌，再查询当前用户详情，避免仅凭登录返回的最小字段驱动后续页面权限判断。
+     */
     async login(payload: authApi.LoginRequest) {
       this.loading = true
 
       try {
         const result = await authApi.login(payload)
-        this.applyAuthResult(result)
-        await this.fetchCurrentUser()
-        this.initialized = true
-        return result
+        return await this.finalizeAuthenticatedSession(result)
       } finally {
         this.loading = false
       }
@@ -145,10 +160,7 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const result = await authApi.register(payload)
-        this.applyAuthResult(result)
-        await this.fetchCurrentUser()
-        this.initialized = true
-        return result
+        return await this.finalizeAuthenticatedSession(result)
       } finally {
         this.loading = false
       }
