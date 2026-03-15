@@ -78,6 +78,38 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/dashboard')
   })
 
+  it('有 token 但用户资料补拉临时失败时，允许回到登录页避免导航锁死', async () => {
+    setAccessToken('access-token')
+    setRefreshToken('refresh-token')
+    getCurrentUserMock.mockRejectedValue({ response: { status: 500 } })
+
+    const router = createGuardedRouter()
+
+    await router.push('/login')
+
+    const authStore = useAuthStore()
+
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(getCurrentUserMock).toHaveBeenCalledTimes(1)
+    expect(authStore.accessToken).toBe('access-token')
+  })
+
+  it('有 token 但用户资料已失效时，允许进入登录页并清空会话', async () => {
+    setAccessToken('expired-access-token')
+    setRefreshToken('expired-refresh-token')
+    getCurrentUserMock.mockRejectedValue({ response: { status: 401 } })
+
+    const router = createGuardedRouter()
+
+    await router.push('/login')
+
+    const authStore = useAuthStore()
+
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(authStore.accessToken).toBeNull()
+    expect(authStore.refreshToken).toBeNull()
+  })
+
   it('存在令牌但缺少当前用户时，会先补拉用户资料再放行', async () => {
     setAccessToken('access-token')
     setRefreshToken('refresh-token')

@@ -35,7 +35,27 @@ export function setupRouterGuards(router: Router) {
 
     if (!requiresAuth) {
       if (hasToken() && authEntryPaths.has(to.path)) {
-        return { path: '/dashboard' }
+        if (authStore.currentUser) {
+          return { path: '/dashboard' }
+        }
+
+        try {
+          /**
+           * 认证公开页不能只凭本地 token 就一律跳仪表盘。
+           * 当刷新后 Store 尚未恢复用户资料时，这里先补拉一次当前用户；只有确认会话有效后，才拦截登录页回到仪表盘。
+           */
+          await authStore.fetchCurrentUser()
+          return { path: '/dashboard' }
+        } catch (error) {
+          /**
+           * 对认证页而言，非 401 的补拉失败更适合放行到登录页，避免用户被卡在“有 token 但无法进入认证页”的死循环里。
+           */
+          if (isUnauthorizedError(error)) {
+            authStore.clearAuthState()
+          }
+
+          return true
+        }
       }
 
       return true
