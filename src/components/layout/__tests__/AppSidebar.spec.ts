@@ -82,7 +82,39 @@ describe('AppSidebar', () => {
     expect(wrapper.text()).toContain('用户管理')
     expect(wrapper.text()).toContain('统计分析')
     expect(wrapper.text()).toContain('Prompt 模板')
+    expect(wrapper.text()).toContain('预约审核')
+    expect(wrapper.text()).toContain('预约管理')
     expect(wrapper.text()).not.toContain('AI 对话')
     expect(wrapper.text()).not.toContain('借还管理')
+  })
+
+  it('为设备管理员同时渲染预约管理与预约审核入口', () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const wrapper = mount(AppSidebar, {
+      global: {
+        stubs: {
+          ElAside: { template: '<aside><slot /></aside>' },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElMenu: { template: '<nav><slot /></nav>' },
+          ElMenuItem: { template: '<div><slot /></div>' },
+          ElScrollbar: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('预约管理')
+    expect(wrapper.text()).toContain('预约审核')
+    expect(wrapper.text()).toContain('借还管理')
+    expect(wrapper.text()).not.toContain('AI 对话')
+    expect(wrapper.text()).not.toContain('用户管理')
   })
 })
