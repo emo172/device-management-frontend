@@ -32,10 +32,10 @@ export function setRefreshToken(token: string): void {
 
 /**
  * 清理认证令牌。
- * 401 失效与主动退出登录都需要走统一清理入口，避免残留旧令牌。
+ * 401 失效与主动退出登录都需要走统一清理入口，避免残留旧令牌和旧用户资料污染后续权限判断。
  */
 export function clearTokens(): void {
-  clearStorageItems([STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN])
+  clearStorageItems([STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USER_INFO])
 }
 
 /**

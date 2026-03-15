@@ -27,12 +27,16 @@ describe('token utils', () => {
 
   it('clears tokens and updates auth status', () => {
     setAccessToken('access-demo')
+    setRefreshToken('refresh-demo')
+    localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify({ id: 'user-1', role: 'USER' }))
+
     expect(hasToken()).toBe(true)
 
     clearTokens()
 
     expect(getAccessToken()).toBeNull()
     expect(getRefreshToken()).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.USER_INFO)).toBeNull()
     expect(hasToken()).toBe(false)
   })
 })
