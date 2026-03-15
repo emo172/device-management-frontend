@@ -2,8 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ApiResponse } from '@/types/api'
 
-const { messageErrorMock, routerPushMock } = vi.hoisted(() => ({
+const {
+  authStoreClearAuthStateMock,
+  messageErrorMock,
+  notificationStoreResetStateMock,
+  routerPushMock,
+} = vi.hoisted(() => ({
+  authStoreClearAuthStateMock: vi.fn(),
   messageErrorMock: vi.fn(),
+  notificationStoreResetStateMock: vi.fn(),
   routerPushMock: vi.fn(),
 }))
 
@@ -19,12 +26,24 @@ vi.mock('@/router', () => ({
   },
 }))
 
+vi.mock('@/stores', () => ({
+  pinia: {},
+  useAuthStore: () => ({
+    clearAuthState: authStoreClearAuthStateMock,
+  }),
+  useNotificationStore: () => ({
+    resetState: notificationStoreResetStateMock,
+  }),
+}))
+
 import service from '../request'
 
 describe('request service', () => {
   beforeEach(() => {
     localStorage.clear()
+    authStoreClearAuthStateMock.mockReset()
     messageErrorMock.mockReset()
+    notificationStoreResetStateMock.mockReset()
     routerPushMock.mockReset()
   })
 
@@ -94,7 +113,7 @@ describe('request service', () => {
     expect(messageErrorMock).toHaveBeenCalledWith('业务失败')
   })
 
-  it('clears token and redirects to login when response is 401', async () => {
+  it('clears store state and redirects to login when response is 401', async () => {
     localStorage.setItem('access_token', 'expired-token')
     localStorage.setItem('refresh_token', 'expired-refresh-token')
 
@@ -117,6 +136,8 @@ describe('request service', () => {
 
     expect(localStorage.getItem('access_token')).toBeNull()
     expect(localStorage.getItem('refresh_token')).toBeNull()
+    expect(authStoreClearAuthStateMock).toHaveBeenCalledTimes(1)
+    expect(notificationStoreResetStateMock).toHaveBeenCalledTimes(1)
     expect(routerPushMock).toHaveBeenCalledWith('/login')
     expect(messageErrorMock).toHaveBeenCalledWith('登录已过期，请重新登录')
   })

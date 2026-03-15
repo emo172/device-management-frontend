@@ -14,6 +14,28 @@ import { clearTokens, getAccessToken } from '@/utils/token'
 type RawApiResponse<T> = AxiosResponse<ApiResponse<T>>
 
 /**
+ * 401 时除了清理本地 token，还要把内存态 Store 一并复位。
+ * 请求层不能静态依赖认证 Store，否则会与 `auth -> api -> request` 形成循环；
+ * 这里改为按需动态导入，在真正出现未授权响应时再触发会话回收。
+ */
+async function resetUnauthorizedSessionState() {
+  clearTokens()
+
+  try {
+    const { pinia, useAuthStore, useNotificationStore } = await import('@/stores')
+    const authStore = useAuthStore(pinia)
+    const notificationStore = useNotificationStore(pinia)
+
+    authStore.clearAuthState()
+    notificationStore.resetState()
+  } catch {
+    // 请求层必须保留最小兜底能力：即便 Store 尚未完成装配，也不能阻止令牌清理与登录跳转。
+  }
+
+  await router.push('/login')
+}
+
+/**
  * 统一请求实例类型。
  * 基础设施层约定“成功时直接返回业务 data”，避免后续 API 模块重复书写 response.data.data。
  */
@@ -116,13 +138,12 @@ rawService.interceptors.response.use(
     ElMessage.error(errorMessage)
     return Promise.reject(new Error(errorMessage))
   },
-  (error: AxiosError<ApiResponse<unknown>>) => {
+  async (error: AxiosError<ApiResponse<unknown>>) => {
     const status = error.response?.status
     const responseMessage = error.response?.data?.message
 
     if (status === 401) {
-      clearTokens()
-      void router.push('/login')
+      await resetUnauthorizedSessionState()
       ElMessage.error('登录已过期，请重新登录')
       return Promise.reject(error)
     }
