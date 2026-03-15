@@ -220,6 +220,67 @@ describe('auth store', () => {
     expect(store.userRole).toBe(UserRole.SYSTEM_ADMIN)
   })
 
+  it('keeps persisted session when initializeAuth hits a non-401 error', async () => {
+    const persistedUser = {
+      userId: 'user-3',
+      username: 'cached-user',
+      email: 'cached@example.com',
+      realName: '缓存用户',
+      phone: '13700000000',
+      role: UserRole.USER,
+    }
+
+    hasTokenMock.mockReturnValue(true)
+    getAccessTokenMock.mockReturnValue('persisted-access')
+    getRefreshTokenMock.mockReturnValue('persisted-refresh')
+    getCurrentUserMock.mockRejectedValue(new Error('network down'))
+    localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(persistedUser))
+
+    const store = useAuthStore()
+    await store.initializeAuth()
+
+    expect(clearTokensMock).not.toHaveBeenCalled()
+    expect(routerPushMock).not.toHaveBeenCalled()
+    expect(store.initialized).toBe(true)
+    expect(store.accessToken).toBe('persisted-access')
+    expect(store.refreshToken).toBe('persisted-refresh')
+    expect(store.currentUser).toEqual(persistedUser)
+  })
+
+  it('clears session when initializeAuth receives a 401 error', async () => {
+    const unauthorizedError = {
+      response: {
+        status: 401,
+      },
+    }
+
+    hasTokenMock.mockReturnValue(true)
+    getAccessTokenMock.mockReturnValue('persisted-access')
+    getRefreshTokenMock.mockReturnValue('persisted-refresh')
+    getCurrentUserMock.mockRejectedValue(unauthorizedError)
+    localStorage.setItem(
+      STORAGE_KEYS.USER_INFO,
+      JSON.stringify({
+        userId: 'user-4',
+        username: 'expired-user',
+        email: 'expired@example.com',
+        realName: '过期用户',
+        phone: '13600000000',
+        role: UserRole.DEVICE_ADMIN,
+      }),
+    )
+
+    const store = useAuthStore()
+    await store.initializeAuth()
+
+    expect(clearTokensMock).toHaveBeenCalledTimes(1)
+    expect(routerPushMock).toHaveBeenCalledWith('/login')
+    expect(store.initialized).toBe(true)
+    expect(store.accessToken).toBeNull()
+    expect(store.refreshToken).toBeNull()
+    expect(store.currentUser).toBeNull()
+  })
+
   it('updates profile and security actions through auth endpoints', async () => {
     updateProfileMock.mockResolvedValue({
       userId: 'user-1',

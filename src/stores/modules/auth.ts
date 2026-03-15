@@ -25,6 +25,15 @@ interface AuthState {
   loading: boolean
 }
 
+function isUnauthorizedError(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return false
+  }
+
+  const response = (error as { response?: { status?: number } }).response
+  return response?.status === 401
+}
+
 function normalizeUserRole(role: string): UserRole {
   if (role === UserRole.DEVICE_ADMIN) {
     return UserRole.DEVICE_ADMIN
@@ -168,7 +177,8 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * 会话恢复以 token 工具为准。
-     * 若本地有 token 但远端资料获取失败，则按失效会话处理并跳回登录页，保持与请求层 401 跳转契约一致。
+     * 只有 401 才表示本地会话确实失效；网络抖动或 5xx 不能直接把用户踢回登录页，
+     * 否则刷新页面就可能把原本有效的会话误清空。
      */
     async initializeAuth() {
       this.accessToken = getAccessToken()
@@ -182,9 +192,11 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         await this.fetchCurrentUser()
-      } catch {
-        this.clearAuthState()
-        await router.push('/login')
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          this.clearAuthState()
+          await router.push('/login')
+        }
       } finally {
         this.initialized = true
       }
