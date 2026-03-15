@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { appMock, createAppMock, initializeAuthMock, piniaMock, routerMock } = vi.hoisted(() => {
+const {
+  appMock,
+  createAppMock,
+  initializeAuthMock,
+  installElementPlusMock,
+  piniaMock,
+  registerSessionResetHandlerMock,
+  resetNotificationStateMock,
+  routerMock,
+} = vi.hoisted(() => {
   const app = {
     use: vi.fn(),
     mount: vi.fn(),
@@ -12,7 +21,10 @@ const { appMock, createAppMock, initializeAuthMock, piniaMock, routerMock } = vi
     appMock: app,
     createAppMock: vi.fn(() => app),
     initializeAuthMock: vi.fn(),
+    installElementPlusMock: vi.fn(),
     piniaMock: { id: 'pinia' },
+    registerSessionResetHandlerMock: vi.fn(),
+    resetNotificationStateMock: vi.fn(),
     routerMock: { id: 'router' },
   }
 })
@@ -21,12 +33,8 @@ vi.mock('vue', () => ({
   createApp: createAppMock,
 }))
 
-vi.mock('element-plus', () => ({
-  default: { install: vi.fn() },
-}))
-
-vi.mock('element-plus/es/locale/lang/zh-cn', () => ({
-  default: {},
+vi.mock('../plugins/elementPlus', () => ({
+  installElementPlus: installElementPlusMock,
 }))
 
 vi.mock('element-plus/dist/index.css', () => ({}))
@@ -40,11 +48,25 @@ vi.mock('../router', () => ({
   default: routerMock,
 }))
 
-vi.mock('../stores', () => ({
+vi.mock('../stores/pinia', () => ({
   pinia: piniaMock,
+}))
+
+vi.mock('../stores/modules/auth', () => ({
   useAuthStore: vi.fn(() => ({
+    clearAuthState: vi.fn(),
     initializeAuth: initializeAuthMock,
   })),
+}))
+
+vi.mock('../stores/modules/notification', () => ({
+  useNotificationStore: vi.fn(() => ({
+    resetState: resetNotificationStateMock,
+  })),
+}))
+
+vi.mock('../stores/sessionBridge', () => ({
+  registerSessionResetHandler: registerSessionResetHandlerMock,
 }))
 
 describe('main bootstrap', () => {
@@ -54,6 +76,8 @@ describe('main bootstrap', () => {
     appMock.mount.mockClear()
     createAppMock.mockClear()
     initializeAuthMock.mockReset()
+    installElementPlusMock.mockReset()
+    registerSessionResetHandlerMock.mockReset()
   })
 
   it('waits for auth initialization before mounting the app', async () => {
@@ -70,6 +94,8 @@ describe('main bootstrap', () => {
 
     expect(createAppMock).toHaveBeenCalledTimes(1)
     expect(initializeAuthMock).toHaveBeenCalledTimes(1)
+    expect(installElementPlusMock).toHaveBeenCalledTimes(1)
+    expect(registerSessionResetHandlerMock).toHaveBeenCalledTimes(1)
     expect(appMock.mount).not.toHaveBeenCalled()
 
     resolveInitialize?.()

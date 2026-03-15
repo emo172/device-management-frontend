@@ -1,21 +1,64 @@
-import { describe, it, expect } from 'vitest'
+import { defineComponent } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
 
 import { mount } from '@vue/test-utils'
-import App from '../App.vue'
+
+const routeState = {
+  meta: {} as Record<string, unknown>,
+}
+
+vi.mock('@/layouts/DefaultLayout.vue', () => ({
+  default: defineComponent({
+    name: 'DefaultLayoutStub',
+    template: '<div class="default-layout"><slot /></div>',
+  }),
+}))
+
+vi.mock('@/layouts/AuthLayout.vue', () => ({
+  default: defineComponent({
+    name: 'AuthLayoutStub',
+    template: '<div class="auth-layout"><slot /></div>',
+  }),
+}))
+
+vi.mock('@/layouts/BlankLayout.vue', () => ({
+  default: defineComponent({
+    name: 'BlankLayoutStub',
+    template: '<div class="blank-layout"><slot /></div>',
+  }),
+}))
+
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+
+  return {
+    ...actual,
+    RouterView: defineComponent({
+      name: 'RouterViewStub',
+      template: '<div class="router-view-stub">路由内容</div>',
+    }),
+    useRoute: () => routeState,
+  }
+})
+
+const App = (await import('../App.vue')).default
 
 describe('App', () => {
-  it('渲染基础占位壳层', () => {
-    const wrapper = mount(App, {
-      global: {
-        stubs: {
-          RouterView: {
-            template: '<div><slot :Component="null" /></div>',
-          },
-        },
-      },
-    })
+  it('在认证路由下切换到 AuthLayout', () => {
+    routeState.meta = { layout: 'auth' }
 
-    expect(wrapper.text()).toContain('智能设备管理系统')
-    expect(wrapper.text()).toContain('基础设施搭建')
+    const wrapper = mount(App)
+
+    expect(wrapper.find('.auth-layout').exists()).toBe(true)
+    expect(wrapper.text()).toContain('路由内容')
+  })
+
+  it('未声明布局时回退到 DefaultLayout', () => {
+    routeState.meta = {}
+
+    const wrapper = mount(App)
+
+    expect(wrapper.find('.default-layout').exists()).toBe(true)
+    expect(wrapper.text()).toContain('路由内容')
   })
 })

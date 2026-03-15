@@ -14,7 +14,7 @@ const {
   routerPushMock: vi.fn(),
 }))
 
-vi.mock('element-plus', () => ({
+vi.mock('element-plus/es/components/message/index', () => ({
   ElMessage: {
     error: messageErrorMock,
   },
@@ -26,13 +26,10 @@ vi.mock('@/router', () => ({
   },
 }))
 
-vi.mock('@/stores', () => ({
-  pinia: {},
-  useAuthStore: () => ({
-    clearAuthState: authStoreClearAuthStateMock,
-  }),
-  useNotificationStore: () => ({
-    resetState: notificationStoreResetStateMock,
+vi.mock('@/stores/sessionBridge', () => ({
+  runSessionResetHandler: vi.fn(async () => {
+    authStoreClearAuthStateMock()
+    notificationStoreResetStateMock()
   }),
 }))
 

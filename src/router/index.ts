@@ -1,20 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { setupRouterGuards } from './guards'
+import { routes } from './routes'
 
-// Chunk 1 先保留最小路由骨架，但必须提供 /login 承接 401 失效跳转，
-// 避免请求层把用户推到无匹配路由的空白状态。
+/**
+ * 应用主路由实例。
+ * Chunk 3 起统一切换到模块化路由表，并在创建后立即装配守卫，保证权限控制与标题更新从入口层收口。
+ */
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/auth/Login.vue'),
-      meta: {
-        public: true,
-        title: '登录',
-      },
-    },
-  ],
+  routes,
 })
+
+setupRouterGuards(router)
 
 export default router
