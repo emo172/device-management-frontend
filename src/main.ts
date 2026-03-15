@@ -1,25 +1,29 @@
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 import App from './App.vue'
 import router from './router'
+import { pinia, useAuthStore } from './stores'
 import '@/assets/styles/index.scss'
 
-const app = createApp(App)
-const pinia = createPinia()
+async function bootstrapApp() {
+  const app = createApp(App)
 
-// 认证令牌与用户偏好后续都会落在 Pinia 持久化插件上，这里先在入口统一装配。
-pinia.use(piniaPluginPersistedstate)
+  app.use(pinia)
+  app.use(router)
+  app.use(ElementPlus, { locale: zhCn })
 
-app.use(pinia)
-app.use(router)
-app.use(ElementPlus, { locale: zhCn })
+  // 应用首次挂载前先恢复认证状态，避免刷新后受保护页面先按旧本地缓存渲染，
+  // 再在异步校验完成后被强制打回登录页，造成明显的菜单闪烁与权限竞态。
+  const authStore = useAuthStore(pinia)
+  await authStore.initializeAuth()
 
-// 图标库依赖已经接入，但基础设施阶段不做全量注册，
-// 避免入口包体被一次性放大；后续业务组件按需引入即可。
+  // 图标库依赖已经接入，但基础设施阶段不做全量注册，
+  // 避免入口包体被一次性放大；后续业务组件按需引入即可。
 
-app.mount('#app')
+  app.mount('#app')
+}
+
+void bootstrapApp()
