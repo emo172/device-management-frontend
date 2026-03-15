@@ -123,4 +123,19 @@ describe('notification store', () => {
     await vi.advanceTimersByTimeAsync(30000)
     expect(getUnreadNotificationCountMock).toHaveBeenCalledTimes(1)
   })
+
+  it('suppresses polling request errors and keeps subsequent polling alive', async () => {
+    getUnreadNotificationCountMock
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({ unreadCount: 2 })
+
+    const store = useNotificationStore()
+    store.startPolling()
+
+    await vi.advanceTimersByTimeAsync(30000)
+    await vi.advanceTimersByTimeAsync(30000)
+
+    expect(getUnreadNotificationCountMock).toHaveBeenCalledTimes(2)
+    expect(store.unreadCount).toBe(2)
+  })
 })

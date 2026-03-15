@@ -5,9 +5,10 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus/es/components/message/index.mjs'
 
 import router from '@/router'
+import { runSessionResetHandler } from '@/stores/sessionBridge'
 import type { ApiResponse } from '@/types/api'
 import { clearTokens, getAccessToken } from '@/utils/token'
 
@@ -22,12 +23,7 @@ async function resetUnauthorizedSessionState() {
   clearTokens()
 
   try {
-    const { pinia, useAuthStore, useNotificationStore } = await import('@/stores')
-    const authStore = useAuthStore(pinia)
-    const notificationStore = useNotificationStore(pinia)
-
-    authStore.clearAuthState()
-    notificationStore.resetState()
+    await runSessionResetHandler()
   } catch {
     // 请求层必须保留最小兜底能力：即便 Store 尚未完成装配，也不能阻止令牌清理与登录跳转。
   }

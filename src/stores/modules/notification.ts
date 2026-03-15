@@ -92,7 +92,12 @@ export const useNotificationStore = defineStore('notification', {
       }
 
       this.pollingTimer = setInterval(() => {
-        void this.fetchUnreadCount()
+        void this.fetchUnreadCount().catch(() => {
+          /**
+           * 轮询属于后台刷新能力。
+           * 单次请求失败不应抛出未处理异常污染控制台，也不应中断下一轮轮询，由后续轮询继续尝试恢复即可。
+           */
+        })
       }, POLLING_INTERVAL)
     },
 
