@@ -43,8 +43,38 @@ describe('request service', () => {
       config,
     })
 
-    const response = await service.get<ApiResponse<string>>('/devices')
-    expect(response.data.data).toBe('Bearer demo-access-token')
+    const response = await service.get<string>('/devices')
+    expect(response).toBe('Bearer demo-access-token')
+  })
+
+  it('does not force json content type for form data upload', async () => {
+    let capturedContentType: unknown
+
+    service.defaults.adapter = async (config) => {
+      capturedContentType =
+        typeof config.headers.getContentType === 'function'
+          ? config.headers.getContentType()
+          : config.headers['Content-Type']
+
+      return {
+        data: {
+          code: 0,
+          message: 'success',
+          data: 'ok',
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }
+    }
+
+    const formData = new FormData()
+    formData.append('file', new Blob(['demo']), 'demo.txt')
+
+    await service.post<string, FormData>('/devices/device-1/image', formData)
+
+    expect(String(capturedContentType)).not.toBe('application/json')
   })
 
   it('rejects business error and shows message', async () => {
