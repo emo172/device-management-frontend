@@ -1,0 +1,11 @@
+// 先在全局层覆写 Element Plus 主题变量，确保后续所有业务组件共享同一视觉基线。
+:root {
+  --el-color-primary: var(--app-color-primary);
+  --el-border-radius-base: 12px;
+  --el-font-family: var(--app-font-family);
+}
+
+.el-card {
+  border-color: var(--app-border-color);
+  box-shadow: var(--app-shadow-card);
+}
