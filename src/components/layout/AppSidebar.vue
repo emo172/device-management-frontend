@@ -80,13 +80,24 @@ const menuItems: SidebarMenuItem[] = [
 ]
 
 const currentRole = computed(() => authStore.userRole)
-const activePath = computed(() => route.path)
 const visibleMenuItems = computed(() => {
   if (!currentRole.value) {
     return []
   }
 
   return menuItems.filter((item) => item.roles.includes(currentRole.value as UserRole))
+})
+
+/**
+ * 侧边栏高亮需要覆盖详情页、确认页等子路由。
+ * 例如进入 `/borrows/confirm` 时仍应高亮 `/borrows`，否则用户会误以为自己离开了当前业务域。
+ */
+const activePath = computed(() => {
+  const matchedItem = [...visibleMenuItems.value]
+    .sort((left, right) => right.path.length - left.path.length)
+    .find((item) => route.path === item.path || route.path.startsWith(`${item.path}/`))
+
+  return matchedItem?.path ?? route.path
 })
 
 /**

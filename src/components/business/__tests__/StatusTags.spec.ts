@@ -1,7 +1,15 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
-import { CheckInStatus, DeviceStatus, FreezeStatus, ReservationStatus } from '@/enums'
+import {
+  BorrowStatus,
+  CheckInStatus,
+  DeviceStatus,
+  FreezeStatus,
+  OverdueHandleType,
+  OverdueProcessingStatus,
+  ReservationStatus,
+} from '@/enums'
 
 const businessComponentModules = import.meta.glob('../*.vue')
 
@@ -85,6 +93,34 @@ describe('status tags', () => {
     expect(wrapper.get('.freeze-status').attributes('data-type')).toBe('danger')
   })
 
+  it('BorrowStatusTag 渲染借还状态中文与标签类型', async () => {
+    const { module, error } = await loadComponent('BorrowStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: BorrowStatus.BORROWED,
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="borrow-status" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('借用中')
+    expect(wrapper.get('.borrow-status').attributes('data-type')).toBe('warning')
+  })
+
   it('ReservationStatusTag 渲染预约状态中文与标签类型', async () => {
     const { module, error } = await loadComponent('ReservationStatusTag')
 
@@ -139,5 +175,61 @@ describe('status tags', () => {
 
     expect(wrapper.text()).toContain('超时签到')
     expect(wrapper.get('.checkin-status').attributes('data-type')).toBe('danger')
+  })
+
+  it('OverdueProcessingStatusTag 渲染逾期处理状态中文与标签类型', async () => {
+    const { module, error } = await loadComponent('OverdueProcessingStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: OverdueProcessingStatus.PENDING,
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="overdue-status" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('待处理')
+    expect(wrapper.get('.overdue-status').attributes('data-type')).toBe('warning')
+  })
+
+  it('OverdueHandleTypeTag 渲染逾期处理方式中文与标签类型', async () => {
+    const { module, error } = await loadComponent('OverdueHandleTypeTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        type: OverdueHandleType.COMPENSATION,
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="handle-type" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('赔偿')
+    expect(wrapper.get('.handle-type').attributes('data-type')).toBe('danger')
   })
 })

@@ -121,4 +121,35 @@ describe('AppSidebar', () => {
     expect(wrapper.text()).not.toContain('AI 对话')
     expect(wrapper.text()).not.toContain('用户管理')
   })
+
+  it('进入借还与逾期子路由时，侧边栏仍高亮对应父级入口', () => {
+    routeState.path = '/borrows/confirm'
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const wrapper = mount(AppSidebar, {
+      global: {
+        stubs: {
+          ElAside: { template: '<aside><slot /></aside>' },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElMenu: {
+            props: ['defaultActive'],
+            template: '<nav class="menu-stub" :data-active="defaultActive"><slot /></nav>',
+          },
+          ElMenuItem: { template: '<div><slot /></div>' },
+          ElScrollbar: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    expect(wrapper.get('.menu-stub').attributes('data-active')).toBe('/borrows')
+  })
 })
