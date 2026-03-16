@@ -31,6 +31,47 @@ export function getMirrorDirectory(cwd) {
   return path.join(MIRROR_ROOT, getWorkspaceName(cwd))
 }
 
+function escapeWindowsCommandArgument(argument) {
+  if (!argument) {
+    return '""'
+  }
+
+  if (!/[\s"]/u.test(argument)) {
+    return argument
+  }
+
+  return `"${argument.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/g, '$1$1')}"`
+}
+
+/**
+ * Windows 下的 npm/npx 实际是 `.cmd` 启动脚本，需要显式交给 `cmd.exe /c` 执行。
+ * 这样既能兼容本地 VSCode 的 Windows Node 运行时，也能避免 `shell: true` 带来的弃用告警。
+ */
+export function getCommandInvocation(
+  command,
+  args,
+  platform = process.platform,
+  commandShell = process.env.ComSpec || 'cmd.exe',
+) {
+  if (platform !== 'win32') {
+    return {
+      command,
+      args,
+      options: {
+        windowsHide: false,
+      },
+    }
+  }
+
+  return {
+    command: commandShell,
+    args: ['/d', '/s', '/c', [command, ...args].map(escapeWindowsCommandArgument).join(' ')],
+    options: {
+      windowsHide: true,
+    },
+  }
+}
+
 function hashContent(content) {
   return createHash('sha256').update(content).digest('hex')
 }
@@ -109,10 +150,12 @@ async function ensureDependencies(sourceDirectory, mirrorDirectory) {
 
 function runCommand(command, args, options) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const invocation = getCommandInvocation(command, args)
+    const child = spawn(invocation.command, invocation.args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
       stdio: 'inherit',
+      ...invocation.options,
     })
 
     child.on('error', reject)
