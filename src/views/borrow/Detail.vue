@@ -1,0 +1,232 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+import BorrowStatusTag from '@/components/business/BorrowStatusTag.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { BorrowStatus } from '@/enums'
+import { UserRole } from '@/enums/UserRole'
+import { useAuthStore } from '@/stores/modules/auth'
+import { useBorrowStore } from '@/stores/modules/borrow'
+import { formatDateTime } from '@/utils/date'
+
+/**
+ * 借还详情页。
+ * 详情页承接正式借还记录的主键、操作人和借还时间回显，避免确认页完成后只能回到列表盲查结果。
+ */
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const borrowStore = useBorrowStore()
+
+const recordId = computed(() => String(route.params.id ?? ''))
+const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
+const currentRecord = computed(() => borrowStore.currentRecord)
+
+function handleBack() {
+  void router.push('/borrows')
+}
+
+function handleGoReturn() {
+  if (!currentRecord.value) {
+    return
+  }
+
+  void router.push(`/borrows/return?recordId=${currentRecord.value.id}`)
+}
+
+onMounted(() => {
+  if (recordId.value) {
+    void borrowStore.fetchBorrowDetail(recordId.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  borrowStore.resetCurrentRecord()
+})
+</script>
+
+<template>
+  <section class="borrow-detail-view">
+    <header class="borrow-detail-view__hero">
+      <div>
+        <p class="borrow-detail-view__eyebrow">Borrow Detail</p>
+        <h1>借还记录详情</h1>
+        <p>
+          查看单条借还记录的正式主键、借出/归还时间与处理人，方便借还确认完成后追溯现场操作记录。
+        </p>
+      </div>
+
+      <div class="borrow-detail-view__actions">
+        <el-button @click="handleBack">返回列表</el-button>
+
+        <!-- 仅设备管理员可从详情继续发起归还确认，且仅对借用中的正式记录开放。 -->
+        <el-button
+          v-if="isDeviceAdmin && currentRecord?.status === BorrowStatus.BORROWED"
+          type="primary"
+          @click="handleGoReturn"
+        >
+          去归还确认
+        </el-button>
+      </div>
+    </header>
+
+    <EmptyState
+      v-if="!currentRecord && !borrowStore.loading"
+      title="未找到借还记录"
+      description="可能是记录不存在，或当前会话还未从后端拉取到该条借还详情。"
+      action-text="返回借还列表"
+      @action="handleBack"
+    />
+
+    <template v-else-if="currentRecord">
+      <section class="borrow-detail-view__status-card">
+        <div>
+          <p class="borrow-detail-view__eyebrow">Status</p>
+          <h2>当前流转状态</h2>
+        </div>
+        <BorrowStatusTag :status="currentRecord.status" />
+      </section>
+
+      <section class="borrow-detail-view__grid">
+        <article class="borrow-detail-view__panel">
+          <h3>业务主键</h3>
+          <dl>
+            <div>
+              <dt>借还记录 ID</dt>
+              <dd>{{ currentRecord.id }}</dd>
+            </div>
+            <div>
+              <dt>预约 ID</dt>
+              <dd>{{ currentRecord.reservationId }}</dd>
+            </div>
+            <div>
+              <dt>设备 ID</dt>
+              <dd>{{ currentRecord.deviceId }}</dd>
+            </div>
+            <div>
+              <dt>用户 ID</dt>
+              <dd>{{ currentRecord.userId }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="borrow-detail-view__panel">
+          <h3>时间与操作</h3>
+          <dl>
+            <div>
+              <dt>借用时间</dt>
+              <dd>{{ formatDateTime(currentRecord.borrowTime) }}</dd>
+            </div>
+            <div>
+              <dt>预计归还时间</dt>
+              <dd>{{ formatDateTime(currentRecord.expectedReturnTime) }}</dd>
+            </div>
+            <div>
+              <dt>实际归还时间</dt>
+              <dd>{{ formatDateTime(currentRecord.returnTime) }}</dd>
+            </div>
+            <div>
+              <dt>借用操作人</dt>
+              <dd>{{ currentRecord.operatorId || '-' }}</dd>
+            </div>
+            <div>
+              <dt>归还操作人</dt>
+              <dd>{{ currentRecord.returnOperatorId || '-' }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="borrow-detail-view__panel borrow-detail-view__panel--full">
+          <h3>现场备注</h3>
+          <p>{{ currentRecord.remark || '当前无现场补充备注。' }}</p>
+        </article>
+      </section>
+    </template>
+  </section>
+</template>
+
+<style scoped lang="scss">
+.borrow-detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: #1e293b;
+}
+
+.borrow-detail-view__hero,
+.borrow-detail-view__status-card,
+.borrow-detail-view__panel {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+.borrow-detail-view__hero,
+.borrow-detail-view__status-card,
+.borrow-detail-view__panel {
+  padding: 24px 28px;
+}
+
+.borrow-detail-view__hero,
+.borrow-detail-view__status-card,
+.borrow-detail-view__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.borrow-detail-view__eyebrow {
+  margin: 0;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.borrow-detail-view__hero h1,
+.borrow-detail-view__status-card h2,
+.borrow-detail-view__panel h3 {
+  margin: 10px 0 0;
+  font-family: 'Fira Code', monospace;
+}
+
+.borrow-detail-view__hero p:not(.borrow-detail-view__eyebrow) {
+  max-width: 780px;
+  margin: 14px 0 0;
+  line-height: 1.8;
+  color: #475569;
+}
+
+.borrow-detail-view__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.borrow-detail-view__panel--full {
+  grid-column: 1 / -1;
+}
+
+.borrow-detail-view__panel dl {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0 0;
+}
+
+.borrow-detail-view__panel dt {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.borrow-detail-view__panel dd,
+.borrow-detail-view__panel p {
+  margin: 6px 0 0;
+  line-height: 1.7;
+  color: #0f172a;
+}
+</style>
