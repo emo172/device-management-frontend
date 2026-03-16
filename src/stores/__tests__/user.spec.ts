@@ -4,12 +4,14 @@ import { createPinia, setActivePinia } from 'pinia'
 const {
   freezeUserMock,
   getRoleListMock,
+  getUserListMock,
   updateRolePermissionsMock,
   updateUserRoleMock,
   updateUserStatusMock,
 } = vi.hoisted(() => ({
   freezeUserMock: vi.fn(),
   getRoleListMock: vi.fn(),
+  getUserListMock: vi.fn(),
   updateRolePermissionsMock: vi.fn(),
   updateUserRoleMock: vi.fn(),
   updateUserStatusMock: vi.fn(),
@@ -17,6 +19,7 @@ const {
 
 vi.mock('@/api/users', () => ({
   freezeUser: freezeUserMock,
+  getUserList: getUserListMock,
   updateUserRole: updateUserRoleMock,
   updateUserStatus: updateUserStatusMock,
 }))
@@ -33,6 +36,7 @@ describe('user store', () => {
     setActivePinia(createPinia())
     freezeUserMock.mockReset()
     getRoleListMock.mockReset()
+    getUserListMock.mockReset()
     updateRolePermissionsMock.mockReset()
     updateUserRoleMock.mockReset()
     updateUserStatusMock.mockReset()
@@ -48,6 +52,76 @@ describe('user store', () => {
     await store.fetchRoleList()
 
     expect(store.roleList).toHaveLength(2)
+  })
+
+  it('loads reservation target users and filters non-user roles', async () => {
+    getUserListMock.mockResolvedValue({
+      total: 3,
+      records: [
+        {
+          id: 'user-1',
+          username: 'user-1',
+          email: 'user1@example.com',
+          realName: '普通用户甲',
+          phone: '13800138001',
+          status: 1,
+          freezeStatus: 'NORMAL',
+          roleId: 'role-user',
+          roleName: 'USER',
+        },
+        {
+          id: 'admin-1',
+          username: 'sysadmin',
+          email: 'admin@example.com',
+          realName: '系统管理员',
+          phone: '13800138002',
+          status: 1,
+          freezeStatus: 'NORMAL',
+          roleId: 'role-admin',
+          roleName: 'SYSTEM_ADMIN',
+        },
+        {
+          id: 'user-2',
+          username: 'user-2',
+          email: 'user2@example.com',
+          realName: '普通用户乙',
+          phone: '13800138003',
+          status: 1,
+          freezeStatus: 'NORMAL',
+          roleId: 'role-user',
+          roleName: 'USER',
+        },
+      ],
+    })
+
+    const store = useUserStore()
+    await store.fetchReservationTargetUsers({ page: 1, size: 20 })
+
+    expect(getUserListMock).toHaveBeenCalledWith({ page: 1, size: 20 })
+    expect(store.reservationTargetUsers).toEqual([
+      {
+        id: 'user-1',
+        username: 'user-1',
+        email: 'user1@example.com',
+        realName: '普通用户甲',
+        phone: '13800138001',
+        status: 1,
+        freezeStatus: 'NORMAL',
+        roleId: 'role-user',
+        roleName: 'USER',
+      },
+      {
+        id: 'user-2',
+        username: 'user-2',
+        email: 'user2@example.com',
+        realName: '普通用户乙',
+        phone: '13800138003',
+        status: 1,
+        freezeStatus: 'NORMAL',
+        roleId: 'role-user',
+        roleName: 'USER',
+      },
+    ])
   })
 
   it('updates user admin state via status role and freeze actions', async () => {
@@ -92,5 +166,26 @@ describe('user store', () => {
       roleId: 'role-2',
       permissionIds: ['perm-1', 'perm-2'],
     })
+  })
+
+  it('resetState also clears reservation target users', async () => {
+    const store = useUserStore()
+    store.reservationTargetUsers = [
+      {
+        id: 'user-1',
+        username: 'user-1',
+        email: 'user1@example.com',
+        realName: '普通用户甲',
+        phone: '13800138001',
+        status: 1,
+        freezeStatus: 'NORMAL',
+        roleId: 'role-user',
+        roleName: 'USER',
+      },
+    ]
+
+    store.resetState()
+
+    expect(store.reservationTargetUsers).toEqual([])
   })
 })

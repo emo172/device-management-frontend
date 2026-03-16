@@ -20,10 +20,26 @@ describe('router', () => {
     const statisticsRoute = routes.find((route) => route.path === '/statistics')
     const deviceCreateRoute = routes.find((route) => route.path === '/devices/create')
     const deviceCategoryRoute = routes.find((route) => route.path === '/devices/categories')
+    const reservationCreateRoute = routes.find((route) => route.path === '/reservations/create')
+    const reservationPendingRoute = routes.find(
+      (route) => route.path === '/reservations/manage/pending',
+    )
+    const reservationHistoryRoute = routes.find(
+      (route) => route.path === '/reservations/manage/history',
+    )
 
     expect(aiRoute?.meta?.roles).toEqual([UserRole.USER])
     expect(statisticsRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
     expect(deviceCreateRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
     expect(deviceCategoryRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
+    expect(reservationCreateRoute?.meta?.roles).toEqual([UserRole.USER, UserRole.SYSTEM_ADMIN])
+    expect(reservationPendingRoute?.meta?.roles).toEqual([
+      UserRole.DEVICE_ADMIN,
+      UserRole.SYSTEM_ADMIN,
+    ])
+    expect(reservationHistoryRoute?.meta?.roles).toEqual([
+      UserRole.DEVICE_ADMIN,
+      UserRole.SYSTEM_ADMIN,
+    ])
   })
 })

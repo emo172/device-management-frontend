@@ -4,6 +4,7 @@ import { UserRole } from '@/enums/UserRole'
 
 const allRoles = [UserRole.USER, UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN]
 const adminRoles = [UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN]
+const creatorRoles = [UserRole.USER, UserRole.SYSTEM_ADMIN]
 
 /**
  * 预约路由。
@@ -13,26 +14,38 @@ const reservationRoutes: RouteRecordRaw[] = [
   {
     path: '/reservations',
     name: 'ReservationList',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 6 / Reservation',
-      title: '预约页面待接入业务实现',
-      description:
-        '当前先提供统一预约路由，后续 Chunk 会分别补齐我的预约、创建预约、详情与审核页面。',
-    },
+    component: () => import('@/views/reservation/List.vue'),
     meta: { title: '预约管理', roles: allRoles, layout: 'default' },
+  },
+  {
+    path: '/reservations/create',
+    name: 'ReservationCreate',
+    component: () => import('@/views/reservation/Create.vue'),
+    meta: { title: '创建预约', roles: creatorRoles, layout: 'default' },
+  },
+  {
+    path: '/reservations/:id',
+    name: 'ReservationDetail',
+    component: () => import('@/views/reservation/Detail.vue'),
+    meta: { title: '预约详情', roles: allRoles, layout: 'default' },
+  },
+  {
+    path: '/reservations/:id/check-in',
+    name: 'ReservationCheckIn',
+    component: () => import('@/views/reservation/CheckIn.vue'),
+    meta: { title: '预约签到', roles: allRoles, layout: 'default' },
   },
   {
     path: '/reservations/manage/pending',
     name: 'ReservationPendingAudit',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 6 / Reservation Audit',
-      title: '预约审核页面待接入',
-      description:
-        '当前先保留管理员审核入口，后续 Chunk 会按一审、二审和人工处理状态分流展示待处理预约。',
-    },
+    component: () => import('@/views/reservation/manage/Pending.vue'),
     meta: { title: '预约审核', roles: adminRoles, layout: 'default' },
+  },
+  {
+    path: '/reservations/manage/history',
+    name: 'ReservationAuditHistory',
+    component: () => import('@/views/reservation/manage/History.vue'),
+    meta: { title: '审批历史', roles: adminRoles, layout: 'default' },
   },
 ]
 
