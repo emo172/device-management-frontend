@@ -1,0 +1,350 @@
+import { setActivePinia } from 'pinia'
+import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  OverdueHandleType,
+  OverdueHandleTypeLabel,
+  OverdueProcessingStatus,
+  OverdueProcessingStatusLabel,
+  UserRole,
+} from '@/enums'
+import { createAppPinia } from '@/stores'
+import { useAuthStore } from '@/stores/modules/auth'
+import { useOverdueStore } from '@/stores/modules/overdue'
+
+const pushMock = vi.fn()
+const messageSuccessMock = vi.fn()
+const routeState = {
+  path: '/overdue',
+  params: {} as Record<string, string>,
+  query: {} as Record<string, string>,
+}
+
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+
+  return {
+    ...actual,
+    useRoute: () => routeState,
+    useRouter: () => ({ push: pushMock }),
+  }
+})
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('element-plus')>()
+
+  return {
+    ...actual,
+    ElMessage: {
+      success: messageSuccessMock,
+    },
+  }
+})
+
+const overdueViewModules = import.meta.glob('../*.vue')
+
+async function loadOverdueView(componentName: string) {
+  const loader = overdueViewModules[`../${componentName}.vue`]
+
+  if (!loader) {
+    return {
+      module: null,
+      error: new Error(`${componentName}.vue is missing`),
+    }
+  }
+
+  try {
+    return {
+      module: (await loader()) as { default: object },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      module: null,
+      error,
+    }
+  }
+}
+
+const pendingRecord = {
+  id: 'overdue-1',
+  borrowRecordId: 'borrow-1',
+  userId: 'user-1',
+  deviceId: 'device-1',
+  overdueHours: 11,
+  overdueDays: 1,
+  processingStatus: OverdueProcessingStatus.PENDING,
+  processingMethod: null,
+  processingRemark: null,
+  processorId: null,
+  processingTime: null,
+  compensationAmount: null,
+  notificationSent: 1,
+  createdAt: '2024-01-03T12:00:00',
+} as const
+
+const processedRecord = {
+  ...pendingRecord,
+  id: 'overdue-2',
+  processingStatus: OverdueProcessingStatus.PROCESSED,
+  processingMethod: OverdueHandleType.WARNING,
+  processingRemark: '已警告',
+  processorId: 'device-admin-1',
+  processingTime: '2024-01-03T12:30:00',
+  compensationAmount: 0,
+} as const
+
+const commonGlobal = {
+  stubs: {
+    EmptyState: {
+      template: '<div class="empty-state-stub"><slot /></div>',
+    },
+    Pagination: {
+      template: '<div class="pagination-stub"></div>',
+    },
+    OverdueAlert: {
+      props: ['pendingCount', 'totalOverdueHours', 'isAdmin'],
+      template:
+        '<div class="overdue-alert-stub">{{ pendingCount }}-{{ totalOverdueHours }}-{{ isAdmin }}</div>',
+    },
+    OverdueProcessingStatusTag: {
+      props: ['status'],
+      setup() {
+        return { OverdueProcessingStatusLabel }
+      },
+      template:
+        '<span class="overdue-status-stub">{{ OverdueProcessingStatusLabel[status] ?? status }}</span>',
+    },
+    OverdueHandleTypeTag: {
+      props: ['type'],
+      setup() {
+        return { OverdueHandleTypeLabel }
+      },
+      template:
+        '<span class="overdue-type-stub">{{ type ? OverdueHandleTypeLabel[type] : "未处理" }}</span>',
+    },
+    ElButton: {
+      props: ['type', 'loading', 'disabled'],
+      emits: ['click'],
+      template:
+        '<button :disabled="disabled" :data-type="type" :data-loading="loading" @click="$emit(\'click\')"><slot /></button>',
+    },
+    ElIcon: {
+      template: '<i><slot /></i>',
+    },
+    RouterLink: {
+      props: ['to'],
+      template: '<a :href="typeof to === \"string\" ? to : to.path"><slot /></a>',
+    },
+  },
+  directives: {
+    loading: {
+      mounted() {},
+      updated() {},
+    },
+  },
+}
+
+describe('overdue pages', () => {
+  beforeEach(() => {
+    pushMock.mockReset()
+    messageSuccessMock.mockReset()
+    routeState.path = '/overdue'
+    routeState.params = {}
+    routeState.query = {}
+    setActivePinia(createAppPinia())
+  })
+
+  it('逾期列表页会拉取默认分页，并为设备管理员展示处理入口', async () => {
+    const { module, error } = await loadOverdueView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.list = [pendingRecord, processedRecord]
+    overdueStore.total = 2
+
+    const fetchOverdueListSpy = vi
+      .spyOn(overdueStore, 'fetchOverdueList')
+      .mockResolvedValue({ total: 2, records: [pendingRecord, processedRecord] })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(fetchOverdueListSpy).toHaveBeenCalledWith({
+      page: 1,
+      size: 10,
+      processingStatus: undefined,
+    })
+    expect(wrapper.text()).toContain('处理逾期')
+  })
+
+  it('当前页没有待处理记录时，处理逾期按钮会改拉待处理数据后再跳转', async () => {
+    const { module, error } = await loadOverdueView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.list = [processedRecord]
+    const fetchOverdueListSpy = vi
+      .spyOn(overdueStore, 'fetchOverdueList')
+      .mockResolvedValueOnce({ total: 1, records: [processedRecord] })
+      .mockResolvedValueOnce({ total: 1, records: [pendingRecord] })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await wrapper.get('.overdue-list-view__hero-handle').trigger('click')
+
+    expect(fetchOverdueListSpy).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 10,
+      processingStatus: OverdueProcessingStatus.PENDING,
+    })
+    expect(pushMock).toHaveBeenCalledWith(`/overdue/${pendingRecord.id}/handle`)
+  })
+
+  it('普通用户访问逾期列表页时不展示管理员处理入口', async () => {
+    const { module, error } = await loadOverdueView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const overdueStore = useOverdueStore()
+    vi.spyOn(overdueStore, 'fetchOverdueList').mockResolvedValue({
+      total: 1,
+      records: [pendingRecord],
+    })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(wrapper.find('.overdue-list-view__hero-actions').exists()).toBe(false)
+  })
+
+  it('逾期处理页会按路由主键拉取详情，并在赔偿模式下提交金额', async () => {
+    const { module, error } = await loadOverdueView('Handle')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-1/handle'
+    routeState.params = { id: pendingRecord.id }
+    routeState.query = { method: OverdueHandleType.COMPENSATION }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = pendingRecord
+    const fetchOverdueDetailSpy = vi
+      .spyOn(overdueStore, 'fetchOverdueDetail')
+      .mockResolvedValue(pendingRecord)
+    const processRecordSpy = vi
+      .spyOn(overdueStore, 'processRecord')
+      .mockResolvedValue(processedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(fetchOverdueDetailSpy).toHaveBeenCalledWith(pendingRecord.id)
+
+    await wrapper.get('textarea').setValue('已确认损坏')
+    await wrapper.get('input[type="number"]').setValue('120')
+    await wrapper.get('.overdue-handle-view__submit').trigger('click')
+
+    expect(processRecordSpy).toHaveBeenCalledWith(pendingRecord.id, {
+      processingMethod: OverdueHandleType.COMPENSATION,
+      remark: '已确认损坏',
+      compensationAmount: 120,
+    })
+  })
+
+  it('逾期详情页会按路由主键拉取详情并展示处理状态', async () => {
+    const { module, error } = await loadOverdueView('Detail')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-1'
+    routeState.params = { id: pendingRecord.id }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = pendingRecord
+    const fetchOverdueDetailSpy = vi
+      .spyOn(overdueStore, 'fetchOverdueDetail')
+      .mockResolvedValue(pendingRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(fetchOverdueDetailSpy).toHaveBeenCalledWith(pendingRecord.id)
+    expect(wrapper.text()).toContain('待处理')
+    expect(wrapper.text()).toContain(pendingRecord.borrowRecordId)
+  })
+})
