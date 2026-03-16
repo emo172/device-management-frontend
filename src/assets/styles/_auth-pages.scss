@@ -1,0 +1,79 @@
+@mixin auth-panel-base {
+  .auth-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .auth-panel__intro {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .auth-panel__eyebrow {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #d97706;
+  }
+
+  .auth-panel__title {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 36px);
+    line-height: 1.15;
+    color: var(--app-text-primary);
+  }
+
+  .auth-panel__description {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--app-text-secondary);
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .auth-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .auth-form__label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--app-text-primary);
+  }
+
+  .auth-form__error {
+    margin: 0;
+    font-size: 12px;
+    color: #dc2626;
+  }
+
+  .auth-form__submit {
+    margin-top: 6px;
+  }
+
+  .auth-panel__footer {
+    display: flex;
+  }
+
+  .auth-panel__link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f766e;
+    text-decoration: none;
+  }
+
+  .auth-panel__link:hover {
+    color: #115e59;
+  }
+}

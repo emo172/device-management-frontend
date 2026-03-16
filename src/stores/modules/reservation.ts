@@ -3,13 +3,26 @@ import { defineStore } from 'pinia'
 import * as reservationApi from '@/api/reservations'
 
 interface ReservationState {
+  list: reservationApi.ReservationListItemResponse[]
+  total: number
+  query: reservationApi.ReservationListQuery
   currentReservation: reservationApi.ReservationResponse | null
   currentBatch: reservationApi.ReservationBatchResponse | null
   loading: boolean
 }
 
+function createDefaultQuery(): reservationApi.ReservationListQuery {
+  return {
+    page: 1,
+    size: 10,
+  }
+}
+
 function createDefaultState(): ReservationState {
   return {
+    list: [],
+    total: 0,
+    query: createDefaultQuery(),
     currentReservation: null,
     currentBatch: null,
     loading: false,
@@ -18,12 +31,31 @@ function createDefaultState(): ReservationState {
 
 /**
  * 预约域状态。
- * 后端当前 API 以创建、审批、签到和批次结果为主，Store 只维护真实存在的当前预约结果与当前批次结果，不伪造列表读取能力。
+ * 当前既要承接创建/审批闭环，也要为仪表盘和预约列表提供最小分页读取能力，
+ * 因此把分页参数、列表结果与最近一次写操作结果统一收口到同一个 Store。
  */
 export const useReservationStore = defineStore('reservation', {
   state: (): ReservationState => createDefaultState(),
 
   actions: {
+    /**
+     * 预约列表接口当前只支持 `page` 与 `size`。
+     * 仪表盘与列表页都依赖这份最小读取能力，因此在 Store 里保留查询参数和分页结果，避免各页面自行维护口径。
+     */
+    async fetchReservationList(query: reservationApi.ReservationListQuery = createDefaultQuery()) {
+      this.loading = true
+      this.query = { ...query }
+
+      try {
+        const result = await reservationApi.getReservationList(query)
+        this.list = result.records
+        this.total = result.total
+        return result
+      } finally {
+        this.loading = false
+      }
+    },
+
     /**
      * 本人预约成功后保留最新结果，供创建成功页、详情抽屉和后续借出流程继续衔接。
      */
@@ -109,6 +141,9 @@ export const useReservationStore = defineStore('reservation', {
      * 切换预约上下文时清空最近结果，避免创建页与审核页之间互相污染展示。
      */
     resetReservationResult() {
+      this.list = []
+      this.total = 0
+      this.query = createDefaultQuery()
       this.currentReservation = null
       this.currentBatch = null
     },

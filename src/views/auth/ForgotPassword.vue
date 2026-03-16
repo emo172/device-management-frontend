@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import ViewPlaceholder from '@/views/common/ViewPlaceholder.vue'
+import PasswordResetPanel from './components/PasswordResetPanel.vue'
 
 /**
- * 忘记密码页占位实现。
- * 先保证公开路由、守卫白名单和认证布局完整，后续再补邮箱验证码与密码重置交互。
+ * 忘记密码页。
+ * 该页是公开找回入口，文案强调通过邮箱验证码重设密码，适合从登录页的“忘记密码”链路进入。
  */
 </script>
 
 <template>
-  <ViewPlaceholder
+  <PasswordResetPanel
     eyebrow="Auth / Forgot Password"
-    title="忘记密码流程待接入"
-    description="当前页面用于提前打通公开认证路由与跳转链路，后续 Chunk 会补齐邮箱验证码、倒计时与重置密码表单。"
+    title="找回账号访问权限"
+    description="通过注册邮箱接收验证码并设置新密码，成功后返回登录页重新建立会话。"
+    helper-text="如果验证码未收到，请检查垃圾邮件或等待冷却结束后重新发送。"
   />
 </template>

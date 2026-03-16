@@ -7,6 +7,7 @@ const {
   createReservationBatchMock,
   createReservationMock,
   deviceAuditReservationMock,
+  getReservationListMock,
   getReservationBatchDetailMock,
   manualProcessReservationMock,
   systemAuditReservationMock,
@@ -16,6 +17,7 @@ const {
   createReservationBatchMock: vi.fn(),
   createReservationMock: vi.fn(),
   deviceAuditReservationMock: vi.fn(),
+  getReservationListMock: vi.fn(),
   getReservationBatchDetailMock: vi.fn(),
   manualProcessReservationMock: vi.fn(),
   systemAuditReservationMock: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock('@/api/reservations', () => ({
   createReservation: createReservationMock,
   createReservationBatch: createReservationBatchMock,
   deviceAuditReservation: deviceAuditReservationMock,
+  getReservationList: getReservationListMock,
   getReservationBatchDetail: getReservationBatchDetailMock,
   manualProcessReservation: manualProcessReservationMock,
   systemAuditReservation: systemAuditReservationMock,
@@ -42,6 +45,7 @@ describe('reservation store', () => {
     createReservationBatchMock.mockReset()
     createReservationMock.mockReset()
     deviceAuditReservationMock.mockReset()
+    getReservationListMock.mockReset()
     getReservationBatchDetailMock.mockReset()
     manualProcessReservationMock.mockReset()
     systemAuditReservationMock.mockReset()
@@ -188,5 +192,42 @@ describe('reservation store', () => {
     store.resetReservationResult()
     expect(store.currentReservation).toBeNull()
     expect(store.currentBatch).toBeNull()
+  })
+
+  it('loads reservation list and keeps pagination query in sync', async () => {
+    getReservationListMock.mockResolvedValue({
+      total: 2,
+      records: [
+        {
+          id: 'reservation-1',
+          batchId: null,
+          userId: 'user-1',
+          userName: 'demo-user',
+          createdBy: 'user-1',
+          createdByName: 'demo-user',
+          reservationMode: 'SELF',
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+          startTime: '2026-03-16T09:00:00',
+          endTime: '2026-03-16T10:00:00',
+          purpose: '课程实验',
+          status: 'PENDING_DEVICE_APPROVAL',
+          signStatus: 'NOT_CHECKED_IN',
+          approvalModeSnapshot: 'DEVICE_ONLY',
+          cancelReason: null,
+          cancelTime: null,
+        },
+      ],
+    })
+
+    const store = useReservationStore()
+    await store.fetchReservationList({ page: 1, size: 5 })
+
+    expect(getReservationListMock).toHaveBeenCalledWith({ page: 1, size: 5 })
+    expect(store.query).toEqual({ page: 1, size: 5 })
+    expect(store.total).toBe(2)
+    expect(store.list).toHaveLength(1)
+    expect(store.list[0]?.signStatus).toBe('NOT_CHECKED_IN')
   })
 })

@@ -20,6 +20,7 @@ import {
   createReservationBatch,
   createProxyReservation,
   deviceAuditReservation,
+  getReservationList,
   getReservationBatchDetail,
   manualProcessReservation,
   systemAuditReservation,
@@ -113,5 +114,43 @@ describe('reservations api', () => {
 
     expect(postMock).toHaveBeenCalledWith('/reservation-batches', payload)
     expect(getMock).toHaveBeenCalledWith('/reservation-batches/batch-1')
+  })
+
+  it('queries reservation list with page and size params only', async () => {
+    const pageResponse = {
+      total: 2,
+      records: [
+        {
+          id: 'reservation-1',
+          batchId: null,
+          userId: 'user-1',
+          userName: 'demo-user',
+          createdBy: 'user-1',
+          createdByName: 'demo-user',
+          reservationMode: 'SELF',
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+          startTime: '2026-03-16T09:00:00',
+          endTime: '2026-03-16T10:00:00',
+          purpose: '课程实验',
+          status: 'APPROVED',
+          signStatus: 'NOT_CHECKED_IN',
+          approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+          cancelReason: null,
+          cancelTime: null,
+        },
+      ],
+    }
+    getMock.mockResolvedValue(pageResponse)
+
+    await expect(getReservationList({ page: 2, size: 5 })).resolves.toBe(pageResponse)
+
+    expect(getMock).toHaveBeenCalledWith('/reservations', {
+      params: {
+        page: 2,
+        size: 5,
+      },
+    })
   })
 })
