@@ -13,6 +13,7 @@ export {
   createReservation,
   createReservationBatch,
   deviceAuditReservation,
+  getReservationList,
   getReservationBatchDetail,
   manualProcessReservation,
   systemAuditReservation,
@@ -27,6 +28,9 @@ export type {
   ProxyReservationRequest,
   ReservationBatchItem,
   ReservationBatchResponse,
+  ReservationListItemResponse,
+  ReservationListQuery,
+  ReservationPageResponse,
   ReservationMode,
   ReservationResponse,
 } from './reservations'

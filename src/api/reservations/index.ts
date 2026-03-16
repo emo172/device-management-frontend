@@ -8,6 +8,9 @@ import type {
   ManualProcessRequest,
   ProxyReservationRequest,
   ReservationBatchResponse,
+  ReservationListQuery,
+  ReservationListItemResponse,
+  ReservationPageResponse,
   ReservationResponse,
 } from './types'
 
@@ -22,9 +25,20 @@ export type {
   ProxyReservationRequest,
   ReservationBatchItem,
   ReservationBatchResponse,
+  ReservationListItemResponse,
+  ReservationListQuery,
+  ReservationPageResponse,
   ReservationMode,
   ReservationResponse,
 } from './types'
+
+/**
+ * 查询预约分页列表。
+ * 对应 `GET /api/reservations?page&size`，后端当前不支持额外筛选字段，因此这里只透传最小分页参数。
+ */
+export function getReservationList(params: ReservationListQuery) {
+  return request.get<ReservationPageResponse>('/reservations', { params })
+}
 
 /**
  * 创建本人预约。

@@ -1,18 +1,20 @@
+import type { PageParams } from '@/types/api'
+
 /**
  * 审批模式。
- * 本轮任务按接口联调要求使用 `DEVICE_ONLY | DEVICE_THEN_SYSTEM`，避免继续沿用旧计划中的其他命名。
+ * 当前以后端真实值为准：`DEVICE_ONLY | DEVICE_THEN_SYSTEM`。
  */
 export type ApprovalMode = 'DEVICE_ONLY' | 'DEVICE_THEN_SYSTEM'
 
 /**
  * 预约模式。
- * 本轮类型先按任务要求提供 `SELF | ON_BEHALF`，便于前端页面在未接入枚举层前保持语义清晰。
+ * 当前以后端真实值为准：`SELF | ON_BEHALF`。
  */
 export type ReservationMode = 'SELF' | 'ON_BEHALF'
 
 /**
  * 签到状态。
- * 本轮类型按任务约束使用旧展示口径，避免视图层提前耦合后续联调修正。
+ * 当前以后端真实值为准，避免继续把仪表盘与列表逻辑绑定到旧口径。
  */
 export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'CHECKED_IN_TIMEOUT'
 
@@ -113,4 +115,45 @@ export interface ReservationBatchResponse {
   successCount: number
   failedCount: number
   status: string
+}
+
+/**
+ * 预约列表查询参数。
+ * 对应后端 `ReservationController#list`，真实契约当前只支持 `page` 与 `size` 两个分页字段。
+ */
+export interface ReservationListQuery extends PageParams {}
+
+/**
+ * 预约列表单项响应。
+ * 对应后端 `ReservationListItemResponse`；本工作树以终审确认口径为准，
+ * 这里直接收敛到真实预约/签到枚举，避免测试样板和页面展示继续漂移。
+ */
+export interface ReservationListItemResponse {
+  id: string
+  batchId: string | null
+  userId: string
+  userName: string
+  createdBy: string
+  createdByName: string
+  reservationMode: ReservationMode
+  deviceId: string
+  deviceName: string
+  deviceNumber: string
+  startTime: string
+  endTime: string
+  purpose: string
+  status: string
+  signStatus: CheckInStatus
+  approvalModeSnapshot: ApprovalMode
+  cancelReason: string | null
+  cancelTime: string | null
+}
+
+/**
+ * 预约分页响应。
+ * 对应后端 `ReservationPageResponse`，请求层已经解包统一响应壳，这里只保留分页体本身。
+ */
+export interface ReservationPageResponse {
+  total: number
+  records: ReservationListItemResponse[]
 }
