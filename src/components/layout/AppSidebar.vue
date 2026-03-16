@@ -42,18 +42,12 @@ const allRoles = [UserRole.USER, UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN]
  */
 const menuItems: SidebarMenuItem[] = [
   { title: '仪表盘', path: '/dashboard', icon: House, roles: allRoles },
-  { title: '设备查询', path: '/devices', icon: Monitor, roles: [UserRole.USER] },
-  {
-    title: '设备管理',
-    path: '/devices',
-    icon: Monitor,
-    roles: [UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN],
-  },
+  { title: '设备中心', path: '/devices', icon: Monitor, roles: allRoles },
   {
     title: '分类管理',
     path: '/devices/categories',
     icon: FolderOpened,
-    roles: [UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN],
+    roles: [UserRole.DEVICE_ADMIN],
   },
   { title: '我的预约', path: '/reservations', icon: Notebook, roles: [UserRole.USER] },
   {

@@ -18,8 +18,12 @@ describe('router', () => {
   it('限制 AI 与统计分析路由的角色访问范围', () => {
     const aiRoute = routes.find((route) => route.path === '/ai')
     const statisticsRoute = routes.find((route) => route.path === '/statistics')
+    const deviceCreateRoute = routes.find((route) => route.path === '/devices/create')
+    const deviceCategoryRoute = routes.find((route) => route.path === '/devices/categories')
 
     expect(aiRoute?.meta?.roles).toEqual([UserRole.USER])
     expect(statisticsRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(deviceCreateRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
+    expect(deviceCategoryRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
   })
 })
