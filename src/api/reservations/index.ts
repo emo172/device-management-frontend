@@ -2,12 +2,14 @@ import request from '@/api/request'
 
 import type {
   AuditReservationRequest,
+  CancelReservationRequest,
   CheckInRequest,
   CreateReservationBatchRequest,
   CreateReservationRequest,
   ManualProcessRequest,
   ProxyReservationRequest,
   ReservationBatchResponse,
+  ReservationDetailResponse,
   ReservationListQuery,
   ReservationListItemResponse,
   ReservationPageResponse,
@@ -17,6 +19,7 @@ import type {
 export type {
   ApprovalMode,
   AuditReservationRequest,
+  CancelReservationRequest,
   CheckInRequest,
   CheckInStatus,
   CreateReservationBatchRequest,
@@ -25,6 +28,7 @@ export type {
   ProxyReservationRequest,
   ReservationBatchItem,
   ReservationBatchResponse,
+  ReservationDetailResponse,
   ReservationListItemResponse,
   ReservationListQuery,
   ReservationPageResponse,
@@ -38,6 +42,14 @@ export type {
  */
 export function getReservationList(params: ReservationListQuery) {
   return request.get<ReservationPageResponse>('/reservations', { params })
+}
+
+/**
+ * 查询预约详情。
+ * 对应 `GET /api/reservations/{id}`，Task 22 只用于列表页详情跳转预留与取消后回填最新详情口径。
+ */
+export function getReservationDetail(reservationId: string) {
+  return request.get<ReservationDetailResponse>(`/reservations/${reservationId}`)
 }
 
 /**
@@ -85,6 +97,17 @@ export function systemAuditReservation(reservationId: string, data: AuditReserva
 export function checkInReservation(reservationId: string, data: CheckInRequest) {
   return request.post<ReservationResponse, CheckInRequest>(
     `/reservations/${reservationId}/check-in`,
+    data,
+  )
+}
+
+/**
+ * 取消预约。
+ * 对应 `POST /api/reservations/{id}/cancel`，后端要求提交取消原因，且只在开始前超过 24 小时的用户自助取消场景开放。
+ */
+export function cancelReservation(reservationId: string, data: CancelReservationRequest) {
+  return request.post<ReservationDetailResponse, CancelReservationRequest>(
+    `/reservations/${reservationId}/cancel`,
     data,
   )
 }

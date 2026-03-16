@@ -5,6 +5,7 @@ import * as userApi from '@/api/users'
 
 interface UserStoreState {
   roleList: roleApi.RoleResponse[]
+  reservationTargetUsers: userApi.UserListItemResponse[]
   currentManagedUser: userApi.UserAdminResponse | null
   lastPermissionUpdate: {
     roleId: string
@@ -16,6 +17,7 @@ interface UserStoreState {
 function createDefaultState(): UserStoreState {
   return {
     roleList: [],
+    reservationTargetUsers: [],
     currentManagedUser: null,
     lastPermissionUpdate: null,
     loading: false,
@@ -24,7 +26,7 @@ function createDefaultState(): UserStoreState {
 
 /**
  * 用户管理域状态。
- * 后端当前没有提供用户列表读取能力，因此这里只承接真实存在的角色列表、状态修改、角色修改和冻结处理结果。
+ * 除系统管理员维护用户外，预约创建页也需要在代预约场景读取 USER 列表，因此把“代预约目标用户”查询一起收口到这里。
  */
 export const useUserStore = defineStore('user', {
   state: (): UserStoreState => createDefaultState(),
@@ -40,6 +42,22 @@ export const useUserStore = defineStore('user', {
         const roleList = await roleApi.getRoleList()
         this.roleList = roleList
         return roleList
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * 代预约只能指向普通用户。
+     * Store 在读取后立即过滤非 USER 角色，避免创建页把系统管理员或设备管理员误暴露成可预约目标。
+     */
+    async fetchReservationTargetUsers(query: userApi.UserListQuery = { page: 1, size: 100 }) {
+      this.loading = true
+
+      try {
+        const result = await userApi.getUserList(query)
+        this.reservationTargetUsers = result.records.filter((user) => user.roleName === 'USER')
+        return this.reservationTargetUsers
       } finally {
         this.loading = false
       }

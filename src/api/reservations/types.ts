@@ -2,21 +2,30 @@ import type { PageParams } from '@/types/api'
 
 /**
  * 审批模式。
- * 当前以后端真实值为准：`DEVICE_ONLY | DEVICE_THEN_SYSTEM`。
+ * 当前以后端真实值为准：`DEVICE_ONLY | DEVICE_THEN_SYSTEM`；
+ * 同时兼容旧差异表中曾出现过的 `DEVICE_AND_SYSTEM`，避免联调环境口径尚未统一时直接触发类型报错。
  */
-export type ApprovalMode = 'DEVICE_ONLY' | 'DEVICE_THEN_SYSTEM'
+export type ApprovalMode = 'DEVICE_ONLY' | 'DEVICE_THEN_SYSTEM' | 'DEVICE_AND_SYSTEM'
 
 /**
  * 预约模式。
- * 当前以后端真实值为准：`SELF | ON_BEHALF`。
+ * 当前以后端真实值为准：`SELF | ON_BEHALF`；
+ * 同时兼容历史差异记录中的 `PROXY`，避免详情页和列表页在联调环境回包未统一时退化为裸状态码。
  */
-export type ReservationMode = 'SELF' | 'ON_BEHALF'
+export type ReservationMode = 'SELF' | 'ON_BEHALF' | 'PROXY'
 
 /**
  * 签到状态。
- * 当前以后端真实值为准，避免继续把仪表盘与列表逻辑绑定到旧口径。
+ * 当前以后端真实值为准，同时兼容旧差异表中的 `NOT_SIGNED / SIGNED_IN / TIMEOUT`，
+ * 避免前后端在联调切换期因为别名问题让签到按钮与标签展示失真。
  */
-export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'CHECKED_IN_TIMEOUT'
+export type CheckInStatus =
+  | 'NOT_CHECKED_IN'
+  | 'CHECKED_IN'
+  | 'CHECKED_IN_TIMEOUT'
+  | 'NOT_SIGNED'
+  | 'SIGNED_IN'
+  | 'TIMEOUT'
 
 /**
  * 单条预约创建请求。
@@ -53,6 +62,14 @@ export interface AuditReservationRequest {
  */
 export interface CheckInRequest {
   checkInTime: string | null
+}
+
+/**
+ * 取消预约请求。
+ * 对应后端 `CancelReservationRequest`，列表页必须显式填写取消原因，便于管理员后续追溯窗口内取消诉求。
+ */
+export interface CancelReservationRequest {
+  reason: string
 }
 
 /**
@@ -147,6 +164,26 @@ export interface ReservationListItemResponse {
   approvalModeSnapshot: ApprovalMode
   cancelReason: string | null
   cancelTime: string | null
+}
+
+/**
+ * 预约详情响应。
+ * 对应后端 `ReservationDetailResponse`，详情页与签到页都依赖这些扩展字段展示审批流、设备状态与关键时间节点。
+ */
+export interface ReservationDetailResponse extends ReservationListItemResponse {
+  deviceStatus: string
+  remark: string | null
+  deviceApproverId: string | null
+  deviceApproverName: string | null
+  deviceApprovedAt: string | null
+  deviceApprovalRemark: string | null
+  systemApproverId: string | null
+  systemApproverName: string | null
+  systemApprovedAt: string | null
+  systemApprovalRemark: string | null
+  checkedInAt: string | null
+  createdAt: string | null
+  updatedAt: string | null
 }
 
 /**

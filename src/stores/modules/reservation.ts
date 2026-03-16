@@ -1,14 +1,96 @@
 import { defineStore } from 'pinia'
 
 import * as reservationApi from '@/api/reservations'
+import { UserRole } from '@/enums'
+
+let reservationDetailRequestToken = 0
+const ADMIN_MANAGED_FETCH_SIZE = 50
+const ADMIN_MANAGED_FETCH_MAX_PAGES = 20
+const RESERVATION_HISTORY_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'EXPIRED'] as const
+const RESERVATION_PENDING_STATUS_BY_ROLE: Record<
+  UserRole.DEVICE_ADMIN | UserRole.SYSTEM_ADMIN,
+  string[]
+> = {
+  [UserRole.DEVICE_ADMIN]: ['PENDING_DEVICE_APPROVAL', 'PENDING_MANUAL'],
+  [UserRole.SYSTEM_ADMIN]: ['PENDING_SYSTEM_APPROVAL'],
+}
 
 interface ReservationState {
   list: reservationApi.ReservationListItemResponse[]
   total: number
   query: reservationApi.ReservationListQuery
-  currentReservation: reservationApi.ReservationResponse | null
+  currentReservation:
+    | reservationApi.ReservationResponse
+    | reservationApi.ReservationDetailResponse
+    | null
   currentBatch: reservationApi.ReservationBatchResponse | null
   loading: boolean
+}
+
+function replaceReservationInList(
+  list: reservationApi.ReservationListItemResponse[],
+  reservation:
+    | reservationApi.ReservationListItemResponse
+    | reservationApi.ReservationDetailResponse,
+) {
+  return list.map((item) => (item.id === reservation.id ? { ...item, ...reservation } : item))
+}
+
+function replaceReservationStatusInList(
+  list: reservationApi.ReservationListItemResponse[],
+  reservation: reservationApi.ReservationResponse,
+) {
+  return list.map((item) => (item.id === reservation.id ? { ...item, ...reservation } : item))
+}
+
+function sliceReservationPage(
+  list: reservationApi.ReservationListItemResponse[],
+  page: number,
+  size: number,
+) {
+  const start = Math.max(page - 1, 0) * size
+  return list.slice(start, start + size)
+}
+
+function isManagedReservationMatched(
+  reservation: reservationApi.ReservationListItemResponse,
+  role: UserRole.DEVICE_ADMIN | UserRole.SYSTEM_ADMIN,
+  view: 'pending' | 'history',
+) {
+  if (view === 'history') {
+    return RESERVATION_HISTORY_STATUSES.includes(
+      reservation.status as (typeof RESERVATION_HISTORY_STATUSES)[number],
+    )
+  }
+
+  return RESERVATION_PENDING_STATUS_BY_ROLE[role].includes(reservation.status)
+}
+
+function mergeCurrentReservationResult(
+  currentReservation:
+    | reservationApi.ReservationResponse
+    | reservationApi.ReservationDetailResponse
+    | null,
+  nextReservation: reservationApi.ReservationResponse,
+  checkInTime: string | null,
+) {
+  if (!currentReservation || !('deviceName' in currentReservation)) {
+    return nextReservation
+  }
+
+  /**
+   * 签到接口返回的是轻量 `ReservationResponse`，但签到页仍需要保留设备名称、审批人和时间线字段继续渲染结果反馈。
+   * 因此当当前上下文已持有详情对象时，要在前端做最小合并，避免按钮点击后页面退化成只剩基础状态码。
+   */
+  return {
+    ...currentReservation,
+    ...nextReservation,
+    checkedInAt:
+      nextReservation.signStatus === 'CHECKED_IN' ||
+      nextReservation.signStatus === 'CHECKED_IN_TIMEOUT'
+        ? checkInTime || currentReservation.checkedInAt
+        : currentReservation.checkedInAt,
+  }
 }
 
 function createDefaultQuery(): reservationApi.ReservationListQuery {
@@ -75,6 +157,31 @@ export const useReservationStore = defineStore('reservation', {
     },
 
     /**
+     * 列表页详情跳转当前只预留数据承接，不提前展开完整详情页状态。
+     * 先把详情结果缓存到 `currentReservation`，后续详情页接入时即可直接复用这份真实契约。
+     */
+    async fetchReservationDetail(reservationId: string) {
+      const currentRequestToken = ++reservationDetailRequestToken
+      const reservation = await reservationApi.getReservationDetail(reservationId)
+
+      if (currentRequestToken !== reservationDetailRequestToken) {
+        return reservation
+      }
+
+      this.currentReservation = reservation
+      this.list = replaceReservationInList(this.list, reservation)
+      return reservation
+    },
+
+    /**
+     * 详情页与签到页退出时只清当前详情上下文。
+     * 不能直接复用 `resetReservationResult()`，否则会把列表页分页结果一并清掉，导致用户返回列表后丢失当前浏览上下文。
+     */
+    resetCurrentReservation() {
+      this.currentReservation = null
+    },
+
+    /**
      * 一审动作由设备管理员触发，Store 只承接结果，不在前端重复推导状态流转。
      */
     async deviceAuditReservation(
@@ -83,6 +190,7 @@ export const useReservationStore = defineStore('reservation', {
     ) {
       const reservation = await reservationApi.deviceAuditReservation(reservationId, payload)
       this.currentReservation = reservation
+      this.list = replaceReservationStatusInList(this.list, reservation)
       return reservation
     },
 
@@ -95,6 +203,7 @@ export const useReservationStore = defineStore('reservation', {
     ) {
       const reservation = await reservationApi.systemAuditReservation(reservationId, payload)
       this.currentReservation = reservation
+      this.list = replaceReservationStatusInList(this.list, reservation)
       return reservation
     },
 
@@ -103,7 +212,25 @@ export const useReservationStore = defineStore('reservation', {
      */
     async checkInReservation(reservationId: string, payload: reservationApi.CheckInRequest) {
       const reservation = await reservationApi.checkInReservation(reservationId, payload)
+      this.currentReservation = mergeCurrentReservationResult(
+        this.currentReservation,
+        reservation,
+        payload.checkInTime,
+      )
+      return reservation
+    },
+
+    /**
+     * 用户自助取消成功后要立即回写列表，避免页面仍显示旧状态导致用户重复点击。
+     * Task 22 不做额外重查，直接使用后端返回的详情结果覆盖当前缓存即可满足列表页回显。
+     */
+    async cancelReservation(
+      reservationId: string,
+      payload: reservationApi.CancelReservationRequest,
+    ) {
+      const reservation = await reservationApi.cancelReservation(reservationId, payload)
       this.currentReservation = reservation
+      this.list = replaceReservationInList(this.list, reservation)
       return reservation
     },
 
@@ -116,7 +243,85 @@ export const useReservationStore = defineStore('reservation', {
     ) {
       const reservation = await reservationApi.manualProcessReservation(reservationId, payload)
       this.currentReservation = reservation
+      this.list = replaceReservationStatusInList(this.list, reservation)
       return reservation
+    },
+
+    /**
+     * 管理员待审/历史页只能拿到后端“全量分页”接口。
+     * 因此这里统一拉取足量记录后在前端按角色分组，避免伪造不存在的状态筛选 query 参数。
+     */
+    async fetchManagedReservationPage(payload: {
+      role: UserRole
+      view: 'pending' | 'history'
+      page: number
+      size: number
+    }) {
+      if (payload.role !== UserRole.DEVICE_ADMIN && payload.role !== UserRole.SYSTEM_ADMIN) {
+        this.list = []
+        this.total = 0
+        this.query = { page: payload.page, size: payload.size }
+        return { total: 0, records: [] }
+      }
+
+      const adminRole = payload.role
+
+      this.loading = true
+
+      try {
+        const records: reservationApi.ReservationListItemResponse[] = []
+        const recordIds = new Set<string>()
+        let currentPage = 1
+        let total = 0
+        let fetchedPages = 0
+
+        do {
+          const result = await reservationApi.getReservationList({
+            page: currentPage,
+            size: ADMIN_MANAGED_FETCH_SIZE,
+          })
+
+          total = result.total
+          let appendedCount = 0
+
+          for (const record of result.records) {
+            if (recordIds.has(record.id)) {
+              continue
+            }
+
+            recordIds.add(record.id)
+            records.push(record)
+            appendedCount += 1
+          }
+
+          /**
+           * 管理端本地分组建立在“顺序翻页拿全量数据”的后端能力上，
+           * 一旦某页返回空数组或重复数据，就说明继续翻页已经无法再获得稳定增量，必须及时终止，避免无意义请求循环。
+           */
+          if (result.records.length === 0 || appendedCount === 0) {
+            break
+          }
+
+          currentPage += 1
+          fetchedPages += 1
+        } while (records.length < total && fetchedPages < ADMIN_MANAGED_FETCH_MAX_PAGES)
+
+        const filteredRecords = records.filter((reservation) =>
+          isManagedReservationMatched(reservation, adminRole, payload.view),
+        )
+        const pageRecords = sliceReservationPage(filteredRecords, payload.page, payload.size)
+
+        this.list = pageRecords
+        this.total = filteredRecords.length
+        this.query = { page: payload.page, size: payload.size }
+
+        return {
+          total: filteredRecords.length,
+          records: pageRecords,
+        }
+      } finally {
+        this.loading = false
+      }
     },
 
     /**
@@ -144,7 +349,7 @@ export const useReservationStore = defineStore('reservation', {
       this.list = []
       this.total = 0
       this.query = createDefaultQuery()
-      this.currentReservation = null
+      this.resetCurrentReservation()
       this.currentBatch = null
     },
   },

@@ -1,3 +1,36 @@
+import type { PageParams } from '@/types/api'
+
+/**
+ * 用户列表查询参数。
+ * 创建预约页只需要分页读取系统管理员可见用户列表，因此沿用后端 `page` / `size` 最小分页契约。
+ */
+export interface UserListQuery extends PageParams {}
+
+/**
+ * 用户列表单项响应 DTO。
+ * 对应后端 `UserListItemResponse`，创建预约页只会把 `USER` 角色记录作为代预约目标用户。
+ */
+export interface UserListItemResponse {
+  id: string
+  username: string
+  email: string
+  realName: string
+  phone: string
+  status: number
+  freezeStatus: string
+  roleId: string
+  roleName: string
+}
+
+/**
+ * 用户分页响应 DTO。
+ * 对应后端 `UserPageResponse`，请求层已经解包统一响应壳，这里只保留分页体。
+ */
+export interface UserPageResponse {
+  total: number
+  records: UserListItemResponse[]
+}
+
 /**
  * 更新用户状态请求 DTO。
  * 对应后端 `UpdateUserStatusRequest`，`status` 真实契约是数字而不是枚举字符串。

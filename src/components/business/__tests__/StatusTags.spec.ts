@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   BorrowStatus,
+  CheckInStatus,
   DeviceStatus,
   FreezeStatus,
   OverdueHandleType,
   OverdueProcessingStatus,
+  ReservationStatus,
 } from '@/enums'
 
 const businessComponentModules = import.meta.glob('../*.vue')
@@ -117,6 +119,62 @@ describe('status tags', () => {
 
     expect(wrapper.text()).toContain('借用中')
     expect(wrapper.get('.borrow-status').attributes('data-type')).toBe('warning')
+  })
+
+  it('ReservationStatusTag 渲染预约状态中文与标签类型', async () => {
+    const { module, error } = await loadComponent('ReservationStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: ReservationStatus.PENDING_SYSTEM_APPROVAL,
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="reservation-status" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('待系统审批')
+    expect(wrapper.get('.reservation-status').attributes('data-type')).toBe('warning')
+  })
+
+  it('CheckInStatusTag 渲染签到状态中文与标签类型', async () => {
+    const { module, error } = await loadComponent('CheckInStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: CheckInStatus.CHECKED_IN_TIMEOUT,
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="checkin-status" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('超时签到')
+    expect(wrapper.get('.checkin-status').attributes('data-type')).toBe('danger')
   })
 
   it('OverdueProcessingStatusTag 渲染逾期处理状态中文与标签类型', async () => {

@@ -2,6 +2,9 @@ import request from '@/api/request'
 
 import type {
   FreezeUserRequest,
+  UserListQuery,
+  UserListItemResponse,
+  UserPageResponse,
   UpdateUserRoleRequest,
   UpdateUserStatusRequest,
   UserAdminResponse,
@@ -9,10 +12,21 @@ import type {
 
 export type {
   FreezeUserRequest,
+  UserListItemResponse,
+  UserListQuery,
+  UserPageResponse,
   UpdateUserRoleRequest,
   UpdateUserStatusRequest,
   UserAdminResponse,
 } from './types'
+
+/**
+ * 查询用户分页列表。
+ * 对应 `GET /api/admin/users?page&size`，创建预约页只会把其中 `USER` 角色记录作为代预约目标。
+ */
+export function getUserList(params: UserListQuery) {
+  return request.get<UserPageResponse>('/admin/users', { params })
+}
 
 /**
  * 更新用户状态。

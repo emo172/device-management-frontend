@@ -14,17 +14,7 @@ vi.mock('@/api/request', () => ({
   },
 }))
 
-import {
-  checkInReservation,
-  createReservation,
-  createReservationBatch,
-  createProxyReservation,
-  deviceAuditReservation,
-  getReservationList,
-  getReservationBatchDetail,
-  manualProcessReservation,
-  systemAuditReservation,
-} from '../reservations'
+import * as reservationApi from '../reservations'
 
 describe('reservations api', () => {
   beforeEach(() => {
@@ -51,8 +41,10 @@ describe('reservations api', () => {
       ...createPayload,
     }
 
-    await expect(createReservation(createPayload)).resolves.toBe(reservation)
-    await expect(createProxyReservation(proxyPayload)).resolves.toBe(proxyReservation)
+    await expect(reservationApi.createReservation(createPayload)).resolves.toBe(reservation)
+    await expect(reservationApi.createProxyReservation(proxyPayload)).resolves.toBe(
+      proxyReservation,
+    )
 
     expect(postMock).toHaveBeenNthCalledWith(1, '/reservations', createPayload)
     expect(postMock).toHaveBeenNthCalledWith(2, '/reservations/proxy', proxyPayload)
@@ -64,9 +56,9 @@ describe('reservations api', () => {
 
     postMock.mockResolvedValue({ id: 'reservation-1', status: 'APPROVED' })
 
-    await deviceAuditReservation('reservation-1', auditPayload)
-    await systemAuditReservation('reservation-1', auditPayload)
-    await checkInReservation('reservation-1', checkInPayload)
+    await reservationApi.deviceAuditReservation('reservation-1', auditPayload)
+    await reservationApi.systemAuditReservation('reservation-1', auditPayload)
+    await reservationApi.checkInReservation('reservation-1', checkInPayload)
 
     expect(postMock).toHaveBeenNthCalledWith(1, '/reservations/reservation-1/audit', auditPayload)
     expect(postMock).toHaveBeenNthCalledWith(
@@ -86,7 +78,9 @@ describe('reservations api', () => {
     putMock.mockResolvedValue(response)
 
     const payload = { approved: true, remark: '人工确认' }
-    await expect(manualProcessReservation('reservation-1', payload)).resolves.toBe(response)
+    await expect(reservationApi.manualProcessReservation('reservation-1', payload)).resolves.toBe(
+      response,
+    )
 
     expect(putMock).toHaveBeenCalledWith('/reservations/reservation-1/manual-process', payload)
   })
@@ -109,8 +103,8 @@ describe('reservations api', () => {
       ],
     }
 
-    await expect(createReservationBatch(payload)).resolves.toBe(batch)
-    await expect(getReservationBatchDetail('batch-1')).resolves.toBe(batch)
+    await expect(reservationApi.createReservationBatch(payload)).resolves.toBe(batch)
+    await expect(reservationApi.getReservationBatchDetail('batch-1')).resolves.toBe(batch)
 
     expect(postMock).toHaveBeenCalledWith('/reservation-batches', payload)
     expect(getMock).toHaveBeenCalledWith('/reservation-batches/batch-1')
@@ -144,13 +138,69 @@ describe('reservations api', () => {
     }
     getMock.mockResolvedValue(pageResponse)
 
-    await expect(getReservationList({ page: 2, size: 5 })).resolves.toBe(pageResponse)
+    await expect(reservationApi.getReservationList({ page: 2, size: 5 })).resolves.toBe(
+      pageResponse,
+    )
 
     expect(getMock).toHaveBeenCalledWith('/reservations', {
       params: {
         page: 2,
         size: 5,
       },
+    })
+  })
+
+  it('uses dedicated detail and cancel endpoints for reservation list actions', async () => {
+    const detail = {
+      id: 'reservation-1',
+      batchId: null,
+      userId: 'user-1',
+      userName: 'demo-user',
+      createdBy: 'user-1',
+      createdByName: 'demo-user',
+      reservationMode: 'SELF',
+      deviceId: 'device-1',
+      deviceName: '示波器',
+      deviceNumber: 'DEV-001',
+      startTime: '2026-03-18T09:00:00',
+      endTime: '2026-03-18T10:00:00',
+      purpose: '课程实验',
+      remark: '请提前准备',
+      status: 'APPROVED',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      cancelReason: null,
+      cancelTime: null,
+    }
+
+    getMock.mockResolvedValue(detail)
+    postMock.mockResolvedValue({
+      ...detail,
+      status: 'CANCELLED',
+      cancelReason: '课程调整',
+      cancelTime: '2026-03-16T08:00:00',
+    })
+
+    expect(typeof reservationApi.getReservationDetail).toBe('function')
+    expect(typeof reservationApi.cancelReservation).toBe('function')
+
+    if (!reservationApi.getReservationDetail || !reservationApi.cancelReservation) {
+      return
+    }
+
+    await expect(reservationApi.getReservationDetail('reservation-1')).resolves.toEqual(detail)
+    await expect(
+      reservationApi.cancelReservation('reservation-1', { reason: '课程调整' }),
+    ).resolves.toEqual({
+      ...detail,
+      status: 'CANCELLED',
+      cancelReason: '课程调整',
+      cancelTime: '2026-03-16T08:00:00',
+    })
+
+    expect(getMock).toHaveBeenCalledWith('/reservations/reservation-1')
+    expect(postMock).toHaveBeenCalledWith('/reservations/reservation-1/cancel', {
+      reason: '课程调整',
     })
   })
 })
