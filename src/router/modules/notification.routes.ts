@@ -10,13 +10,7 @@ const notificationRoutes: RouteRecordRaw[] = [
   {
     path: '/notifications',
     name: 'NotificationList',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 8 / Notification',
-      title: '通知中心待接入',
-      description:
-        '当前先打通头部铃铛跳转目标与统一通知路由，后续 Chunk 会补齐列表、筛选和已读操作。',
-    },
+    component: () => import('@/views/notification/List.vue'),
     meta: {
       title: '通知中心',
       roles: [UserRole.USER, UserRole.DEVICE_ADMIN, UserRole.SYSTEM_ADMIN],

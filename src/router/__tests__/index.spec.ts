@@ -17,7 +17,16 @@ describe('router', () => {
 
   it('限制 AI 与统计分析路由的角色访问范围', () => {
     const aiRoute = routes.find((route) => route.path === '/ai')
+    const aiHistoryRoute = routes.find((route) => route.path === '/ai/history')
     const statisticsRoute = routes.find((route) => route.path === '/statistics')
+    const statisticsDeviceUsageRoute = routes.find(
+      (route) => route.path === '/statistics/device-usage',
+    )
+    const statisticsBorrowRoute = routes.find((route) => route.path === '/statistics/borrow')
+    const statisticsOverdueRoute = routes.find((route) => route.path === '/statistics/overdue')
+    const statisticsHotTimeSlotsRoute = routes.find(
+      (route) => route.path === '/statistics/hot-time-slots',
+    )
     const deviceCreateRoute = routes.find((route) => route.path === '/devices/create')
     const deviceCategoryRoute = routes.find((route) => route.path === '/devices/categories')
     const reservationCreateRoute = routes.find((route) => route.path === '/reservations/create')
@@ -31,9 +40,14 @@ describe('router', () => {
     const userDetailRoute = routes.find((route) => route.path === '/users/:id')
 
     expect(aiRoute?.meta?.roles).toEqual([UserRole.USER])
+    expect(aiHistoryRoute?.meta?.roles).toEqual([UserRole.USER])
     expect(statisticsRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
     expect(userManagementRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
     expect(userDetailRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(statisticsDeviceUsageRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(statisticsBorrowRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(statisticsOverdueRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(statisticsHotTimeSlotsRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
     expect(deviceCreateRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
     expect(deviceCategoryRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
     expect(reservationCreateRoute?.meta?.roles).toEqual([UserRole.USER, UserRole.SYSTEM_ADMIN])

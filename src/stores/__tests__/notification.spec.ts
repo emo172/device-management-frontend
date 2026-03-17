@@ -37,11 +37,19 @@ describe('notification store', () => {
     getNotificationListMock.mockResolvedValue([
       {
         id: 'notice-1',
-        notificationType: 'SYSTEM_ALERT',
+        notificationType: 'OVERDUE_WARNING',
         channel: 'IN_APP',
         title: '通知标题',
         content: '通知内容',
+        status: 'STATUS_PLACEHOLDER',
         readFlag: 0,
+        readAt: null,
+        templateVars: '{"deviceName":"热像仪"}',
+        retryCount: 0,
+        relatedId: 'borrow-1',
+        relatedType: 'BORROW_RECORD',
+        sentAt: '2026-03-16T08:00:00',
+        createdAt: '2026-03-16T08:00:00',
       },
     ])
     getUnreadNotificationCountMock.mockResolvedValue({ unreadCount: 3 })
@@ -51,6 +59,8 @@ describe('notification store', () => {
     await store.fetchUnreadCount()
 
     expect(store.notifications).toHaveLength(1)
+    expect(store.notifications[0]?.createdAt).toBe('2026-03-16T08:00:00')
+    expect(store.notifications[0]?.status).toBe('STATUS_PLACEHOLDER')
     expect(store.unreadCount).toBe(3)
   })
 
@@ -61,11 +71,19 @@ describe('notification store', () => {
     store.notifications = [
       {
         id: 'notice-1',
-        notificationType: 'SYSTEM_ALERT',
+        notificationType: 'OVERDUE_WARNING',
         channel: 'IN_APP',
         title: '通知标题',
         content: '通知内容',
+        status: 'STATUS_PLACEHOLDER',
         readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'borrow-1',
+        relatedType: 'BORROW_RECORD',
+        sentAt: '2026-03-16T08:00:00',
+        createdAt: '2026-03-16T08:00:00',
       },
     ]
     store.unreadCount = 1
@@ -77,26 +95,103 @@ describe('notification store', () => {
     expect(store.unreadCount).toBe(0)
   })
 
-  it('marks all notifications as read', async () => {
-    markAllNotificationsReadMock.mockResolvedValue({ updatedCount: 2 })
+  it('counts only in-app unread notifications after marking one as read in mixed channels', async () => {
+    markNotificationReadMock.mockResolvedValue({ notificationId: 'notice-1', readFlag: 1 })
 
     const store = useNotificationStore()
     store.notifications = [
       {
         id: 'notice-1',
-        notificationType: 'SYSTEM_ALERT',
+        notificationType: 'OVERDUE_WARNING',
         channel: 'IN_APP',
-        title: '通知标题1',
-        content: '通知内容1',
+        title: '站内信通知',
+        content: '站内信内容',
+        status: 'STATUS_PLACEHOLDER',
         readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'borrow-1',
+        relatedType: 'BORROW_RECORD',
+        sentAt: '2026-03-16T08:00:00',
+        createdAt: '2026-03-16T08:00:00',
       },
       {
         id: 'notice-2',
-        notificationType: 'SYSTEM_ALERT',
+        notificationType: 'RESERVATION_REMINDER',
+        channel: 'EMAIL',
+        title: '邮件通知',
+        content: '邮件内容',
+        status: 'STATUS_PLACEHOLDER',
+        readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'reservation-1',
+        relatedType: 'RESERVATION',
+        sentAt: '2026-03-16T09:00:00',
+        createdAt: '2026-03-16T09:00:00',
+      },
+      {
+        id: 'notice-3',
+        notificationType: 'FIRST_APPROVAL_TODO',
         channel: 'IN_APP',
+        title: '另一条站内信',
+        content: '另一条站内信内容',
+        status: 'STATUS_PLACEHOLDER',
+        readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'reservation-2',
+        relatedType: 'RESERVATION',
+        sentAt: '2026-03-16T10:00:00',
+        createdAt: '2026-03-16T10:00:00',
+      },
+    ]
+    store.unreadCount = 2
+
+    await store.markAsRead('notice-1')
+
+    expect(store.unreadCount).toBe(1)
+  })
+
+  it('marks only in-app notifications as read when bulk action succeeds', async () => {
+    markAllNotificationsReadMock.mockResolvedValue({ updatedCount: 1 })
+
+    const store = useNotificationStore()
+    store.notifications = [
+      {
+        id: 'notice-1',
+        notificationType: 'OVERDUE_WARNING',
+        channel: 'IN_APP',
+        title: '通知标题1',
+        content: '通知内容1',
+        status: 'STATUS_PLACEHOLDER',
+        readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'borrow-1',
+        relatedType: 'BORROW_RECORD',
+        sentAt: '2026-03-16T08:00:00',
+        createdAt: '2026-03-16T08:00:00',
+      },
+      {
+        id: 'notice-2',
+        notificationType: 'RESERVATION_REMINDER',
+        channel: 'EMAIL',
         title: '通知标题2',
         content: '通知内容2',
+        status: 'STATUS_PLACEHOLDER',
         readFlag: 0,
+        readAt: null,
+        templateVars: null,
+        retryCount: 0,
+        relatedId: 'reservation-1',
+        relatedType: 'RESERVATION',
+        sentAt: '2026-03-16T09:00:00',
+        createdAt: '2026-03-16T09:00:00',
       },
     ]
     store.unreadCount = 2
@@ -104,9 +199,8 @@ describe('notification store', () => {
     await store.markAllAsRead()
 
     expect(store.unreadCount).toBe(0)
-    expect(store.notifications.every((item: { readFlag: number }) => item.readFlag === 1)).toBe(
-      true,
-    )
+    expect(store.notifications[0]?.readFlag).toBe(1)
+    expect(store.notifications[1]?.readFlag).toBe(0)
   })
 
   it('starts and stops unread count polling without duplicate timers', async () => {

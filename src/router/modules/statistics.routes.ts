@@ -10,13 +10,32 @@ const statisticsRoutes: RouteRecordRaw[] = [
   {
     path: '/statistics',
     name: 'StatisticsDashboard',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 8 / Statistics',
-      title: '统计分析待接入',
-      description: '当前先保留统计模块入口与权限边界，后续 Chunk 会补齐概览卡片、图表与排行分析。',
-    },
+    component: () => import('@/views/statistics/Overview.vue'),
     meta: { title: '统计分析', roles: [UserRole.SYSTEM_ADMIN], layout: 'default' },
+  },
+  {
+    path: '/statistics/device-usage',
+    name: 'StatisticsDeviceUsage',
+    component: () => import('@/views/statistics/DeviceUsage.vue'),
+    meta: { title: '设备利用率分析', roles: [UserRole.SYSTEM_ADMIN], layout: 'default' },
+  },
+  {
+    path: '/statistics/borrow',
+    name: 'StatisticsBorrow',
+    component: () => import('@/views/statistics/BorrowStats.vue'),
+    meta: { title: '借用统计分析', roles: [UserRole.SYSTEM_ADMIN], layout: 'default' },
+  },
+  {
+    path: '/statistics/overdue',
+    name: 'StatisticsOverdue',
+    component: () => import('@/views/statistics/OverdueStats.vue'),
+    meta: { title: '逾期统计分析', roles: [UserRole.SYSTEM_ADMIN], layout: 'default' },
+  },
+  {
+    path: '/statistics/hot-time-slots',
+    name: 'StatisticsHotTimeSlots',
+    component: () => import('@/views/statistics/HotTimeSlots.vue'),
+    meta: { title: '热门时段分析', roles: [UserRole.SYSTEM_ADMIN], layout: 'default' },
   },
 ]
 
