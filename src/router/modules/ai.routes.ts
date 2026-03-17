@@ -10,14 +10,14 @@ const aiRoutes: RouteRecordRaw[] = [
   {
     path: '/ai',
     name: 'AiAssistant',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 8 / AI',
-      title: 'AI 对话模块待接入',
-      description:
-        '当前先保留 AI 文本对话入口与权限控制，后续 Chunk 会接入会话列表、消息流与意图反馈。',
-    },
+    component: () => import('@/views/ai/Chat.vue'),
     meta: { title: 'AI 对话', roles: [UserRole.USER], layout: 'default' },
+  },
+  {
+    path: '/ai/history',
+    name: 'AiHistory',
+    component: () => import('@/views/ai/History.vue'),
+    meta: { title: 'AI 历史会话', roles: [UserRole.USER], layout: 'default' },
   },
 ]
 
