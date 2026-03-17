@@ -3,6 +3,7 @@ import 'nprogress/nprogress.css'
 import type { Router } from 'vue-router'
 
 import type { UserRole } from '@/enums/UserRole'
+import { runFatalErrorHandler, runUnauthorizedHandler } from '@/stores/sessionBridge'
 import { useAuthStore } from '@/stores/modules/auth'
 import { hasToken } from '@/utils/token'
 
@@ -44,14 +45,14 @@ export function setupRouterGuards(router: Router) {
            * 认证公开页不能只凭本地 token 就一律跳仪表盘。
            * 当刷新后 Store 尚未恢复用户资料时，这里先补拉一次当前用户；只有确认会话有效后，才拦截登录页回到仪表盘。
            */
-          await authStore.fetchCurrentUser()
+          await authStore.fetchCurrentUser({ skipUnauthorizedHandler: true })
           return { path: '/dashboard' }
         } catch (error) {
           /**
            * 对认证页而言，非 401 的补拉失败更适合放行到登录页，避免用户被卡在“有 token 但无法进入认证页”的死循环里。
            */
           if (isUnauthorizedError(error)) {
-            authStore.clearAuthState()
+            await runUnauthorizedHandler()
           }
 
           return true
@@ -70,21 +71,29 @@ export function setupRouterGuards(router: Router) {
 
     if (!authStore.currentUser) {
       try {
-        await authStore.fetchCurrentUser()
+        await authStore.fetchCurrentUser({ skipUnauthorizedHandler: true })
       } catch (error) {
         /**
-         * 只有 401 才代表令牌失效。
-         * 若只是 `/auth/me` 临时失败，不应立即清空会话并把用户踢回登录页，否则会与认证 Store 的会话恢复口径冲突。
-         * 但也不能直接放行受限页面，后续仍需继续走角色校验，让缺失角色信息的场景回落到 403。
+         * 受保护路由在进入前必须确认远端身份。
+         * 401 说明会话确实失效，需要把目标页作为 redirect 带回登录页；
+         * 非 401 则属于“身份校验链路本身不可恢复”，此时继续回落到 403 只会掩盖真实故障，应升级为 500。
          */
         if (isUnauthorizedError(error)) {
-          authStore.clearAuthState()
-
-          return {
-            path: '/login',
-            query: { redirect: to.fullPath },
-          }
+          await runUnauthorizedHandler({ redirect: to.fullPath })
+          return false
         }
+
+        await runFatalErrorHandler({
+          source: 'auth',
+          title: '页面鉴权失败',
+          description: '进入目标页面前无法确认当前登录身份，请稍后重试。',
+          retryTarget: {
+            path: to.fullPath,
+            retryable: true,
+          },
+        })
+
+        return false
       }
     }
 
@@ -106,7 +115,19 @@ export function setupRouterGuards(router: Router) {
     NProgress.done()
   })
 
-  router.onError(() => {
+  router.onError((error) => {
     NProgress.done()
+
+    void runFatalErrorHandler({
+      source: 'router',
+      title: '页面加载失败',
+      description:
+        error instanceof Error
+          ? `路由资源加载失败：${error.message}`
+          : '目标页面资源加载失败，请稍后重试。',
+      retryTarget: {
+        retryable: false,
+      },
+    })
   })
 }

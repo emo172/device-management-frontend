@@ -1,4 +1,4 @@
-import request from '@/api/request'
+import request, { type RequestConfig } from '@/api/request'
 
 import type {
   AuthResult,
@@ -41,9 +41,12 @@ export function register(data: RegisterRequest) {
 /**
  * 查询当前登录用户。
  * 对应 `GET /api/auth/me`，用于页面初始化阶段恢复当前会话身份。
+ * 未传请求配置时保持单参数调用，避免把 `undefined` 透传给请求层而破坏既有调用契约。
  */
-export function getCurrentUser() {
-  return request.get<CurrentUserResponse>('/auth/me')
+export function getCurrentUser(config?: RequestConfig) {
+  return config
+    ? request.get<CurrentUserResponse>('/auth/me', config)
+    : request.get<CurrentUserResponse>('/auth/me')
 }
 
 /**

@@ -74,6 +74,16 @@ describe('auth api', () => {
     expect(putMock).toHaveBeenCalledWith('/auth/profile', updatePayload)
   })
 
+  it('passes request config to current user endpoint only when provided', async () => {
+    const currentUser = { userId: 'user-1', username: 'demo' }
+    const config = { skipUnauthorizedHandler: true }
+    getMock.mockResolvedValue(currentUser)
+
+    await expect(getCurrentUser(config)).resolves.toBe(currentUser)
+
+    expect(getMock).toHaveBeenCalledWith('/auth/me', config)
+  })
+
   it('posts password management actions to their dedicated endpoints', async () => {
     postMock.mockResolvedValue(undefined)
 

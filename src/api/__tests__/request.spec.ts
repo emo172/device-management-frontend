@@ -2,17 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ApiResponse } from '@/types/api'
 
-const {
-  authStoreClearAuthStateMock,
-  messageErrorMock,
-  notificationStoreResetStateMock,
-  routerPushMock,
-} = vi.hoisted(() => ({
-  authStoreClearAuthStateMock: vi.fn(),
-  messageErrorMock: vi.fn(),
-  notificationStoreResetStateMock: vi.fn(),
-  routerPushMock: vi.fn(),
-}))
+const { messageErrorMock, runFatalErrorHandlerMock, runUnauthorizedHandlerMock } = vi.hoisted(
+  () => ({
+    messageErrorMock: vi.fn(),
+    runFatalErrorHandlerMock: vi.fn(),
+    runUnauthorizedHandlerMock: vi.fn(),
+  }),
+)
 
 vi.mock('element-plus/es/components/message/index', () => ({
   ElMessage: {
@@ -20,17 +16,9 @@ vi.mock('element-plus/es/components/message/index', () => ({
   },
 }))
 
-vi.mock('@/router', () => ({
-  default: {
-    push: routerPushMock,
-  },
-}))
-
 vi.mock('@/stores/sessionBridge', () => ({
-  runSessionResetHandler: vi.fn(async () => {
-    authStoreClearAuthStateMock()
-    notificationStoreResetStateMock()
-  }),
+  runFatalErrorHandler: runFatalErrorHandlerMock,
+  runUnauthorizedHandler: runUnauthorizedHandlerMock,
 }))
 
 import service from '../request'
@@ -38,10 +26,9 @@ import service from '../request'
 describe('request service', () => {
   beforeEach(() => {
     localStorage.clear()
-    authStoreClearAuthStateMock.mockReset()
     messageErrorMock.mockReset()
-    notificationStoreResetStateMock.mockReset()
-    routerPushMock.mockReset()
+    runFatalErrorHandlerMock.mockReset()
+    runUnauthorizedHandlerMock.mockReset()
   })
 
   it('injects bearer token into request headers', async () => {
@@ -110,10 +97,7 @@ describe('request service', () => {
     expect(messageErrorMock).toHaveBeenCalledWith('业务失败')
   })
 
-  it('clears store state and redirects to login when response is 401', async () => {
-    localStorage.setItem('access_token', 'expired-token')
-    localStorage.setItem('refresh_token', 'expired-refresh-token')
-
+  it('delegates 401 handling to the unified unauthorized chain', async () => {
     service.defaults.adapter = async () => {
       return Promise.reject({
         response: {
@@ -131,11 +115,31 @@ describe('request service', () => {
       },
     })
 
-    expect(localStorage.getItem('access_token')).toBeNull()
-    expect(localStorage.getItem('refresh_token')).toBeNull()
-    expect(authStoreClearAuthStateMock).toHaveBeenCalledTimes(1)
-    expect(notificationStoreResetStateMock).toHaveBeenCalledTimes(1)
-    expect(routerPushMock).toHaveBeenCalledWith('/login')
-    expect(messageErrorMock).toHaveBeenCalledWith('登录已过期，请重新登录')
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledWith()
+    expect(runFatalErrorHandlerMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps business page in place when a single 5xx request fails', async () => {
+    service.defaults.adapter = async () => {
+      return Promise.reject({
+        response: {
+          status: 500,
+          data: {
+            message: '服务器繁忙',
+          },
+        },
+      })
+    }
+
+    await expect(service.get('/devices')).rejects.toMatchObject({
+      response: {
+        status: 500,
+      },
+    })
+
+    expect(messageErrorMock).toHaveBeenCalledWith('服务器繁忙')
+    expect(runUnauthorizedHandlerMock).not.toHaveBeenCalled()
+    expect(runFatalErrorHandlerMock).not.toHaveBeenCalled()
   })
 })
