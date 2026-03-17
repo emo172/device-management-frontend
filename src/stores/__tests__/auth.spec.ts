@@ -15,6 +15,8 @@ const {
   registerMock,
   resetNotificationStateMock,
   resetPasswordMock,
+  runFatalErrorHandlerMock,
+  runUnauthorizedHandlerMock,
   routerPushMock,
   sendVerificationCodeMock,
   setAccessTokenMock,
@@ -31,6 +33,8 @@ const {
   registerMock: vi.fn(),
   resetNotificationStateMock: vi.fn(),
   resetPasswordMock: vi.fn(),
+  runFatalErrorHandlerMock: vi.fn(),
+  runUnauthorizedHandlerMock: vi.fn(),
   routerPushMock: vi.fn(),
   sendVerificationCodeMock: vi.fn(),
   setAccessTokenMock: vi.fn(),
@@ -69,6 +73,11 @@ vi.mock('@/router', () => ({
   },
 }))
 
+vi.mock('../sessionBridge', () => ({
+  runFatalErrorHandler: runFatalErrorHandlerMock,
+  runUnauthorizedHandler: runUnauthorizedHandlerMock,
+}))
+
 import { useAuthStore } from '../modules/auth'
 
 describe('auth store', () => {
@@ -86,6 +95,8 @@ describe('auth store', () => {
     registerMock.mockReset()
     resetNotificationStateMock.mockReset()
     resetPasswordMock.mockReset()
+    runFatalErrorHandlerMock.mockReset()
+    runUnauthorizedHandlerMock.mockReset()
     routerPushMock.mockReset()
     sendVerificationCodeMock.mockReset()
     setAccessTokenMock.mockReset()
@@ -220,7 +231,7 @@ describe('auth store', () => {
     expect(store.userRole).toBe(UserRole.SYSTEM_ADMIN)
   })
 
-  it('keeps persisted session when initializeAuth hits a non-401 error', async () => {
+  it('keeps persisted session but escalates to 500 when initializeAuth hits a non-401 error', async () => {
     const persistedUser = {
       userId: 'user-3',
       username: 'cached-user',
@@ -240,14 +251,23 @@ describe('auth store', () => {
     await store.initializeAuth()
 
     expect(clearTokensMock).not.toHaveBeenCalled()
-    expect(routerPushMock).not.toHaveBeenCalled()
+    expect(runUnauthorizedHandlerMock).not.toHaveBeenCalled()
+    expect(runFatalErrorHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runFatalErrorHandlerMock).toHaveBeenCalledWith({
+      source: 'auth',
+      title: '会话恢复失败',
+      description: '登录状态校验失败，请稍后重试或重新登录。',
+      retryTarget: {
+        retryable: false,
+      },
+    })
     expect(store.initialized).toBe(true)
     expect(store.accessToken).toBe('persisted-access')
     expect(store.refreshToken).toBe('persisted-refresh')
     expect(store.currentUser).toEqual(persistedUser)
   })
 
-  it('clears session when initializeAuth receives a 401 error', async () => {
+  it('delegates 401 session recovery failure to the unified unauthorized chain', async () => {
     const unauthorizedError = {
       response: {
         status: 401,
@@ -273,12 +293,20 @@ describe('auth store', () => {
     const store = useAuthStore()
     await store.initializeAuth()
 
-    expect(clearTokensMock).toHaveBeenCalledTimes(1)
-    expect(routerPushMock).toHaveBeenCalledWith('/login')
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledWith()
+    expect(runFatalErrorHandlerMock).not.toHaveBeenCalled()
     expect(store.initialized).toBe(true)
-    expect(store.accessToken).toBeNull()
-    expect(store.refreshToken).toBeNull()
-    expect(store.currentUser).toBeNull()
+    expect(store.accessToken).toBe('persisted-access')
+    expect(store.refreshToken).toBe('persisted-refresh')
+    expect(store.currentUser).toEqual({
+      userId: 'user-4',
+      username: 'expired-user',
+      email: 'expired@example.com',
+      realName: '过期用户',
+      phone: '13600000000',
+      role: UserRole.DEVICE_ADMIN,
+    })
   })
 
   it('updates profile and security actions through auth endpoints', async () => {

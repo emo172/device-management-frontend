@@ -15,6 +15,9 @@ defineProps<{
     <p class="view-placeholder__eyebrow">{{ eyebrow }}</p>
     <h1 class="view-placeholder__title">{{ title }}</h1>
     <p class="view-placeholder__description">{{ description }}</p>
+    <div v-if="$slots.actions" class="view-placeholder__actions">
+      <slot name="actions" />
+    </div>
   </section>
 </template>
 
@@ -49,5 +52,11 @@ defineProps<{
   font-size: 15px;
   line-height: 1.8;
   color: var(--app-text-secondary);
+}
+
+.view-placeholder__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
 }
 </style>

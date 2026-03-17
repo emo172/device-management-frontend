@@ -7,28 +7,19 @@ import axios, {
 } from 'axios'
 import { ElMessage } from 'element-plus/es/components/message/index.mjs'
 
-import router from '@/router'
-import { runSessionResetHandler } from '@/stores/sessionBridge'
+import { runUnauthorizedHandler } from '@/stores/sessionBridge'
 import type { ApiResponse } from '@/types/api'
-import { clearTokens, getAccessToken } from '@/utils/token'
+import { getAccessToken } from '@/utils/token'
 
 type RawApiResponse<T> = AxiosResponse<ApiResponse<T>>
 
 /**
- * 401 时除了清理本地 token，还要把内存态 Store 一并复位。
- * 请求层不能静态依赖认证 Store，否则会与 `auth -> api -> request` 形成循环；
- * 这里改为按需动态导入，在真正出现未授权响应时再触发会话回收。
+ * 请求层附加配置。
+ * `skipUnauthorizedHandler` 只开放给 `/auth/me` 这类需要由上层补充更精确 redirect 的请求，
+ * 避免 401 已经被 request 自动跳走后，路由守卫又用目标路由再跳一次登录页。
  */
-async function resetUnauthorizedSessionState() {
-  clearTokens()
-
-  try {
-    await runSessionResetHandler()
-  } catch {
-    // 请求层必须保留最小兜底能力：即便 Store 尚未完成装配，也不能阻止令牌清理与登录跳转。
-  }
-
-  await router.push('/login')
+export interface RequestConfig<D = unknown> extends AxiosRequestConfig<D> {
+  skipUnauthorizedHandler?: boolean
 }
 
 /**
@@ -49,29 +40,17 @@ export interface RequestInstance extends Omit<
   | 'putForm'
   | 'patchForm'
 > {
-  request<T = unknown, D = unknown>(config: AxiosRequestConfig<D>): Promise<T>
-  get<T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>): Promise<T>
-  delete<T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>): Promise<T>
-  head<T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>): Promise<T>
-  options<T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>): Promise<T>
-  post<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T>
-  put<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T>
-  patch<T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T>
-  postForm<T = unknown, D = unknown>(
-    url: string,
-    data?: D,
-    config?: AxiosRequestConfig<D>,
-  ): Promise<T>
-  putForm<T = unknown, D = unknown>(
-    url: string,
-    data?: D,
-    config?: AxiosRequestConfig<D>,
-  ): Promise<T>
-  patchForm<T = unknown, D = unknown>(
-    url: string,
-    data?: D,
-    config?: AxiosRequestConfig<D>,
-  ): Promise<T>
+  request<T = unknown, D = unknown>(config: RequestConfig<D>): Promise<T>
+  get<T = unknown, D = unknown>(url: string, config?: RequestConfig<D>): Promise<T>
+  delete<T = unknown, D = unknown>(url: string, config?: RequestConfig<D>): Promise<T>
+  head<T = unknown, D = unknown>(url: string, config?: RequestConfig<D>): Promise<T>
+  options<T = unknown, D = unknown>(url: string, config?: RequestConfig<D>): Promise<T>
+  post<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
+  put<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
+  patch<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
+  postForm<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
+  putForm<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
+  patchForm<T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>): Promise<T>
 }
 
 async function unwrapResponseData<T>(requestPromise: Promise<RawApiResponse<T>>): Promise<T> {
@@ -137,10 +116,15 @@ rawService.interceptors.response.use(
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const status = error.response?.status
     const responseMessage = error.response?.data?.message
+    const shouldHandleUnauthorized = !(error.config as RequestConfig | undefined)
+      ?.skipUnauthorizedHandler
+
+    if (status === 401 && shouldHandleUnauthorized) {
+      await runUnauthorizedHandler()
+      return Promise.reject(error)
+    }
 
     if (status === 401) {
-      await resetUnauthorizedSessionState()
-      ElMessage.error('登录已过期，请重新登录')
       return Promise.reject(error)
     }
 
@@ -161,46 +145,37 @@ rawService.interceptors.response.use(
 
 const service = rawService as RequestInstance
 
-service.request = <T = unknown, D = unknown>(config: AxiosRequestConfig<D>) =>
+service.request = <T = unknown, D = unknown>(config: RequestConfig<D>) =>
   unwrapResponseData<T>(rawRequest<ApiResponse<T>, RawApiResponse<T>, D>(config))
 
-service.get = <T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>) =>
+service.get = <T = unknown, D = unknown>(url: string, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawGet<ApiResponse<T>, RawApiResponse<T>, D>(url, config))
 
-service.delete = <T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>) =>
+service.delete = <T = unknown, D = unknown>(url: string, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawDelete<ApiResponse<T>, RawApiResponse<T>, D>(url, config))
 
-service.head = <T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>) =>
+service.head = <T = unknown, D = unknown>(url: string, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawHead<ApiResponse<T>, RawApiResponse<T>, D>(url, config))
 
-service.options = <T = unknown, D = unknown>(url: string, config?: AxiosRequestConfig<D>) =>
+service.options = <T = unknown, D = unknown>(url: string, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawOptions<ApiResponse<T>, RawApiResponse<T>, D>(url, config))
 
-service.post = <T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>) =>
+service.post = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawPost<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
-service.put = <T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>) =>
+service.put = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawPut<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
-service.patch = <T = unknown, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig<D>) =>
+service.patch = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
   unwrapResponseData<T>(rawPatch<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
-service.postForm = <T = unknown, D = unknown>(
-  url: string,
-  data?: D,
-  config?: AxiosRequestConfig<D>,
-) => unwrapResponseData<T>(rawPostForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
+service.postForm = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
+  unwrapResponseData<T>(rawPostForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
-service.putForm = <T = unknown, D = unknown>(
-  url: string,
-  data?: D,
-  config?: AxiosRequestConfig<D>,
-) => unwrapResponseData<T>(rawPutForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
+service.putForm = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
+  unwrapResponseData<T>(rawPutForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
-service.patchForm = <T = unknown, D = unknown>(
-  url: string,
-  data?: D,
-  config?: AxiosRequestConfig<D>,
-) => unwrapResponseData<T>(rawPatchForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
+service.patchForm = <T = unknown, D = unknown>(url: string, data?: D, config?: RequestConfig<D>) =>
+  unwrapResponseData<T>(rawPatchForm<ApiResponse<T>, RawApiResponse<T>, D>(url, data, config))
 
 export default service

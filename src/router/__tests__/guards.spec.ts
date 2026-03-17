@@ -14,6 +14,11 @@ const { getCurrentUserMock } = vi.hoisted(() => ({
   getCurrentUserMock: vi.fn(),
 }))
 
+const { runFatalErrorHandlerMock, runUnauthorizedHandlerMock } = vi.hoisted(() => ({
+  runFatalErrorHandlerMock: vi.fn(),
+  runUnauthorizedHandlerMock: vi.fn(),
+}))
+
 vi.mock('nprogress', () => ({
   default: {
     configure: vi.fn(),
@@ -31,6 +36,11 @@ vi.mock('@/api/auth', async () => {
   }
 })
 
+vi.mock('@/stores/sessionBridge', () => ({
+  runFatalErrorHandler: runFatalErrorHandlerMock,
+  runUnauthorizedHandler: runUnauthorizedHandlerMock,
+}))
+
 function createGuardedRouter() {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -46,6 +56,8 @@ describe('router guards', () => {
   beforeEach(() => {
     localStorage.clear()
     getCurrentUserMock.mockReset()
+    runFatalErrorHandlerMock.mockReset()
+    runUnauthorizedHandlerMock.mockReset()
     setActivePinia(createAppPinia())
   })
 
@@ -94,7 +106,7 @@ describe('router guards', () => {
     expect(authStore.accessToken).toBe('access-token')
   })
 
-  it('有 token 但用户资料已失效时，允许进入登录页并清空会话', async () => {
+  it('有 token 但用户资料已失效时，允许进入登录页并走统一未授权处理', async () => {
     setAccessToken('expired-access-token')
     setRefreshToken('expired-refresh-token')
     getCurrentUserMock.mockRejectedValue({ response: { status: 401 } })
@@ -106,8 +118,9 @@ describe('router guards', () => {
     const authStore = useAuthStore()
 
     expect(router.currentRoute.value.path).toBe('/login')
-    expect(authStore.accessToken).toBeNull()
-    expect(authStore.refreshToken).toBeNull()
+    expect(authStore.accessToken).toBe('expired-access-token')
+    expect(authStore.refreshToken).toBe('expired-refresh-token')
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
   })
 
   it('存在令牌但缺少当前用户时，会先补拉用户资料再放行', async () => {
@@ -130,7 +143,21 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/statistics')
   })
 
-  it('非 401 的用户资料补拉失败时，仍会拦截受角色保护的路由', async () => {
+  it('受保护路由补拉用户遇到 401 时，走统一未授权链并保留目标 redirect', async () => {
+    setAccessToken('access-token')
+    setRefreshToken('refresh-token')
+    getCurrentUserMock.mockRejectedValue({ response: { status: 401 } })
+
+    const router = createGuardedRouter()
+
+    await router.push('/statistics')
+
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledWith({ redirect: '/statistics' })
+    expect(runFatalErrorHandlerMock).not.toHaveBeenCalled()
+  })
+
+  it('受保护路由补拉用户遇到非 401 失败时，写入 fatal error 并跳到 500', async () => {
     setAccessToken('access-token')
     setRefreshToken('refresh-token')
     getCurrentUserMock.mockRejectedValue({ response: { status: 500 } })
@@ -139,10 +166,17 @@ describe('router guards', () => {
 
     await router.push('/statistics')
 
-    const authStore = useAuthStore()
-
-    expect(router.currentRoute.value.path).toBe('/403')
-    expect(authStore.accessToken).toBe('access-token')
+    expect(runFatalErrorHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runFatalErrorHandlerMock).toHaveBeenCalledWith({
+      source: 'auth',
+      title: '页面鉴权失败',
+      description: '进入目标页面前无法确认当前登录身份，请稍后重试。',
+      retryTarget: {
+        path: '/statistics',
+        retryable: true,
+      },
+    })
+    expect(runUnauthorizedHandlerMock).not.toHaveBeenCalled()
   })
 
   it('角色不匹配时跳转到 403 页面', async () => {

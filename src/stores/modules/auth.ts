@@ -4,6 +4,7 @@ import * as authApi from '@/api/auth'
 import { STORAGE_KEYS } from '@/constants'
 import { UserRole } from '@/enums/UserRole'
 import router from '@/router'
+import { runFatalErrorHandler, runUnauthorizedHandler } from '@/stores/sessionBridge'
 import { useNotificationStore } from '@/stores/modules/notification'
 import { getStorageObject, setStorageObject } from '@/utils/storage'
 import {
@@ -16,6 +17,9 @@ import {
 } from '@/utils/token'
 
 type AuthUser = authApi.CurrentUserResponse & { role: UserRole }
+type FetchCurrentUserOptions = {
+  skipUnauthorizedHandler?: boolean
+}
 
 interface AuthState {
   accessToken: string | null
@@ -122,9 +126,10 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 加载远端当前用户资料。
      * 登录与刷新恢复都复用该动作，保证权限口径始终以后端 `/api/auth/me` 为准。
+     * 某些基础设施场景需要自行决定 401 的 redirect，因此允许显式关闭 request 层的自动未授权跳转。
      */
-    async fetchCurrentUser() {
-      const user = await authApi.getCurrentUser()
+    async fetchCurrentUser(options: FetchCurrentUserOptions = {}) {
+      const user = await authApi.getCurrentUser(options)
       this.setCurrentUser(user)
       return this.currentUser
     },
@@ -191,11 +196,19 @@ export const useAuthStore = defineStore('auth', {
       }
 
       try {
-        await this.fetchCurrentUser()
+        await this.fetchCurrentUser({ skipUnauthorizedHandler: true })
       } catch (error) {
         if (isUnauthorizedError(error)) {
-          this.clearAuthState()
-          await router.push('/login')
+          await runUnauthorizedHandler()
+        } else {
+          await runFatalErrorHandler({
+            source: 'auth',
+            title: '会话恢复失败',
+            description: '登录状态校验失败，请稍后重试或重新登录。',
+            retryTarget: {
+              retryable: false,
+            },
+          })
         }
       } finally {
         this.initialized = true

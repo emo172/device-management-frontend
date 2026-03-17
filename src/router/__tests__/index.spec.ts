@@ -9,6 +9,18 @@ describe('router', () => {
     expect(router.resolve('/login').matched.length).toBeGreaterThan(0)
   })
 
+  it('提供独立的 500 错误页并强制使用 blank 布局', () => {
+    const errorRoute = routes.find((route) => route.path === '/500')
+    const resolved = router.resolve('/500')
+    const matchedRoute = resolved.matched[resolved.matched.length - 1]
+
+    expect(errorRoute?.name).toBe('InternalServerError')
+    expect(errorRoute?.meta?.layout).toBe('blank')
+    expect(errorRoute?.meta?.hidden).toBe(true)
+    expect(resolved.name).toBe('InternalServerError')
+    expect(matchedRoute?.meta.layout).toBe('blank')
+  })
+
   it('将根路径重定向到仪表盘入口', () => {
     const rootRoute = routes.find((route) => route.path === '/')
 
