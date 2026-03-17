@@ -27,9 +27,13 @@ describe('router', () => {
     const reservationHistoryRoute = routes.find(
       (route) => route.path === '/reservations/manage/history',
     )
+    const userManagementRoute = routes.find((route) => route.path === '/users')
+    const userDetailRoute = routes.find((route) => route.path === '/users/:id')
 
     expect(aiRoute?.meta?.roles).toEqual([UserRole.USER])
     expect(statisticsRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(userManagementRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(userDetailRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
     expect(deviceCreateRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
     expect(deviceCategoryRoute?.meta?.roles).toEqual([UserRole.DEVICE_ADMIN])
     expect(reservationCreateRoute?.meta?.roles).toEqual([UserRole.USER, UserRole.SYSTEM_ADMIN])
@@ -42,4 +46,46 @@ describe('router', () => {
       UserRole.SYSTEM_ADMIN,
     ])
   })
+
+  it('挂载真实用户管理详情路由，供系统管理员查看风险与账号信息', () => {
+    const detailRoute = router.resolve('/users/user-1')
+    const matchedRoute = detailRoute.matched[detailRoute.matched.length - 1]
+
+    expect(detailRoute.name).toBe('UserManagementDetail')
+    expect(matchedRoute?.meta.roles).toEqual([UserRole.SYSTEM_ADMIN])
+  })
+
+  it('将角色权限路由解析到真实页面且继续限制为系统管理员', async () => {
+    const roleRoute = routes.find((route) => route.path === '/admin/roles')
+    const resolved = router.resolve('/admin/roles')
+    const matchedRoute = resolved.matched[resolved.matched.length - 1]
+
+    expect(roleRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(resolved.name).toBe('RoleManagement')
+    expect(matchedRoute?.meta.roles).toEqual([UserRole.SYSTEM_ADMIN])
+
+    const lazyComponent = roleRoute?.component as (() => Promise<{ default: object }>) | undefined
+
+    if (typeof lazyComponent === 'function') {
+      const module = await lazyComponent()
+      expect(module.default).toBeTruthy()
+    }
+  }, 30000)
+
+  it('将 Prompt 模板路由解析到真实页面且继续限制为系统管理员', async () => {
+    const promptRoute = routes.find((route) => route.path === '/admin/prompt-templates')
+    const resolved = router.resolve('/admin/prompt-templates')
+    const matchedRoute = resolved.matched[resolved.matched.length - 1]
+
+    expect(promptRoute?.meta?.roles).toEqual([UserRole.SYSTEM_ADMIN])
+    expect(resolved.name).toBe('PromptTemplateManagement')
+    expect(matchedRoute?.meta.roles).toEqual([UserRole.SYSTEM_ADMIN])
+
+    const lazyComponent = promptRoute?.component as (() => Promise<{ default: object }>) | undefined
+
+    if (typeof lazyComponent === 'function') {
+      const module = await lazyComponent()
+      expect(module.default).toBeTruthy()
+    }
+  }, 30000)
 })
