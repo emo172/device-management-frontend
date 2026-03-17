@@ -1,8 +1,17 @@
 import request from '@/api/request'
 
-import type { RoleResponse, UpdateRolePermissionsRequest } from './types'
+import type {
+  RolePermissionTreeModuleResponse,
+  RoleResponse,
+  UpdateRolePermissionsRequest,
+} from './types'
 
-export type { RoleResponse, UpdateRolePermissionsRequest } from './types'
+export type {
+  RolePermissionTreeModuleResponse,
+  RolePermissionTreeNodeResponse,
+  RoleResponse,
+  UpdateRolePermissionsRequest,
+} from './types'
 
 /**
  * 查询角色列表。
@@ -10,6 +19,14 @@ export type { RoleResponse, UpdateRolePermissionsRequest } from './types'
  */
 export function getRoleList() {
   return request.get<RoleResponse[]>('/admin/roles')
+}
+
+/**
+ * 查询指定角色的权限树。
+ * 对应 `GET /api/admin/roles/{id}/permissions/tree`，系统管理员切换角色后必须重新拉取真实授权树，不能只靠前端缓存猜测勾选结果。
+ */
+export function getRolePermissionTree(roleId: string) {
+  return request.get<RolePermissionTreeModuleResponse[]>(`/admin/roles/${roleId}/permissions/tree`)
 }
 
 /**

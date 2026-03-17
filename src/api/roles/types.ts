@@ -15,3 +15,24 @@ export interface RoleResponse {
 export interface UpdateRolePermissionsRequest {
   permissionIds: string[]
 }
+
+/**
+ * 角色权限树节点 DTO。
+ * 对应后端 `RolePermissionTreeNodeResponse`，前端保存权限时必须回传 `permissionId` 而不是权限编码。
+ */
+export interface RolePermissionTreeNodeResponse {
+  permissionId: string
+  code: string
+  name: string
+  description: string
+  selected: boolean
+}
+
+/**
+ * 角色权限树模块 DTO。
+ * 对应后端 `RolePermissionTreeResponse`，服务端已经按模块分组，前端不应再次自行推断分组规则。
+ */
+export interface RolePermissionTreeModuleResponse {
+  module: string
+  permissions: RolePermissionTreeNodeResponse[]
+}

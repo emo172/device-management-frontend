@@ -12,7 +12,7 @@ vi.mock('@/api/request', () => ({
   },
 }))
 
-import { getRoleList, updateRolePermissions } from '../roles'
+import { getRoleList, getRolePermissionTree, updateRolePermissions } from '../roles'
 
 describe('roles api', () => {
   beforeEach(() => {
@@ -35,5 +35,27 @@ describe('roles api', () => {
 
     await expect(updateRolePermissions('role-1', payload)).resolves.toBeUndefined()
     expect(putMock).toHaveBeenCalledWith('/admin/roles/role-1/permissions', payload)
+  })
+
+  it('loads role permission tree for selected role from backend', async () => {
+    const response = [
+      {
+        module: 'DEVICE',
+        permissions: [
+          {
+            permissionId: 'permission-1',
+            code: 'device:view',
+            name: '查看设备',
+            description: '允许查看设备详情',
+            selected: true,
+          },
+        ],
+      },
+    ]
+
+    getMock.mockResolvedValue(response)
+
+    await expect(getRolePermissionTree('role-1')).resolves.toBe(response)
+    expect(getMock).toHaveBeenCalledWith('/admin/roles/role-1/permissions/tree')
   })
 })
