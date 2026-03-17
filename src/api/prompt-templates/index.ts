@@ -6,7 +6,7 @@ export type { PromptTemplateRequest, PromptTemplateResponse } from './types'
 
 /**
  * 查询 Prompt 模板列表。
- * 对应 `GET /api/ai/prompts`，当前真实契约没有删除接口，前端先聚焦列表、详情、创建与更新闭环。
+ * 对应 `GET /api/ai/prompts`，模板管理页进入时必须拉取真实模板资产列表，后续删除能力也同样以后端实际接口为准。
  */
 export function getPromptTemplateList() {
   return request.get<PromptTemplateResponse[]>('/ai/prompts')
@@ -37,4 +37,12 @@ export function updatePromptTemplate(templateId: string, data: PromptTemplateReq
     `/ai/prompts/${templateId}`,
     data,
   )
+}
+
+/**
+ * 删除 Prompt 模板。
+ * 对应 `DELETE /api/ai/prompts/{id}`，仅允许系统管理员删除已停用模板。
+ */
+export function deletePromptTemplate(templateId: string) {
+  return request.delete<void>(`/ai/prompts/${templateId}`)
 }

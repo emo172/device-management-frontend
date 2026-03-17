@@ -2,7 +2,7 @@ import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { UserRole } from '@/enums'
+import { FreezeStatus, UserRole } from '@/enums'
 import { createAppPinia } from '@/stores'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useDeviceStore } from '@/stores/modules/device'
@@ -236,9 +236,9 @@ describe('reservation create view', () => {
         realName: '普通用户',
         phone: '13800138000',
         status: 1,
-        freezeStatus: 'NORMAL',
+        freezeStatus: FreezeStatus.NORMAL,
         roleId: 'role-user',
-        roleName: 'USER',
+        roleName: UserRole.USER,
       },
     ])
     vi.spyOn(reservationStore, 'createProxyReservation').mockResolvedValue({

@@ -1,3 +1,5 @@
+import type { PromptTemplateType } from '@/enums/PromptTemplateType'
+
 /**
  * Prompt 模板写入 DTO。
  * 对应后端 `PromptTemplateRequest`，创建和更新复用同一结构，`active` 映射后端布尔启停状态。
@@ -6,7 +8,7 @@ export interface PromptTemplateRequest {
   name: string
   code: string
   content: string
-  type: string
+  type: PromptTemplateType
   description?: string | null
   variables?: string | null
   active: boolean
@@ -22,7 +24,7 @@ export interface PromptTemplateResponse {
   name: string
   code: string
   content: string
-  type: string
+  type: PromptTemplateType
   description: string | null
   variables: string | null
   active: boolean

@@ -12,36 +12,26 @@ const adminRoutes: RouteRecordRaw[] = [
   {
     path: '/users',
     name: 'UserManagement',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 9 / User Admin',
-      title: '用户管理待接入',
-      description:
-        '当前先打通系统管理员菜单与路由权限，后续 Chunk 会补齐用户列表、冻结、角色分配等页面。',
-    },
+    component: () => import('@/views/user/List.vue'),
     meta: { title: '用户管理', roles: systemAdminRoles, layout: 'default' },
+  },
+  {
+    path: '/users/:id',
+    name: 'UserManagementDetail',
+    component: () => import('@/views/user/Detail.vue'),
+    // 用户详情会展示冻结风险与账号状态，因此必须继续保持系统管理员独占访问。
+    meta: { title: '用户详情', roles: systemAdminRoles, layout: 'default' },
   },
   {
     path: '/admin/roles',
     name: 'RoleManagement',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 9 / Role',
-      title: '角色权限页面待接入',
-      description:
-        '当前先保留系统管理员访问入口，后续 Chunk 会补齐角色列表、权限配置与差异化控制。',
-    },
+    component: () => import('@/views/admin/RolePermission.vue'),
     meta: { title: '角色权限', roles: systemAdminRoles, layout: 'default' },
   },
   {
     path: '/admin/prompt-templates',
     name: 'PromptTemplateManagement',
-    component: () => import('@/views/common/ViewPlaceholder.vue'),
-    props: {
-      eyebrow: 'Chunk 8 / Prompt Template',
-      title: 'Prompt 模板管理待接入',
-      description: '当前先保留 Prompt 模板管理入口，后续 Chunk 会补齐模板列表、编辑与启停控制。',
-    },
+    component: () => import('@/views/admin/PromptTemplate.vue'),
     meta: { title: 'Prompt 模板', roles: systemAdminRoles, layout: 'default' },
   },
 ]

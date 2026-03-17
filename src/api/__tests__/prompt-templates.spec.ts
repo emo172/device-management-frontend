@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getMock, postMock, putMock } = vi.hoisted(() => ({
+import { PromptTemplateType } from '@/enums/PromptTemplateType'
+
+const { deleteMock, getMock, postMock, putMock } = vi.hoisted(() => ({
+  deleteMock: vi.fn(),
   getMock: vi.fn(),
   postMock: vi.fn(),
   putMock: vi.fn(),
@@ -8,6 +11,7 @@ const { getMock, postMock, putMock } = vi.hoisted(() => ({
 
 vi.mock('@/api/request', () => ({
   default: {
+    delete: deleteMock,
     get: getMock,
     post: postMock,
     put: putMock,
@@ -16,6 +20,7 @@ vi.mock('@/api/request', () => ({
 
 import {
   createPromptTemplate,
+  deletePromptTemplate,
   getPromptTemplateDetail,
   getPromptTemplateList,
   updatePromptTemplate,
@@ -23,6 +28,7 @@ import {
 
 describe('prompt-templates api', () => {
   beforeEach(() => {
+    deleteMock.mockReset()
     getMock.mockReset()
     postMock.mockReset()
     putMock.mockReset()
@@ -41,7 +47,7 @@ describe('prompt-templates api', () => {
     expect(getMock).toHaveBeenNthCalledWith(2, '/ai/prompts/template-1')
   })
 
-  it('creates and updates prompt templates without delete endpoint assumptions', async () => {
+  it('creates and updates prompt templates with backend write payload', async () => {
     const response = { id: 'template-1', version: '1.0.0' }
     postMock.mockResolvedValueOnce(response)
     putMock.mockResolvedValueOnce(response)
@@ -50,7 +56,7 @@ describe('prompt-templates api', () => {
       name: '意图识别模板',
       code: 'intent-recognition',
       content: '请识别用户意图',
-      type: 'INTENT_RECOGNITION',
+      type: PromptTemplateType.INTENT_RECOGNITION,
       description: '用于识别 AI 对话意图',
       variables: '{"message":"用户输入"}',
       active: true,
@@ -62,5 +68,12 @@ describe('prompt-templates api', () => {
 
     expect(postMock).toHaveBeenNthCalledWith(1, '/ai/prompts', payload)
     expect(putMock).toHaveBeenNthCalledWith(1, '/ai/prompts/template-1', payload)
+  })
+
+  it('deletes prompt template through backend delete endpoint', async () => {
+    deleteMock.mockResolvedValueOnce(undefined)
+
+    await expect(deletePromptTemplate('template-2')).resolves.toBeUndefined()
+    expect(deleteMock).toHaveBeenCalledWith('/ai/prompts/template-2')
   })
 })

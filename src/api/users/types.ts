@@ -1,8 +1,9 @@
+import type { FreezeStatus, UserRole } from '@/enums'
 import type { PageParams } from '@/types/api'
 
 /**
  * 用户列表查询参数。
- * 创建预约页只需要分页读取系统管理员可见用户列表，因此沿用后端 `page` / `size` 最小分页契约。
+ * 用户管理页与代预约选择器都复用该查询对象；当前真实后端契约只支持 `page` 与 `size` 两个分页参数。
  */
 export interface UserListQuery extends PageParams {}
 
@@ -17,9 +18,9 @@ export interface UserListItemResponse {
   realName: string
   phone: string
   status: number
-  freezeStatus: string
+  freezeStatus: FreezeStatus
   roleId: string
-  roleName: string
+  roleName: UserRole
 }
 
 /**
@@ -53,7 +54,7 @@ export interface UpdateUserRoleRequest {
  * 对应后端 `FreezeUserRequest`，冻结状态只能透传后端约定值。
  */
 export interface FreezeUserRequest {
-  freezeStatus: string
+  freezeStatus: FreezeStatus
   reason?: string | null
 }
 
@@ -65,6 +66,27 @@ export interface UserAdminResponse {
   userId: string
   username: string
   status: number
-  freezeStatus: string
+  freezeStatus: FreezeStatus
   roleId: string
+}
+
+/**
+ * 用户详情响应 DTO。
+ * 对应后端 `UserDetailResponse`，系统管理员详情页需要完整展示冻结原因、到期时间和账号风险信息。
+ */
+export interface UserDetailResponse {
+  id: string
+  username: string
+  email: string
+  realName: string
+  phone: string
+  status: number
+  freezeStatus: FreezeStatus
+  freezeReason: string | null
+  freezeExpireTime: string | null
+  roleId: string
+  roleName: UserRole
+  lastLoginTime: string | null
+  createdAt: string
+  updatedAt: string
 }

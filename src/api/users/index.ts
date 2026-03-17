@@ -2,6 +2,7 @@ import request from '@/api/request'
 
 import type {
   FreezeUserRequest,
+  UserDetailResponse,
   UserListQuery,
   UserListItemResponse,
   UserPageResponse,
@@ -12,6 +13,7 @@ import type {
 
 export type {
   FreezeUserRequest,
+  UserDetailResponse,
   UserListItemResponse,
   UserListQuery,
   UserPageResponse,
@@ -26,6 +28,14 @@ export type {
  */
 export function getUserList(params: UserListQuery) {
   return request.get<UserPageResponse>('/admin/users', { params })
+}
+
+/**
+ * 查询用户详情。
+ * 对应 `GET /api/admin/users/{id}`，仅系统管理员详情页使用，避免列表页为展示风险信息反复拼接额外字段。
+ */
+export function getUserDetail(userId: string) {
+  return request.get<UserDetailResponse>(`/admin/users/${userId}`)
 }
 
 /**
