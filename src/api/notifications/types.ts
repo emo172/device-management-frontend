@@ -1,6 +1,7 @@
 /**
  * 通知响应 DTO。
- * 对应后端 `NotificationResponse`，当前真实契约不返回时间字段，前端不能擅自假设 `createdAt` 存在。
+ * 对应后端 `NotificationResponse`。
+ * 通知中心需要依赖 `createdAt` 排序和回放问题排查，因此这里必须完整对齐后端真实字段，不能继续沿用缺字段的旧口径。
  */
 export interface NotificationResponse {
   id: string
@@ -8,7 +9,15 @@ export interface NotificationResponse {
   channel: string
   title: string
   content: string
+  status: string
   readFlag: number
+  readAt: string | null
+  templateVars: string | null
+  retryCount: number
+  relatedId: string | null
+  relatedType: string | null
+  sentAt: string | null
+  createdAt: string | null
 }
 
 /**

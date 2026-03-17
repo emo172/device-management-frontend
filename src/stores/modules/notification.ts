@@ -4,6 +4,14 @@ import * as notificationApi from '@/api/notifications'
 
 const POLLING_INTERVAL = 30000
 
+/**
+ * 头部角标只代表站内信未读数。
+ * 邮件和短信没有“已读”业务语义，不能混入角标统计，否则会与后端 unread-count 口径不一致。
+ */
+function countInAppUnread(notifications: notificationApi.NotificationResponse[]) {
+  return notifications.filter((item) => item.channel === 'IN_APP' && item.readFlag === 0).length
+}
+
 interface NotificationState {
   notifications: notificationApi.NotificationResponse[]
   unreadCount: number
@@ -63,22 +71,22 @@ export const useNotificationStore = defineStore('notification', {
       )
 
       if (result.readFlag === 1) {
-        this.unreadCount = Math.max(
-          0,
-          this.notifications.filter((item) => item.readFlag === 0).length,
-        )
+        this.unreadCount = countInAppUnread(this.notifications)
       }
 
       return result
     },
 
     /**
-     * 全部已读后直接把当前列表中的未读标记全部置为已读，避免必须等下一次手动刷新才能看到最新状态。
+     * 全部已读只对站内信生效。
+     * 邮件和短信即使展示在同一列表里，也只是投递记录，不能在前端伪造成“已读”，否则会与后端真实读回执语义冲突。
      */
     async markAllAsRead() {
       const result = await notificationApi.markAllNotificationsRead()
-      this.notifications = this.notifications.map((item) => ({ ...item, readFlag: 1 }))
-      this.unreadCount = 0
+      this.notifications = this.notifications.map((item) =>
+        item.channel === 'IN_APP' ? { ...item, readFlag: 1 } : item,
+      )
+      this.unreadCount = countInAppUnread(this.notifications)
       return result
     },
 

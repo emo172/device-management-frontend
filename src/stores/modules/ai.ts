@@ -7,6 +7,7 @@ interface AiState {
   currentHistory: aiApi.AiHistoryDetailResponse | null
   currentResult: aiApi.AiChatResponse | null
   currentSessionId: string | null
+  detailRequestToken: number
   loading: boolean
 }
 
@@ -16,6 +17,7 @@ function createDefaultState(): AiState {
     currentHistory: null,
     currentResult: null,
     currentSessionId: null,
+    detailRequestToken: 0,
     loading: false,
   }
 }
@@ -44,12 +46,21 @@ export const useAiStore = defineStore('ai', {
     },
 
     /**
-     * 查看单次对话详情时保留完整结果，便于后续侧边抽屉展示意图识别、执行结果与错误信息。
+     * 查看单次对话详情时只更新历史详情本身，不能顺手改写聊天页的当前会话 ID。
+     * 否则用户从历史页回到聊天页时，会在空白消息流里悄悄续接旧会话上下文，造成前后端会话状态错位。
+     * 这里还要屏蔽乱序返回的旧请求，避免用户连续切换两条历史后，慢请求把右侧详情覆盖回旧记录。
      */
     async fetchHistoryDetail(historyId: string) {
+      const requestToken = this.detailRequestToken + 1
+      this.detailRequestToken = requestToken
+
       const history = await aiApi.getAiHistoryDetail(historyId)
+
+      if (requestToken !== this.detailRequestToken) {
+        return this.currentHistory
+      }
+
       this.currentHistory = history
-      this.currentSessionId = history.sessionId
       return history
     },
 
@@ -68,6 +79,24 @@ export const useAiStore = defineStore('ai', {
      */
     resetCurrentResult() {
       this.currentResult = null
+    },
+
+    /**
+     * 聊天页点击“开启新会话”时只重置当前会话标识与最近一次回复。
+     * 历史列表仍应保留，否则用户会误以为清空当前窗口等于删除服务端历史。
+     */
+    resetConversationState() {
+      this.currentSessionId = null
+      this.currentResult = null
+    },
+
+    /**
+     * 历史页重新进入时主动清掉旧详情，避免右侧先闪出上一轮遗留内容再等待用户重新选择。
+     * 同时提升请求令牌，确保离开页面前发出的旧详情请求即使稍后返回，也不会再把脏数据写回 Store。
+     */
+    clearCurrentHistory() {
+      this.detailRequestToken += 1
+      this.currentHistory = null
     },
 
     /**

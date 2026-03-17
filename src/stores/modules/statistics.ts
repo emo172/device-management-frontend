@@ -12,6 +12,7 @@ interface StatisticsState {
   hotTimeSlots: statisticsApi.TimeSlotStatisticsResponse[]
   deviceRanking: statisticsApi.DeviceRankingResponse[]
   userRanking: statisticsApi.UserRankingResponse[]
+  requestToken: number
   loading: boolean
 }
 
@@ -26,6 +27,7 @@ function createDefaultState(): StatisticsState {
     hotTimeSlots: [],
     deviceRanking: [],
     userRanking: [],
+    requestToken: 0,
     loading: false,
   }
 }
@@ -42,6 +44,8 @@ export const useStatisticsStore = defineStore('statistics', {
      * 统计接口当前都只接受可选 `date` 参数，因此统一使用同一份查询条件发起批量加载。
      */
     async fetchAll(query: statisticsApi.StatisticsDateQuery = {}) {
+      const requestToken = this.requestToken + 1
+      this.requestToken = requestToken
       this.loading = true
       this.query = { ...query }
 
@@ -66,14 +70,20 @@ export const useStatisticsStore = defineStore('statistics', {
           statisticsApi.getUserRanking(query),
         ])
 
-        this.overview = overview
-        this.deviceUtilization = deviceUtilization
-        this.categoryUtilization = categoryUtilization
-        this.borrowStatistics = borrowStatistics
-        this.overdueStatistics = overdueStatistics
-        this.hotTimeSlots = hotTimeSlots
-        this.deviceRanking = deviceRanking
-        this.userRanking = userRanking
+        /**
+         * 日期切换时可能出现前一次请求慢于后一次返回的情况。
+         * 只有当前最新请求才允许回写 Store，避免页面选中的日期与图表数据口径错位。
+         */
+        if (requestToken === this.requestToken) {
+          this.overview = overview
+          this.deviceUtilization = deviceUtilization
+          this.categoryUtilization = categoryUtilization
+          this.borrowStatistics = borrowStatistics
+          this.overdueStatistics = overdueStatistics
+          this.hotTimeSlots = hotTimeSlots
+          this.deviceRanking = deviceRanking
+          this.userRanking = userRanking
+        }
 
         return {
           overview,
@@ -86,7 +96,9 @@ export const useStatisticsStore = defineStore('statistics', {
           userRanking,
         }
       } finally {
-        this.loading = false
+        if (requestToken === this.requestToken) {
+          this.loading = false
+        }
       }
     },
 
