@@ -20,7 +20,8 @@ import {
  */
 const statisticsStore = useStatisticsStore()
 
-const selectedDate = ref(statisticsStore.query.date || '')
+const pendingDate = ref(statisticsStore.query.date || '')
+const appliedDate = ref(statisticsStore.query.date || '')
 
 const borrowOption = computed(() => createBorrowComparisonOption(statisticsStore.borrowStatistics))
 const deviceRankingOption = computed(() =>
@@ -29,20 +30,28 @@ const deviceRankingOption = computed(() =>
 const userRankingOption = computed(() =>
   createUserRankingOption(statisticsStore.userRanking.slice(0, 10)),
 )
-const effectiveDateLabel = computed(() => selectedDate.value || '沿用总览默认日期')
+const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
 const topDevice = computed(() => statisticsStore.deviceRanking[0] ?? null)
 const topUser = computed(() => statisticsStore.userRanking[0] ?? null)
 
-async function loadStatistics(queryDate = selectedDate.value || undefined) {
+async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
     await statisticsStore.fetchAll(queryDate ? { date: queryDate } : {})
+
+    /**
+     * 统计子页允许在请求期间继续展示上一版图表，避免切换日期时整页闪空。
+     * 因此只有新日期的数据真正落地后，才提交到页面口径与筛选器，避免旧图表挂上新日期标签。
+     */
+    appliedDate.value = queryDate ?? ''
+    pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
+    pendingDate.value = appliedDate.value
   }
 }
 
 async function handleDateChange(value: string | null) {
-  selectedDate.value = value ?? ''
+  pendingDate.value = value ?? ''
   await loadStatistics(value ?? undefined)
 }
 
@@ -94,7 +103,7 @@ onMounted(() => {
 
       <div class="statistics-detail-view__toolbar-actions">
         <el-date-picker
-          :model-value="selectedDate"
+          :model-value="pendingDate"
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="选择统计日期"

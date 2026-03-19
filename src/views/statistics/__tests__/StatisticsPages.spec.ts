@@ -1,5 +1,5 @@
-import { reactive } from 'vue'
-import { mount } from '@vue/test-utils'
+import { nextTick, reactive } from 'vue'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const statisticsViewModules = import.meta.glob('../*.vue')
@@ -38,6 +38,18 @@ const statisticsState = reactive({
 })
 
 const fetchAllMock = vi.fn()
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
 
 async function loadStatisticsView(componentName: string) {
   const loader = statisticsViewModules[`../${componentName}.vue`]
@@ -330,6 +342,57 @@ describe('statistics detail pages', () => {
     expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
     expect(wrapper.findAll('.shared-chart-panel__surface').length).toBeGreaterThanOrEqual(1)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
+  })
+
+  it('借用统计页切换日期时只在新数据到达后更新统计日期标识', async () => {
+    const BorrowStats = (await loadStatisticsView('BorrowStats')).default
+    const pendingFetch = createDeferred<Record<string, unknown>>()
+
+    fetchAllMock.mockReturnValueOnce(pendingFetch.promise)
+
+    const wrapper = mount(BorrowStats, {
+      global: {
+        stubs: {
+          RouterLink: {
+            props: ['to'],
+            template: '<a :data-to="typeof to === \'string\' ? to : to.path"><slot /></a>',
+          },
+          SharedChartPanel: {
+            props: ['title', 'description', 'option'],
+            template:
+              '<section class="shared-chart-panel__surface"><strong>{{ title }}</strong><p>{{ description }}</p></section>',
+          },
+          EmptyState: {
+            props: ['title', 'description'],
+            template: '<div class="empty-state-stub">{{ title }}{{ description }}</div>',
+          },
+          ElDatePicker: {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template:
+              '<button class="statistics-date-change" @click="$emit(\'update:modelValue\', \'2026-03-18\')">切换日期</button>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('2026-03-16')
+
+    await wrapper.get('.statistics-date-change').trigger('click')
+    await nextTick()
+
+    expect(fetchAllMock).toHaveBeenCalledWith({ date: '2026-03-18' })
+    expect(wrapper.text()).toContain('2026-03-16')
+
+    pendingFetch.reject(new Error('network error'))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('2026-03-16')
   })
 
   it('逾期统计页使用工具条、图表面板和侧栏摘要壳层', async () => {

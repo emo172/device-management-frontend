@@ -17,22 +17,31 @@ import { createHotTimeSlotHeatmapOption, formatTimeSlotLabel } from './chartOpti
  */
 const statisticsStore = useStatisticsStore()
 
-const selectedDate = ref(statisticsStore.query.date || '')
+const pendingDate = ref(statisticsStore.query.date || '')
+const appliedDate = ref(statisticsStore.query.date || '')
 
 const heatmapOption = computed(() => createHotTimeSlotHeatmapOption(statisticsStore.hotTimeSlots))
-const effectiveDateLabel = computed(() => selectedDate.value || '沿用总览默认日期')
+const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
 const hottestSlot = computed(() => statisticsStore.hotTimeSlots[0] ?? null)
 
-async function loadStatistics(queryDate = selectedDate.value || undefined) {
+async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
     await statisticsStore.fetchAll(queryDate ? { date: queryDate } : {})
+
+    /**
+     * 热力图刷新期间仍沿用上一版时段分布，因此日期标签必须等到新数据写入后再切换。
+     * 这样即使请求失败，也不会把旧时段热度误标成用户刚刚选择的新日期。
+     */
+    appliedDate.value = queryDate ?? ''
+    pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
+    pendingDate.value = appliedDate.value
   }
 }
 
 async function handleDateChange(value: string | null) {
-  selectedDate.value = value ?? ''
+  pendingDate.value = value ?? ''
   await loadStatistics(value ?? undefined)
 }
 
@@ -80,7 +89,7 @@ onMounted(() => {
 
       <div class="statistics-detail-view__toolbar-actions">
         <el-date-picker
-          :model-value="selectedDate"
+          :model-value="pendingDate"
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="选择统计日期"

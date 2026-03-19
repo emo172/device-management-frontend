@@ -17,7 +17,8 @@ import { createUtilizationBarOption } from './chartOptions'
  */
 const statisticsStore = useStatisticsStore()
 
-const selectedDate = ref(statisticsStore.query.date || '')
+const pendingDate = ref(statisticsStore.query.date || '')
+const appliedDate = ref(statisticsStore.query.date || '')
 
 const deviceOption = computed(() =>
   createUtilizationBarOption('设备利用率', statisticsStore.deviceUtilization.slice(0, 10)),
@@ -25,21 +26,29 @@ const deviceOption = computed(() =>
 const categoryOption = computed(() =>
   createUtilizationBarOption('分类利用率', statisticsStore.categoryUtilization),
 )
-const effectiveDateLabel = computed(() => selectedDate.value || '沿用总览默认日期')
+const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
 const topDevice = computed(() => statisticsStore.deviceUtilization[0] ?? null)
 const topCategory = computed(() => statisticsStore.categoryUtilization[0] ?? null)
 const tableCountText = computed(() => `设备 ${statisticsStore.deviceUtilization.length} 条`)
 
-async function loadStatistics(queryDate = selectedDate.value || undefined) {
+async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
     await statisticsStore.fetchAll(queryDate ? { date: queryDate } : {})
+
+    /**
+     * 子页刷新期间仍会沿用上一版排行与图表，因此日期标签只能在新数据回写成功后再切换。
+     * 否则会出现“旧排行 + 新日期”的错位展示，误导系统管理员判断当天利用率。
+     */
+    appliedDate.value = queryDate ?? ''
+    pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
+    pendingDate.value = appliedDate.value
   }
 }
 
 async function handleDateChange(value: string | null) {
-  selectedDate.value = value ?? ''
+  pendingDate.value = value ?? ''
   await loadStatistics(value ?? undefined)
 }
 
@@ -91,7 +100,7 @@ onMounted(() => {
 
       <div class="statistics-detail-view__toolbar-actions">
         <el-date-picker
-          :model-value="selectedDate"
+          :model-value="pendingDate"
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="选择统计日期"

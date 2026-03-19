@@ -17,6 +17,7 @@ import { useUserStore } from '@/stores/modules/user'
 const userStore = useUserStore()
 
 const selectedPermissionIds = ref<string[]>([])
+const roleListErrorMessage = ref('')
 const rolePermissionErrorMessage = ref('')
 const savingPermissions = ref(false)
 
@@ -118,6 +119,7 @@ async function handleSave() {
 }
 
 onMounted(async () => {
+  roleListErrorMessage.value = ''
   rolePermissionErrorMessage.value = ''
 
   try {
@@ -136,7 +138,11 @@ onMounted(async () => {
       await handleSelectRole(nextRoleId)
     }
   } catch {
-    rolePermissionErrorMessage.value = '角色列表加载失败，请稍后重试。'
+    /**
+     * 角色列表刷新失败与权限树加载失败不是同一类错误。
+     * 如果页面已经持有有效角色卡片和权限树，就不应因为列表刷新失败而整体禁用编辑能力。
+     */
+    roleListErrorMessage.value = '角色列表加载失败，请稍后重试。'
   }
 })
 
@@ -186,6 +192,20 @@ onBeforeUnmount(() => {
 
     <div class="role-permission-view__layout">
       <ConsoleTableSection title="角色授权矩阵" :count="roleCountText">
+        <ConsoleFeedbackSurface
+          v-if="roleListErrorMessage"
+          state="error"
+          class="role-permission-view__inline-feedback"
+        >
+          <p class="role-permission-view__feedback-title">角色列表刷新失败</p>
+          <p class="role-permission-view__feedback-description">
+            {{ roleListErrorMessage }}
+          </p>
+          <p v-if="roleList.length" class="role-permission-view__feedback-description">
+            页面已保留当前缓存的角色与权限树，可继续编辑当前角色权限。
+          </p>
+        </ConsoleFeedbackSurface>
+
         <!-- 角色卡切换必须先于权限树编辑，避免管理员在未知角色上下文里误保存。 -->
         <section class="role-permission-view__role-section">
           <article
@@ -399,6 +419,13 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 18px;
   color: var(--app-text-primary);
+}
+
+.role-permission-view__inline-feedback {
+  min-height: 0;
+  align-items: flex-start;
+  padding: 18px 20px;
+  text-align: left;
 }
 
 .role-permission-view__aside-stack {

@@ -17,7 +17,8 @@ import { createOverdueSummaryOption } from './chartOptions'
  */
 const statisticsStore = useStatisticsStore()
 
-const selectedDate = ref(statisticsStore.query.date || '')
+const pendingDate = ref(statisticsStore.query.date || '')
+const appliedDate = ref(statisticsStore.query.date || '')
 
 const overdueCards = computed(() => [
   {
@@ -36,18 +37,26 @@ const overdueCards = computed(() => [
   },
 ])
 const overdueOption = computed(() => createOverdueSummaryOption(statisticsStore.overdueStatistics))
-const effectiveDateLabel = computed(() => selectedDate.value || '沿用总览默认日期')
+const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
 
-async function loadStatistics(queryDate = selectedDate.value || undefined) {
+async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
     await statisticsStore.fetchAll(queryDate ? { date: queryDate } : {})
+
+    /**
+     * 逾期统计页允许旧卡片在刷新期间继续可见，因此必须把页面日期口径锚定在最后一次成功数据。
+     * 只有新请求成功后才更新展示日期，才能避免失败场景下把旧逾期数据误标成新日期。
+     */
+    appliedDate.value = queryDate ?? ''
+    pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
+    pendingDate.value = appliedDate.value
   }
 }
 
 async function handleDateChange(value: string | null) {
-  selectedDate.value = value ?? ''
+  pendingDate.value = value ?? ''
   await loadStatistics(value ?? undefined)
 }
 
@@ -99,7 +108,7 @@ onMounted(() => {
 
       <div class="statistics-detail-view__toolbar-actions">
         <el-date-picker
-          :model-value="selectedDate"
+          :model-value="pendingDate"
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="选择统计日期"

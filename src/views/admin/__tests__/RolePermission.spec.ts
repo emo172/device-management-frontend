@@ -457,4 +457,73 @@ describe('RolePermission view', () => {
     saveDeferred.resolve()
     await flushPromises()
   })
+
+  it('角色列表刷新失败时若已有有效权限树，页面仍保留编辑能力', async () => {
+    const { module, error } = await loadView('RolePermission')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const userStore = useUserStore()
+    userStore.roleList = [{ id: 'role-user', name: 'USER', description: '普通用户角色' }]
+    userStore.selectedRoleId = 'role-user'
+    userStore.currentRolePermissionTree = [
+      {
+        module: 'DEVICE',
+        permissions: [
+          {
+            permissionId: 'perm-1',
+            code: 'device:view',
+            name: '查看设备',
+            description: '允许查看设备详情',
+            selected: true,
+          },
+        ],
+      },
+    ]
+
+    vi.spyOn(userStore, 'fetchRoleList').mockRejectedValue(new Error('role list failed'))
+    const updateRolePermissionsSpy = vi
+      .spyOn(userStore, 'updateRolePermissions')
+      .mockResolvedValue(undefined)
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          PermissionTree: {
+            props: ['modules', 'modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            template:
+              '<div class="permission-tree-stub">{{ modules[0]?.permissions[0]?.name }}</div>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElSkeleton: { template: '<div><slot /></div>' },
+          ElSkeletonItem: { template: '<span></span>' },
+          ElEmpty: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.permission-tree-stub').exists()).toBe(true)
+
+    const saveButton = wrapper.get('[data-testid="save-role-permissions"]')
+    expect((saveButton.element as HTMLButtonElement).disabled).toBe(false)
+
+    await saveButton.trigger('click')
+
+    expect(updateRolePermissionsSpy).toHaveBeenCalledWith('role-user', {
+      permissionIds: ['perm-1'],
+    })
+  })
 })
