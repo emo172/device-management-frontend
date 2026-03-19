@@ -154,6 +154,7 @@ describe('reservation history manage view', () => {
       page: 1,
       size: 10,
     })
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('审批历史')
     expect(wrapper.text()).toContain('APPROVED')
   })

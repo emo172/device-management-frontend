@@ -172,6 +172,8 @@ describe('reservation check-in view', () => {
       },
     })
 
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('一键签到')
     await wrapper.get('.check-in-btn').trigger('click')
 

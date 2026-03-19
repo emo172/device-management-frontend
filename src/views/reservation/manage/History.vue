@@ -7,6 +7,8 @@ import type { ReservationListItemResponse } from '@/api/reservations'
 import ReservationStatusTag from '@/components/business/ReservationStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import { UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
@@ -57,30 +59,28 @@ onMounted(() => {
 
 <template>
   <section class="reservation-manage-view">
-    <header class="reservation-manage-view__hero">
-      <div>
-        <p class="reservation-manage-view__eyebrow">Reservation History</p>
-        <h1>审批历史</h1>
-        <p class="reservation-manage-view__description">
-          查看管理员已审批、已拒绝、已取消或已过期的预约结果，便于追溯审核结论与人工处理落点。
-        </p>
-      </div>
+    <ConsolePageHero
+      eyebrow="Reservation History"
+      title="审批历史"
+      description="查看管理员已审批、已拒绝、已取消或已过期的预约结果，便于追溯审核结论与人工处理落点。"
+      class="reservation-manage-view__hero"
+    >
+      <template #actions>
+        <div class="reservation-manage-view__hero-actions">
+          <el-button @click="loadHistoryPage(currentPage)">
+            <el-icon><RefreshRight /></el-icon>
+            刷新
+          </el-button>
+          <el-button type="primary" @click="goToPending">返回待审</el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
-      <div class="reservation-manage-view__hero-actions">
-        <el-button @click="loadHistoryPage(currentPage)">
-          <el-icon><RefreshRight /></el-icon>
-          刷新
-        </el-button>
-        <el-button type="primary" @click="goToPending">返回待审</el-button>
-      </div>
-    </header>
-
-    <div class="reservation-manage-view__table-shell">
-      <div class="reservation-manage-view__table-header">
-        <h2>历史记录</h2>
-        <span>共 {{ reservationStore.total }} 条</span>
-      </div>
-
+    <ConsoleTableSection
+      title="历史记录"
+      :count="reservationStore.total"
+      class="reservation-manage-view__table-shell"
+    >
       <EmptyState
         v-if="!tableData.length && !reservationStore.loading"
         title="暂无审批历史"
@@ -112,7 +112,9 @@ onMounted(() => {
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #footer>
         <Pagination
           :current-page="currentPage"
           :page-size="pageSize"
@@ -121,7 +123,7 @@ onMounted(() => {
           @change="handlePaginationChange"
         />
       </template>
-    </div>
+    </ConsoleTableSection>
   </section>
 </template>
 
@@ -132,19 +134,7 @@ onMounted(() => {
   gap: 24px;
 }
 
-.reservation-manage-view__hero,
-.reservation-manage-view__table-shell {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-}
-
 .reservation-manage-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
@@ -157,17 +147,7 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.reservation-manage-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0369a1;
-}
-
-.reservation-manage-view__hero h1,
-.reservation-manage-view__table-header h2 {
+.reservation-manage-view__hero h1 {
   margin: 0;
   color: var(--app-text-primary);
 }
@@ -177,22 +157,6 @@ onMounted(() => {
   margin: 14px 0 0;
   font-size: 15px;
   line-height: 1.8;
-  color: var(--app-text-secondary);
-}
-
-.reservation-manage-view__table-shell {
-  padding: 24px;
-}
-
-.reservation-manage-view__table-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.reservation-manage-view__table-header span {
-  font-size: 13px;
   color: var(--app-text-secondary);
 }
 
