@@ -4,6 +4,10 @@ import { useRoute } from 'vue-router'
 
 import FreezeStatusTag from '@/components/business/FreezeStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { FreezeStatus, FreezeStatusLabel, UserRoleLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useUserStore } from '@/stores/modules/user'
@@ -17,6 +21,8 @@ const userStore = useUserStore()
 
 const userId = computed(() => String(route.params.id || ''))
 const currentUser = computed(() => userStore.currentManagedUser)
+const accountStatusLabel = computed(() => (currentUser.value?.status === 1 ? '启用' : '禁用'))
+const accountStatusTagType = computed(() => (currentUser.value?.status === 1 ? 'success' : 'info'))
 const riskText = computed(() => {
   if (!currentUser.value) {
     return ''
@@ -37,16 +43,30 @@ const riskText = computed(() => {
   return '账号当前无额外风险提示。'
 })
 
+async function loadManagedUserDetail(targetUserId: string) {
+  try {
+    await userStore.fetchUserDetail(targetUserId)
+  } catch {
+    /**
+     * 详情失败时请求层已经提示错误，这里只阻止 watch 回调抛出未处理拒绝，页面继续回落到空态反馈面板。
+     */
+  }
+}
+
 watch(
   userId,
   (value) => {
+    /**
+     * 切换到新用户详情前必须先清空旧快照。
+     * 这样即使新请求慢于路由切换，也不会把上一个用户的身份与冻结信息短暂展示给系统管理员。
+     */
     if (!value) {
       userStore.resetCurrentManagedUser()
       return
     }
 
     userStore.resetCurrentManagedUser()
-    void userStore.fetchUserDetail(value)
+    void loadManagedUserDetail(value)
   },
   { immediate: true },
 )
@@ -58,90 +78,97 @@ onUnmounted(() => {
 
 <template>
   <section class="user-detail-view">
-    <header class="user-detail-view__hero">
-      <div>
-        <p class="user-detail-view__eyebrow">System / User Detail</p>
-        <h1 class="user-detail-view__title">{{ currentUser?.username || '用户详情' }}</h1>
-        <p class="user-detail-view__description">
-          展示系统管理员处理账号前必须确认的身份与风险信息，避免仅凭列表页最小字段做高风险决策。
-        </p>
-      </div>
-      <FreezeStatusTag v-if="currentUser" :status="currentUser.freezeStatus as FreezeStatus" />
-    </header>
+    <ConsolePageHero
+      eyebrow="System / User Detail"
+      :title="currentUser?.username || '用户详情'"
+      description="展示系统管理员处理账号前必须确认的身份与风险信息，避免仅凭列表页最小字段做高风险决策。"
+      class="user-detail-view__hero"
+    >
+      <template #actions>
+        <div v-if="currentUser" class="user-detail-view__hero-actions">
+          <FreezeStatusTag :status="currentUser.freezeStatus as FreezeStatus" />
+          <el-tag :type="accountStatusTagType" effect="light">{{ accountStatusLabel }}</el-tag>
+        </div>
+      </template>
+    </ConsolePageHero>
 
-    <EmptyState
-      v-if="!currentUser && !userStore.detailLoading"
-      title="暂无用户详情"
-      description="可以返回列表重新进入，或稍后重试详情查询。"
-    />
+    <ConsoleFeedbackSurface
+      v-if="userStore.detailLoading"
+      state="loading"
+      class="user-detail-view__feedback"
+    >
+      <p class="user-detail-view__feedback-text">正在加载用户详情...</p>
+    </ConsoleFeedbackSurface>
 
-    <div v-else class="user-detail-view__grid">
-      <el-card class="user-detail-view__card" shadow="never">
-        <template #header>
-          <div class="user-detail-view__card-header">
-            <span>账户信息</span>
-            <el-tag :type="currentUser?.status === 1 ? 'success' : 'info'" effect="light">
-              {{ currentUser?.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </div>
-        </template>
+    <ConsoleFeedbackSurface v-else-if="!currentUser" class="user-detail-view__feedback">
+      <EmptyState title="暂无用户详情" description="可以返回列表重新进入，或稍后重试详情查询。" />
+    </ConsoleFeedbackSurface>
 
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="用户名">{{
-            currentUser?.username || '-'
-          }}</el-descriptions-item>
-          <el-descriptions-item label="邮箱">{{ currentUser?.email || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="姓名">{{
-            currentUser?.realName || '-'
-          }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{
-            currentUser?.phone || '-'
-          }}</el-descriptions-item>
-          <el-descriptions-item label="角色">
-            {{ UserRoleLabel[currentUser?.roleName as UserRole] ?? currentUser?.roleName ?? '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="冻结状态">
-            {{
-              FreezeStatusLabel[currentUser?.freezeStatus as FreezeStatus] ??
-              currentUser?.freezeStatus ??
-              '-'
-            }}
-          </el-descriptions-item>
-          <el-descriptions-item label="最近登录">{{
-            currentUser?.lastLoginTime || '-'
-          }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{
-            currentUser?.updatedAt || '-'
-          }}</el-descriptions-item>
-        </el-descriptions>
-      </el-card>
+    <ConsoleDetailLayout v-else class="user-detail-view__grid">
+      <template #main>
+        <el-card class="user-detail-view__card" shadow="never">
+          <template #header>
+            <div class="user-detail-view__card-header">
+              <span>账户信息</span>
+              <el-tag :type="accountStatusTagType" effect="light">{{ accountStatusLabel }}</el-tag>
+            </div>
+          </template>
 
-      <el-card class="user-detail-view__card" shadow="never">
-        <template #header>
-          <div class="user-detail-view__card-header">
-            <span>风险信息</span>
-          </div>
-        </template>
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="用户名">{{ currentUser.username }}</el-descriptions-item>
+            <el-descriptions-item label="邮箱">{{ currentUser.email || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="姓名">{{
+              currentUser.realName || '-'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="手机号">{{
+              currentUser.phone || '-'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="角色">
+              {{ UserRoleLabel[currentUser.roleName as UserRole] ?? currentUser.roleName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="冻结状态">
+              {{
+                FreezeStatusLabel[currentUser.freezeStatus as FreezeStatus] ??
+                currentUser.freezeStatus
+              }}
+            </el-descriptions-item>
+            <el-descriptions-item label="最近登录">{{
+              currentUser.lastLoginTime || '-'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="更新时间">{{
+              currentUser.updatedAt || '-'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间" :span="2">
+              {{ currentUser.createdAt || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+      </template>
 
-        <div class="user-detail-view__risk-panel">
+      <template #aside>
+        <ConsoleAsidePanel
+          title="风险信息"
+          description="冻结状态、冻结原因与最近处理时间必须集中展示，系统管理员才能在冻结、解冻或改角色前做出可追溯判断。"
+        >
           <p class="user-detail-view__risk-text">{{ riskText }}</p>
+
           <dl class="user-detail-view__risk-list">
             <div>
               <dt>冻结原因</dt>
-              <dd>{{ currentUser?.freezeReason || '-' }}</dd>
+              <dd>{{ currentUser.freezeReason || '-' }}</dd>
             </div>
             <div>
               <dt>冻结到期时间</dt>
-              <dd>{{ currentUser?.freezeExpireTime || '-' }}</dd>
+              <dd>{{ currentUser.freezeExpireTime || '-' }}</dd>
             </div>
             <div>
-              <dt>创建时间</dt>
-              <dd>{{ currentUser?.createdAt || '-' }}</dd>
+              <dt>最近登录</dt>
+              <dd>{{ currentUser.lastLoginTime || '-' }}</dd>
             </div>
           </dl>
-        </div>
-      </el-card>
-    </div>
+        </ConsoleAsidePanel>
+      </template>
+    </ConsoleDetailLayout>
   </section>
 </template>
 
@@ -153,61 +180,54 @@ onUnmounted(() => {
 }
 
 .user-detail-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px 32px;
-  border: 1px solid rgba(14, 116, 144, 0.12);
-  border-radius: 28px;
   background:
     radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 30%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
-.user-detail-view__eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0f766e;
+.user-detail-view__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.user-detail-view__title {
+.user-detail-view__feedback {
+  min-height: 220px;
+}
+
+.user-detail-view__feedback-text {
   margin: 0;
-  font-size: 30px;
-  color: var(--app-text-primary);
-}
-
-.user-detail-view__description,
-.user-detail-view__risk-text {
-  margin: 12px 0 0;
-  line-height: 1.75;
   color: var(--app-text-secondary);
-}
-
-.user-detail-view__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
 }
 
 .user-detail-view__card {
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 24px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
 .user-detail-view__card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.user-detail-view__card-header span {
+  color: var(--app-text-primary);
+}
+
+.user-detail-view__risk-text {
+  margin: 0;
+  line-height: 1.75;
+  color: var(--app-text-secondary);
 }
 
 .user-detail-view__risk-list {
   display: grid;
   gap: 14px;
-  margin: 18px 0 0;
+  margin: 0;
 }
 
 .user-detail-view__risk-list dt {

@@ -1,5 +1,6 @@
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { FreezeStatus, UserRole } from '@/enums'
@@ -70,7 +71,7 @@ describe('user list view', () => {
     })
 
     const userStore = useUserStore()
-    userStore.adminUserList = [
+    const initialRecords = [
       {
         id: 'user-1',
         username: 'zhangsan',
@@ -83,11 +84,16 @@ describe('user list view', () => {
         roleName: UserRole.USER,
       },
     ]
+    userStore.adminUserList = initialRecords
     userStore.adminUserTotal = 1
 
     const fetchAdminUserListSpy = vi
       .spyOn(userStore, 'fetchAdminUserList')
-      .mockResolvedValue({ total: 1, records: userStore.adminUserList })
+      .mockImplementation(async () => {
+        userStore.adminUserList = initialRecords
+        userStore.adminUserTotal = 1
+        return { total: 1, records: initialRecords }
+      })
     vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue([])
     const updateUserStatusSpy = vi.spyOn(userStore, 'updateUserStatus').mockResolvedValue({
       userId: 'user-1',
@@ -150,6 +156,7 @@ describe('user list view', () => {
     })
 
     expect(fetchAdminUserListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('用户管理')
     expect(wrapper.text()).toContain('zhangsan')
 
@@ -190,7 +197,7 @@ describe('user list view', () => {
     })
 
     const userStore = useUserStore()
-    userStore.adminUserList = [
+    const initialRecords = [
       {
         id: 'user-1',
         username: 'zhangsan',
@@ -214,11 +221,16 @@ describe('user list view', () => {
         roleName: UserRole.USER,
       },
     ]
+    userStore.adminUserList = initialRecords
     userStore.adminUserTotal = 2
 
     const fetchAdminUserListSpy = vi
       .spyOn(userStore, 'fetchAdminUserList')
-      .mockResolvedValue({ total: 2, records: userStore.adminUserList })
+      .mockImplementation(async () => {
+        userStore.adminUserList = initialRecords
+        userStore.adminUserTotal = 2
+        return { total: 2, records: initialRecords }
+      })
     vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue([])
 
     const wrapper = mount(module.default, {
@@ -281,5 +293,156 @@ describe('user list view', () => {
     expect(fetchAdminUserListSpy).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('zhangsan')
     expect(wrapper.text()).not.toContain('lisi')
+  })
+
+  it('重新进入页面且首次加载失败时，会先清空旧列表上下文避免继续操作陈旧数据', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'system-admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'system-admin-1',
+      username: 'system-admin',
+    })
+
+    const userStore = useUserStore()
+    userStore.adminUserList = [
+      {
+        id: 'user-stale',
+        username: 'stale-user',
+        email: 'stale@example.com',
+        realName: '旧用户',
+        phone: '13800138009',
+        status: 1,
+        freezeStatus: FreezeStatus.NORMAL,
+        roleId: 'role-user',
+        roleName: UserRole.USER,
+      },
+    ]
+    userStore.adminUserTotal = 1
+
+    vi.spyOn(userStore, 'fetchAdminUserList').mockRejectedValue(new Error('load failed'))
+    vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue([])
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          SearchBar: { template: '<div class="search-bar-stub"></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
+          FreezeStatusTag: {
+            props: ['status'],
+            template: '<span class="freeze-status-tag">{{ status }}</span>',
+          },
+          Freeze: { props: ['modelValue', 'user'], template: '<div></div>' },
+          RoleAssign: { props: ['modelValue', 'user'], template: '<div></div>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTable: { template: '<div class="el-table-stub"><slot /></div>' },
+          ElTableColumn: { template: '<div><slot :row="$attrs.row || {}" /></div>' },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(userStore.adminUserList).toEqual([])
+    expect(userStore.adminUserTotal).toBe(0)
+    expect(wrapper.text()).not.toContain('stale-user')
+  })
+
+  it('受限账号入口文案会明确提示调整限制，而不是继续显示冻结账号', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'system-admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'system-admin-1',
+      username: 'system-admin',
+    })
+
+    const userStore = useUserStore()
+    userStore.adminUserList = [
+      {
+        id: 'user-3',
+        username: 'wangwu',
+        email: 'wangwu@example.com',
+        realName: '王五',
+        phone: '13800138003',
+        status: 1,
+        freezeStatus: FreezeStatus.RESTRICTED,
+        roleId: 'role-user',
+        roleName: UserRole.USER,
+      },
+    ]
+    userStore.adminUserTotal = 1
+
+    vi.spyOn(userStore, 'fetchAdminUserList').mockResolvedValue({
+      total: 1,
+      records: userStore.adminUserList,
+    })
+    vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue([])
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          SearchBar: { template: '<div class="search-bar-stub"></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
+          FreezeStatusTag: {
+            props: ['status'],
+            template: '<span class="freeze-status-tag">{{ status }}</span>',
+          },
+          Freeze: { props: ['modelValue', 'user'], template: '<div></div>' },
+          RoleAssign: { props: ['modelValue', 'user'], template: '<div></div>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTable: { template: '<div class="el-table-stub"><slot /></div>' },
+          ElTableColumn: { template: '<div><slot :row="$attrs.row || {}" /></div>' },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="user-freeze-trigger"]').text()).toBe('调整限制')
   })
 })

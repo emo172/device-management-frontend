@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import { RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import Freeze from '@/views/user/Freeze.vue'
-import RoleAssign from '@/views/user/RoleAssign.vue'
 import type { UserListItemResponse } from '@/api/users'
+import FreezeStatusTag from '@/components/business/FreezeStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
-import FreezeStatusTag from '@/components/business/FreezeStatusTag.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import { FreezeStatus, UserRoleLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useUserStore } from '@/stores/modules/user'
+import Freeze from '@/views/user/Freeze.vue'
+import RoleAssign from '@/views/user/RoleAssign.vue'
 
 type AdminUserRow = UserListItemResponse
 
@@ -37,6 +41,17 @@ const selectedUser = ref<AdminUserRow | null>(null)
 
 const isSystemAdmin = computed(() => authStore.userRole === UserRole.SYSTEM_ADMIN)
 const normalizedKeyword = computed(() => appliedKeyword.value.trim().toLowerCase())
+const tableData = computed(() =>
+  userStore.adminUserList.filter((user) => matchesKeyword(user, normalizedKeyword.value)),
+)
+const cardUsers = computed(() => tableData.value.slice(0, 3))
+const tableCount = computed(() => {
+  if (!appliedKeyword.value) {
+    return userStore.adminUserTotal
+  }
+
+  return `当前页匹配 ${tableData.value.length} 条 / 总计 ${userStore.adminUserTotal} 条`
+})
 
 function matchesKeyword(user: AdminUserRow, keyword: string) {
   if (!keyword) {
@@ -48,21 +63,28 @@ function matchesKeyword(user: AdminUserRow, keyword: string) {
     .some((field) => field.toLowerCase().includes(keyword))
 }
 
-/**
- * 后端用户列表真实契约目前只支持 `page` 和 `size`。
- * 因此这里把关键词明确降级为“当前页筛选”，避免页面继续承诺一个后端并不存在的全局搜索能力。
- */
-const tableData = computed(() =>
-  userStore.adminUserList.filter((user) => matchesKeyword(user, normalizedKeyword.value)),
-)
-const cardUsers = computed(() => tableData.value.slice(0, 3))
-
 function getStatusLabel(status: number) {
   return status === 1 ? '启用' : '禁用'
 }
 
 function getStatusTagType(status: number) {
   return status === 1 ? 'success' : 'info'
+}
+
+/**
+ * 冻结入口文案要与弹窗默认动作保持一致。
+ * `RESTRICTED` 不是再次冻结，而是继续调整受限条件，因此这里必须明确提示“调整限制”。
+ */
+function getFreezeActionLabel(freezeStatus: FreezeStatus) {
+  if (freezeStatus === FreezeStatus.FROZEN) {
+    return '解冻账号'
+  }
+
+  if (freezeStatus === FreezeStatus.RESTRICTED) {
+    return '调整限制'
+  }
+
+  return '冻结账号'
 }
 
 function buildQuery(overrides?: Partial<{ page: number; size: number }>) {
@@ -77,7 +99,8 @@ async function loadAdminUserList(overrides?: Partial<{ page: number; size: numbe
 }
 
 /**
- * 关键词筛选仅作用于当前页数据，因此搜索按钮只负责确认筛选词，不再向后端发送不存在的查询参数。
+ * 后端用户列表真实契约目前只支持 `page` 和 `size`。
+ * 因此这里把关键词明确降级为“当前页筛选”，避免页面继续承诺一个后端并不存在的全局搜索能力。
  */
 function handleSearch() {
   appliedKeyword.value = filters.keyword
@@ -89,7 +112,11 @@ function handleReset() {
 }
 
 async function handlePaginationChange(payload: { currentPage: number; pageSize: number }) {
-  await loadAdminUserList({ page: payload.currentPage, size: payload.pageSize })
+  try {
+    await loadAdminUserList({ page: payload.currentPage, size: payload.pageSize })
+  } catch {
+    // 请求层已经统一提示，这里只避免分页切换事件留下未处理拒绝。
+  }
 }
 
 function handleDetail(userId: string) {
@@ -111,14 +138,34 @@ async function handleToggleStatus(user: AdminUserRow) {
   const reason =
     nextStatus === 1 ? '系统管理员从用户管理页恢复账号可用状态' : '系统管理员从用户管理页禁用账号'
 
-  await userStore.updateUserStatus(user.id, { status: nextStatus, reason })
-  ElMessage.success(`账号已切换为${getStatusLabel(nextStatus)}`)
+  try {
+    await userStore.updateUserStatus(user.id, { status: nextStatus, reason })
+    ElMessage.success(`账号已切换为${getStatusLabel(nextStatus)}`)
+  } catch {
+    /**
+     * 请求层已经负责弹出失败提示，这里只负责阻止按钮点击链路继续向上抛出未处理拒绝。
+     */
+  }
 }
 
 async function handleDialogSuccess() {
   if (!userStore.roleList.length) {
-    await userStore.fetchRoleList()
+    try {
+      await userStore.fetchRoleList()
+    } catch {
+      // 失败提示交给请求层，这里避免对话框 success 回调留下未处理拒绝。
+    }
   }
+}
+
+function handleRefresh() {
+  void loadAdminUserList().catch(() => {
+    // 请求层已经统一提示，这里只收口按钮点击产生的 Promise 拒绝。
+  })
+}
+
+function handleReloadEmptyState() {
+  handleRefresh()
 }
 
 onMounted(async () => {
@@ -126,28 +173,41 @@ onMounted(async () => {
     return
   }
 
-  await Promise.all([loadAdminUserList({ page: 1, size: 10 }), userStore.fetchRoleList()])
+  /**
+   * 重新进入用户管理页时，必须先清空上一次留下的分页结果与详情快照。
+   * 这样即使本次首次请求失败，也不会把旧列表继续展示给系统管理员做后续操作。
+   */
+  userStore.resetUserManagementState()
+
+  try {
+    await Promise.all([loadAdminUserList({ page: 1, size: 10 }), userStore.fetchRoleList()])
+  } catch {
+    // 初始化失败由请求层提示，页面保留当前空态，避免 mounted 链路抛出未处理拒绝。
+  }
+})
+
+onBeforeUnmount(() => {
+  userStore.resetUserManagementState()
 })
 </script>
 
 <template>
   <section class="user-list-view">
-    <header class="user-list-view__hero">
-      <div>
-        <p class="user-list-view__eyebrow">System / Users</p>
-        <h1 class="user-list-view__title">用户管理</h1>
-        <p class="user-list-view__description">
-          统一查看账号状态、冻结风险与角色归属。所有管理动作都收敛到系统管理员页面，避免出现跨页面维护造成的信息不同步。
-        </p>
-      </div>
-
-      <div class="user-list-view__hero-actions">
-        <el-button @click="loadAdminUserList()">
-          <el-icon><RefreshRight /></el-icon>
-          刷新
-        </el-button>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="System / Users"
+      title="用户管理"
+      description="统一查看账号状态、冻结风险与角色归属。所有管理动作都收敛到系统管理员页面，避免出现跨页面维护造成的信息不同步。"
+      class="user-list-view__hero"
+    >
+      <template #actions>
+        <div class="user-list-view__hero-actions">
+          <el-button @click="handleRefresh">
+            <el-icon><RefreshRight /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <SearchBar
       v-model="filters.keyword"
@@ -157,7 +217,7 @@ onMounted(async () => {
       @reset="handleReset"
     />
 
-    <div v-if="cardUsers.length" class="user-list-view__card-grid">
+    <ConsoleSummaryGrid v-if="cardUsers.length" class="user-list-view__card-grid">
       <article v-for="user in cardUsers" :key="user.id" class="user-card">
         <div class="user-card__header">
           <div>
@@ -210,35 +270,28 @@ onMounted(async () => {
             type="danger"
             @click="handleOpenFreeze(user)"
           >
-            {{ user.freezeStatus === FreezeStatus.FROZEN ? '解冻账号' : '冻结账号' }}
+            {{ getFreezeActionLabel(user.freezeStatus as FreezeStatus) }}
           </el-button>
         </div>
       </article>
-    </div>
+    </ConsoleSummaryGrid>
 
-    <div class="user-list-view__table-shell">
-      <div class="user-list-view__table-header">
-        <h2>用户列表</h2>
-        <span>
-          {{
-            appliedKeyword
-              ? `当前页匹配 ${tableData.length} 条 / 总计 ${userStore.adminUserTotal} 条`
-              : `共 ${userStore.adminUserTotal} 条`
-          }}
-        </span>
-      </div>
-
-      <EmptyState
+    <ConsoleTableSection title="用户列表" :count="tableCount" class="user-list-view__table-shell">
+      <ConsoleFeedbackSurface
         v-if="!tableData.length && !userStore.loading"
-        :title="appliedKeyword ? '当前页暂无匹配用户' : '暂无符合条件的用户'"
-        :description="
-          appliedKeyword
-            ? '当前后端仅支持分页查询，已按本页数据执行关键词筛选。'
-            : '可以刷新列表，或等待后端产生新的账号数据。'
-        "
-        action-text="重新加载"
-        @action="loadAdminUserList()"
-      />
+        class="user-list-view__feedback"
+      >
+        <EmptyState
+          :title="appliedKeyword ? '当前页暂无匹配用户' : '暂无符合条件的用户'"
+          :description="
+            appliedKeyword
+              ? '当前后端仅支持分页查询，已按本页数据执行关键词筛选。'
+              : '可以刷新列表，或等待后端产生新的账号数据。'
+          "
+          action-text="重新加载"
+          @action="handleReloadEmptyState"
+        />
+      </ConsoleFeedbackSurface>
 
       <template v-else>
         <el-table v-loading="userStore.loading" :data="tableData" stripe>
@@ -272,11 +325,17 @@ onMounted(async () => {
                 <el-button text type="warning" @click="handleToggleStatus(scope.row)">
                   {{ scope.row.status === 1 ? '禁用' : '启用' }}
                 </el-button>
-                <el-button text type="primary" @click="handleOpenRoleAssign(scope.row)"
-                  >分配角色</el-button
-                >
+                <el-button text type="primary" @click="handleOpenRoleAssign(scope.row)">
+                  分配角色
+                </el-button>
                 <el-button text type="danger" @click="handleOpenFreeze(scope.row)">
-                  {{ scope.row.freezeStatus === FreezeStatus.FROZEN ? '解冻' : '冻结' }}
+                  {{
+                    scope.row.freezeStatus === FreezeStatus.FROZEN
+                      ? '解冻'
+                      : scope.row.freezeStatus === FreezeStatus.RESTRICTED
+                        ? '调整限制'
+                        : '冻结'
+                  }}
                 </el-button>
               </div>
             </template>
@@ -291,7 +350,7 @@ onMounted(async () => {
           @change="handlePaginationChange"
         />
       </template>
-    </div>
+    </ConsoleTableSection>
 
     <Freeze v-model="freezeDialogVisible" :user="selectedUser" @success="handleDialogSuccess" />
     <RoleAssign v-model="roleDialogVisible" :user="selectedUser" @success="handleDialogSuccess" />
@@ -305,20 +364,7 @@ onMounted(async () => {
   gap: 24px;
 }
 
-.user-list-view__hero,
-.user-list-view__table-shell,
-.user-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-}
-
 .user-list-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.92));
@@ -336,37 +382,8 @@ onMounted(async () => {
   align-self: flex-start;
 }
 
-.user-list-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0369a1;
-}
-
-.user-list-view__title,
-.user-list-view__table-header h2 {
-  margin: 0;
-  color: var(--app-text-primary);
-}
-
-.user-list-view__title {
-  font-size: clamp(30px, 4vw, 40px);
-}
-
-.user-list-view__description {
-  max-width: 760px;
-  margin: 14px 0 0;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--app-text-secondary);
-}
-
 .user-list-view__card-grid {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
 }
 
 .user-card {
@@ -374,10 +391,13 @@ onMounted(async () => {
   flex-direction: column;
   gap: 18px;
   padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
 }
 
-.user-card__header,
-.user-list-view__table-header {
+.user-card__header {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -414,16 +434,10 @@ onMounted(async () => {
 }
 
 .user-list-view__table-shell {
-  padding: 24px;
+  gap: 18px;
 }
 
-.user-list-view__table-header {
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.user-list-view__table-header span {
-  font-size: 13px;
-  color: var(--app-text-secondary);
+.user-list-view__feedback {
+  min-height: 220px;
 }
 </style>
