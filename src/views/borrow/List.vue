@@ -5,6 +5,10 @@ import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BorrowStatusTag from '@/components/business/BorrowStatusTag.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
+import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { BorrowStatus, BorrowStatusLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -110,24 +114,22 @@ onMounted(() => {
 
 <template>
   <section class="borrow-list-view">
-    <header class="borrow-list-view__hero">
-      <div>
-        <p class="borrow-list-view__eyebrow">Borrow Ledger</p>
-        <h1 class="borrow-list-view__title">借还台账</h1>
-        <p class="borrow-list-view__description">
-          统一查看借用确认、归还闭环与逾期流转。当前后端借还记录接口未直接返回设备名称与借用人姓名，因此本页优先展示真实可用的设备
-          ID、用户 ID 与预约编号。
-        </p>
-      </div>
+    <ConsolePageHero
+      eyebrow="Borrow Ledger"
+      title="借还台账"
+      description="统一查看借用确认、归还闭环与逾期流转。当前后端借还记录接口未直接返回设备名称与借用人姓名，因此本页优先展示真实可用的设备 ID、用户 ID 与预约编号。"
+      class="borrow-list-view__hero"
+    >
+      <template #actions>
+        <!-- 借用确认与归还确认只对设备管理员开放，普通用户在本页只保留记录查看能力。 -->
+        <div v-if="isDeviceAdmin" class="borrow-list-view__hero-actions">
+          <el-button type="primary" @click="handleGoConfirm">借用确认</el-button>
+          <el-button @click="handleGoReturn()">归还确认</el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
-      <!-- 借用确认与归还确认只对设备管理员开放，普通用户在本页只保留记录查看能力。 -->
-      <div v-if="isDeviceAdmin" class="borrow-list-view__hero-actions">
-        <el-button type="primary" @click="handleGoConfirm">借用确认</el-button>
-        <el-button @click="handleGoReturn()">归还确认</el-button>
-      </div>
-    </header>
-
-    <section class="borrow-list-view__summary-grid">
+    <ConsoleSummaryGrid class="borrow-list-view__summary-grid">
       <article
         v-for="card in summaryCards"
         :key="card.label"
@@ -137,9 +139,9 @@ onMounted(() => {
         <p>{{ card.label }}</p>
         <strong>{{ card.value }}</strong>
       </article>
-    </section>
+    </ConsoleSummaryGrid>
 
-    <section class="borrow-list-view__filter-panel">
+    <ConsoleToolbarShell class="borrow-list-view__filter-panel">
       <div>
         <p class="borrow-list-view__filter-eyebrow">Filter</p>
         <h2>状态筛选</h2>
@@ -160,17 +162,13 @@ onMounted(() => {
           <el-button @click="handleReset">重置</el-button>
         </div>
       </div>
-    </section>
+    </ConsoleToolbarShell>
 
-    <section class="borrow-list-view__table-shell">
-      <div class="borrow-list-view__table-header">
-        <div>
-          <p class="borrow-list-view__filter-eyebrow">Records</p>
-          <h2>借还记录列表</h2>
-        </div>
-        <span>共 {{ borrowStore.total }} 条</span>
-      </div>
-
+    <ConsoleTableSection
+      title="借还记录列表"
+      :count="borrowStore.total"
+      class="borrow-list-view__table-shell"
+    >
       <EmptyState
         v-if="!tableData.length && !borrowStore.loading"
         title="暂无符合条件的借还记录"
@@ -230,7 +228,9 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
+      </template>
 
+      <template #footer>
         <Pagination
           :current-page="borrowStore.query.page ?? 1"
           :page-size="borrowStore.query.size ?? 10"
@@ -239,7 +239,7 @@ onMounted(() => {
           @change="handlePaginationChange"
         />
       </template>
-    </section>
+    </ConsoleTableSection>
   </section>
 </template>
 
@@ -251,9 +251,6 @@ onMounted(() => {
   color: #1e293b;
 }
 
-.borrow-list-view__hero,
-.borrow-list-view__filter-panel,
-.borrow-list-view__table-shell,
 .borrow-list-view__summary-card {
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 28px;
@@ -262,10 +259,6 @@ onMounted(() => {
 }
 
 .borrow-list-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 30%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
@@ -320,9 +313,7 @@ onMounted(() => {
 }
 
 .borrow-list-view__summary-grid {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
 }
 
 .borrow-list-view__summary-card {
@@ -353,11 +344,6 @@ onMounted(() => {
 
 .borrow-list-view__summary-card--rose strong {
   color: #e11d48;
-}
-
-.borrow-list-view__filter-panel,
-.borrow-list-view__table-shell {
-  padding: 24px;
 }
 
 .borrow-list-view__filter-panel {

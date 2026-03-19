@@ -114,6 +114,8 @@ describe('device create/edit pages', () => {
     })
 
     expect(categoryStore.fetchCategoryTree).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
 
     await wrapper.get('.submit-create').trigger('click')
 
@@ -173,6 +175,8 @@ describe('device create/edit pages', () => {
 
     expect(deviceStore.fetchDeviceDetail).toHaveBeenCalledWith('device-1')
     expect(categoryStore.fetchCategoryTree).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
 
     await wrapper.get('.submit-edit').trigger('click')
 

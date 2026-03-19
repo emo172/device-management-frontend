@@ -5,6 +5,9 @@ import { useRoute, useRouter } from 'vue-router'
 import OverdueHandleTypeTag from '@/components/business/OverdueHandleTypeTag.vue'
 import OverdueProcessingStatusTag from '@/components/business/OverdueProcessingStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { OverdueProcessingStatus } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -49,30 +52,29 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="overdue-detail-view">
-    <header class="overdue-detail-view__hero">
-      <div>
-        <p class="overdue-detail-view__eyebrow">Overdue Detail</p>
-        <h1>逾期记录详情</h1>
-        <p>
-          查看单条逾期记录的正式处理状态、处理方式与处理时间，确保设备管理员与普通用户看到的是同一份后端回执。
-        </p>
-      </div>
+    <ConsolePageHero
+      eyebrow="Overdue Detail"
+      title="逾期记录详情"
+      description="查看单条逾期记录的正式处理状态、处理方式与处理时间，确保设备管理员与普通用户看到的是同一份后端回执。"
+      class="overdue-detail-view__hero"
+    >
+      <template #actions>
+        <div class="overdue-detail-view__actions">
+          <el-button @click="handleBack">返回列表</el-button>
 
-      <div class="overdue-detail-view__actions">
-        <el-button @click="handleBack">返回列表</el-button>
-
-        <!-- 仅设备管理员可从详情继续进入处理页，且仅对待处理记录开放。 -->
-        <el-button
-          v-if="
-            isDeviceAdmin && currentRecord?.processingStatus === OverdueProcessingStatus.PENDING
-          "
-          type="danger"
-          @click="handleGoHandle"
-        >
-          去处理
-        </el-button>
-      </div>
-    </header>
+          <!-- 仅设备管理员可从详情继续进入处理页，且仅对待处理记录开放。 -->
+          <el-button
+            v-if="
+              isDeviceAdmin && currentRecord?.processingStatus === OverdueProcessingStatus.PENDING
+            "
+            type="danger"
+            @click="handleGoHandle"
+          >
+            去处理
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <EmptyState
       v-if="!currentRecord && !overdueStore.loading"
@@ -83,71 +85,80 @@ onBeforeUnmount(() => {
     />
 
     <template v-else-if="currentRecord">
-      <section class="overdue-detail-view__status-grid">
-        <article class="overdue-detail-view__status-card">
-          <p class="overdue-detail-view__eyebrow">Processing</p>
-          <h2>处理状态</h2>
-          <OverdueProcessingStatusTag :status="currentRecord.processingStatus" />
-        </article>
+      <ConsoleDetailLayout class="overdue-detail-view__grid">
+        <template #main>
+          <article class="overdue-detail-view__panel">
+            <h3>基础信息</h3>
+            <dl>
+              <div>
+                <dt>逾期记录 ID</dt>
+                <dd>{{ currentRecord.id }}</dd>
+              </div>
+              <div>
+                <dt>借还记录 ID</dt>
+                <dd>{{ currentRecord.borrowRecordId }}</dd>
+              </div>
+              <div>
+                <dt>设备 ID</dt>
+                <dd>{{ currentRecord.deviceId }}</dd>
+              </div>
+              <div>
+                <dt>用户 ID</dt>
+                <dd>{{ currentRecord.userId }}</dd>
+              </div>
+            </dl>
+          </article>
 
-        <article class="overdue-detail-view__status-card">
-          <p class="overdue-detail-view__eyebrow">Method</p>
-          <h2>处理方式</h2>
-          <OverdueHandleTypeTag :type="currentRecord.processingMethod" />
-        </article>
-      </section>
+          <article class="overdue-detail-view__panel">
+            <h3>逾期与处理</h3>
+            <dl>
+              <div>
+                <dt>逾期时长</dt>
+                <dd>{{ currentRecord.overdueHours }} 小时 / {{ currentRecord.overdueDays }} 天</dd>
+              </div>
+              <div>
+                <dt>处理时间</dt>
+                <dd>{{ formatDateTime(currentRecord.processingTime) }}</dd>
+              </div>
+              <div>
+                <dt>处理人</dt>
+                <dd>{{ currentRecord.processorId || '-' }}</dd>
+              </div>
+              <div>
+                <dt>赔偿金额</dt>
+                <dd>{{ currentRecord.compensationAmount ?? 0 }}</dd>
+              </div>
+            </dl>
+          </article>
 
-      <section class="overdue-detail-view__grid">
-        <article class="overdue-detail-view__panel">
-          <h3>基础信息</h3>
-          <dl>
-            <div>
-              <dt>逾期记录 ID</dt>
-              <dd>{{ currentRecord.id }}</dd>
-            </div>
-            <div>
-              <dt>借还记录 ID</dt>
-              <dd>{{ currentRecord.borrowRecordId }}</dd>
-            </div>
-            <div>
-              <dt>设备 ID</dt>
-              <dd>{{ currentRecord.deviceId }}</dd>
-            </div>
-            <div>
-              <dt>用户 ID</dt>
-              <dd>{{ currentRecord.userId }}</dd>
-            </div>
-          </dl>
-        </article>
+          <article class="overdue-detail-view__panel overdue-detail-view__panel--full">
+            <h3>处理备注</h3>
+            <p>{{ currentRecord.processingRemark || '当前尚无处理备注。' }}</p>
+            <small>通知发送标记：{{ currentRecord.notificationSent ? '已发送' : '未发送' }}</small>
+          </article>
+        </template>
 
-        <article class="overdue-detail-view__panel">
-          <h3>逾期与处理</h3>
-          <dl>
-            <div>
-              <dt>逾期时长</dt>
-              <dd>{{ currentRecord.overdueHours }} 小时 / {{ currentRecord.overdueDays }} 天</dd>
-            </div>
-            <div>
-              <dt>处理时间</dt>
-              <dd>{{ formatDateTime(currentRecord.processingTime) }}</dd>
-            </div>
-            <div>
-              <dt>处理人</dt>
-              <dd>{{ currentRecord.processorId || '-' }}</dd>
-            </div>
-            <div>
-              <dt>赔偿金额</dt>
-              <dd>{{ currentRecord.compensationAmount ?? 0 }}</dd>
-            </div>
-          </dl>
-        </article>
+        <template #aside>
+          <ConsoleAsidePanel
+            title="处理快照"
+            description="处理状态与处理方式必须并排贴着详情展示，帮助设备管理员确认是否还需要继续处理。"
+          >
+            <div class="overdue-detail-view__status-grid">
+              <article class="overdue-detail-view__status-card">
+                <p class="overdue-detail-view__eyebrow">Processing</p>
+                <h2>处理状态</h2>
+                <OverdueProcessingStatusTag :status="currentRecord.processingStatus" />
+              </article>
 
-        <article class="overdue-detail-view__panel overdue-detail-view__panel--full">
-          <h3>处理备注</h3>
-          <p>{{ currentRecord.processingRemark || '当前尚无处理备注。' }}</p>
-          <small>通知发送标记：{{ currentRecord.notificationSent ? '已发送' : '未发送' }}</small>
-        </article>
-      </section>
+              <article class="overdue-detail-view__status-card">
+                <p class="overdue-detail-view__eyebrow">Method</p>
+                <h2>处理方式</h2>
+                <OverdueHandleTypeTag :type="currentRecord.processingMethod" />
+              </article>
+            </div>
+          </ConsoleAsidePanel>
+        </template>
+      </ConsoleDetailLayout>
     </template>
   </section>
 </template>

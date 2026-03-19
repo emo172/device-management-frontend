@@ -7,6 +7,9 @@ import { useRoute, useRouter } from 'vue-router'
 import BorrowStatusTag from '@/components/business/BorrowStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { BorrowStatus } from '@/enums'
 import { useBorrowStore } from '@/stores/modules/borrow'
 import { formatDateTime } from '@/utils/date'
@@ -105,28 +108,27 @@ onMounted(() => {
 
 <template>
   <section class="borrow-return-view">
-    <header class="borrow-return-view__hero">
-      <div>
-        <p class="borrow-return-view__eyebrow">Confirm Return</p>
-        <h1>归还确认</h1>
-        <p>
-          统一处理仍处于借用中的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。
-        </p>
-      </div>
-
-      <div class="borrow-return-view__actions">
-        <el-button @click="handleBack">返回台账</el-button>
-        <el-button
-          class="borrow-return-view__submit"
-          type="primary"
-          :disabled="!selectedRecord"
-          :loading="submitting"
-          @click="handleSubmit"
-        >
-          确认归还
-        </el-button>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Confirm Return"
+      title="归还确认"
+      description="统一处理仍处于借用中的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
+      class="borrow-return-view__hero"
+    >
+      <template #actions>
+        <div class="borrow-return-view__actions">
+          <el-button @click="handleBack">返回台账</el-button>
+          <el-button
+            class="borrow-return-view__submit"
+            type="primary"
+            :disabled="!selectedRecord"
+            :loading="submitting"
+            @click="handleSubmit"
+          >
+            确认归还
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <EmptyState
       v-if="!borrowedCandidates.length && !borrowStore.loading"
@@ -137,78 +139,85 @@ onMounted(() => {
     />
 
     <template v-else>
-      <section class="borrow-return-view__layout">
-        <article class="borrow-return-view__candidate-panel">
-          <div class="borrow-return-view__panel-header">
-            <p class="borrow-return-view__eyebrow">Borrowed</p>
-            <h2>待归还记录</h2>
-          </div>
+      <ConsoleDetailLayout class="borrow-return-view__layout">
+        <template #main>
+          <article class="borrow-return-view__candidate-panel">
+            <div class="borrow-return-view__panel-header">
+              <p class="borrow-return-view__eyebrow">Borrowed</p>
+              <h2>待归还记录</h2>
+            </div>
 
-          <div class="borrow-return-view__candidate-list">
-            <button
-              v-for="item in borrowedCandidates"
-              :key="item.id"
-              class="borrow-return-view__candidate-card"
-              :class="{
-                'borrow-return-view__candidate-card--active': selectedRecordId === item.id,
-              }"
-              type="button"
-              @click="handleSelectRecord(item.id)"
-            >
-              <div class="borrow-return-view__candidate-title">
-                <strong>{{ item.deviceId }}</strong>
-                <BorrowStatusTag :status="item.status" />
-              </div>
-              <span>借还记录：{{ item.id }}</span>
-              <span>借用人：{{ item.userId }}</span>
-              <span>预计归还：{{ formatDateTime(item.expectedReturnTime) }}</span>
-            </button>
-          </div>
+            <div class="borrow-return-view__candidate-list">
+              <button
+                v-for="item in borrowedCandidates"
+                :key="item.id"
+                class="borrow-return-view__candidate-card"
+                :class="{
+                  'borrow-return-view__candidate-card--active': selectedRecordId === item.id,
+                }"
+                type="button"
+                @click="handleSelectRecord(item.id)"
+              >
+                <div class="borrow-return-view__candidate-title">
+                  <strong>{{ item.deviceId }}</strong>
+                  <BorrowStatusTag :status="item.status" />
+                </div>
+                <span>借还记录：{{ item.id }}</span>
+                <span>借用人：{{ item.userId }}</span>
+                <span>预计归还：{{ formatDateTime(item.expectedReturnTime) }}</span>
+              </button>
+            </div>
 
-          <Pagination
-            :current-page="borrowStore.query.page ?? pagination.page"
-            :page-size="borrowStore.query.size ?? pagination.size"
-            :total="borrowStore.total"
-            :disabled="borrowStore.loading"
-            @change="handlePaginationChange"
-          />
-        </article>
+            <Pagination
+              :current-page="borrowStore.query.page ?? pagination.page"
+              :page-size="borrowStore.query.size ?? pagination.size"
+              :total="borrowStore.total"
+              :disabled="borrowStore.loading"
+              @change="handlePaginationChange"
+            />
+          </article>
+        </template>
 
-        <article class="borrow-return-view__detail-panel">
-          <div class="borrow-return-view__panel-header">
-            <p class="borrow-return-view__eyebrow">Selection</p>
-            <h2>归还说明</h2>
-          </div>
+        <template #aside>
+          <ConsoleAsidePanel
+            title="归还说明"
+            description="归还确认只针对借用中的正式借还记录，备注会跟归还结果一起留在现场处理链路里。"
+          >
+            <div class="borrow-return-view__panel-header">
+              <p class="borrow-return-view__eyebrow">Selection</p>
+              <h2>归还说明</h2>
+            </div>
 
-          <template v-if="selectedRecord">
-            <dl class="borrow-return-view__detail-list">
-              <div>
-                <dt>借还记录 ID</dt>
-                <dd>{{ selectedRecord.id }}</dd>
-              </div>
-              <div>
-                <dt>预约 ID</dt>
-                <dd>{{ selectedRecord.reservationId }}</dd>
-              </div>
-              <div>
-                <dt>借用时间</dt>
-                <dd>{{ formatDateTime(selectedRecord.borrowTime) }}</dd>
-              </div>
-            </dl>
+            <template v-if="selectedRecord">
+              <dl class="borrow-return-view__detail-list">
+                <div>
+                  <dt>借还记录 ID</dt>
+                  <dd>{{ selectedRecord.id }}</dd>
+                </div>
+                <div>
+                  <dt>预约 ID</dt>
+                  <dd>{{ selectedRecord.reservationId }}</dd>
+                </div>
+                <div>
+                  <dt>借用时间</dt>
+                  <dd>{{ formatDateTime(selectedRecord.borrowTime) }}</dd>
+                </div>
+              </dl>
 
-            <label class="borrow-return-view__remark-field">
-              <span>归还备注（可选）</span>
-              <textarea
-                v-model="remark"
-                rows="5"
-                placeholder="例如：设备检查完好，配件数量已核对。"
-              />
-            </label>
-          </template>
+              <label class="borrow-return-view__remark-field">
+                <span>归还备注（可选）</span>
+                <textarea
+                  v-model="remark"
+                  rows="5"
+                  placeholder="例如：设备检查完好，配件数量已核对。"
+                />
+              </label>
+            </template>
 
-          <p v-else class="borrow-return-view__empty-tip">请先选择一条待归还记录。</p>
-        </article>
-      </section>
+            <p v-else class="borrow-return-view__empty-tip">请先选择一条待归还记录。</p>
+          </ConsoleAsidePanel>
+        </template>
+      </ConsoleDetailLayout>
     </template>
   </section>
 </template>

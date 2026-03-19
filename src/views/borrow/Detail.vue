@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 
 import BorrowStatusTag from '@/components/business/BorrowStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { BorrowStatus } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -48,28 +51,27 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="borrow-detail-view">
-    <header class="borrow-detail-view__hero">
-      <div>
-        <p class="borrow-detail-view__eyebrow">Borrow Detail</p>
-        <h1>借还记录详情</h1>
-        <p>
-          查看单条借还记录的正式主键、借出/归还时间与处理人，方便借还确认完成后追溯现场操作记录。
-        </p>
-      </div>
+    <ConsolePageHero
+      eyebrow="Borrow Detail"
+      title="借还记录详情"
+      description="查看单条借还记录的正式主键、借出归还时间与处理人，方便借还确认完成后追溯现场操作记录。"
+      class="borrow-detail-view__hero"
+    >
+      <template #actions>
+        <div class="borrow-detail-view__actions">
+          <el-button @click="handleBack">返回列表</el-button>
 
-      <div class="borrow-detail-view__actions">
-        <el-button @click="handleBack">返回列表</el-button>
-
-        <!-- 仅设备管理员可从详情继续发起归还确认，且仅对借用中的正式记录开放。 -->
-        <el-button
-          v-if="isDeviceAdmin && currentRecord?.status === BorrowStatus.BORROWED"
-          type="primary"
-          @click="handleGoReturn"
-        >
-          去归还确认
-        </el-button>
-      </div>
-    </header>
+          <!-- 仅设备管理员可从详情继续发起归还确认，且仅对借用中的正式记录开放。 -->
+          <el-button
+            v-if="isDeviceAdmin && currentRecord?.status === BorrowStatus.BORROWED"
+            type="primary"
+            @click="handleGoReturn"
+          >
+            去归还确认
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <EmptyState
       v-if="!currentRecord && !borrowStore.loading"
@@ -80,68 +82,71 @@ onBeforeUnmount(() => {
     />
 
     <template v-else-if="currentRecord">
-      <section class="borrow-detail-view__status-card">
-        <div>
-          <p class="borrow-detail-view__eyebrow">Status</p>
-          <h2>当前流转状态</h2>
-        </div>
-        <BorrowStatusTag :status="currentRecord.status" />
-      </section>
+      <ConsoleDetailLayout class="borrow-detail-view__grid">
+        <template #main>
+          <article class="borrow-detail-view__panel">
+            <h3>业务主键</h3>
+            <dl>
+              <div>
+                <dt>借还记录 ID</dt>
+                <dd>{{ currentRecord.id }}</dd>
+              </div>
+              <div>
+                <dt>预约 ID</dt>
+                <dd>{{ currentRecord.reservationId }}</dd>
+              </div>
+              <div>
+                <dt>设备 ID</dt>
+                <dd>{{ currentRecord.deviceId }}</dd>
+              </div>
+              <div>
+                <dt>用户 ID</dt>
+                <dd>{{ currentRecord.userId }}</dd>
+              </div>
+            </dl>
+          </article>
 
-      <section class="borrow-detail-view__grid">
-        <article class="borrow-detail-view__panel">
-          <h3>业务主键</h3>
-          <dl>
-            <div>
-              <dt>借还记录 ID</dt>
-              <dd>{{ currentRecord.id }}</dd>
-            </div>
-            <div>
-              <dt>预约 ID</dt>
-              <dd>{{ currentRecord.reservationId }}</dd>
-            </div>
-            <div>
-              <dt>设备 ID</dt>
-              <dd>{{ currentRecord.deviceId }}</dd>
-            </div>
-            <div>
-              <dt>用户 ID</dt>
-              <dd>{{ currentRecord.userId }}</dd>
-            </div>
-          </dl>
-        </article>
+          <article class="borrow-detail-view__panel">
+            <h3>时间与操作</h3>
+            <dl>
+              <div>
+                <dt>借用时间</dt>
+                <dd>{{ formatDateTime(currentRecord.borrowTime) }}</dd>
+              </div>
+              <div>
+                <dt>预计归还时间</dt>
+                <dd>{{ formatDateTime(currentRecord.expectedReturnTime) }}</dd>
+              </div>
+              <div>
+                <dt>实际归还时间</dt>
+                <dd>{{ formatDateTime(currentRecord.returnTime) }}</dd>
+              </div>
+              <div>
+                <dt>借用操作人</dt>
+                <dd>{{ currentRecord.operatorId || '-' }}</dd>
+              </div>
+              <div>
+                <dt>归还操作人</dt>
+                <dd>{{ currentRecord.returnOperatorId || '-' }}</dd>
+              </div>
+            </dl>
+          </article>
 
-        <article class="borrow-detail-view__panel">
-          <h3>时间与操作</h3>
-          <dl>
-            <div>
-              <dt>借用时间</dt>
-              <dd>{{ formatDateTime(currentRecord.borrowTime) }}</dd>
-            </div>
-            <div>
-              <dt>预计归还时间</dt>
-              <dd>{{ formatDateTime(currentRecord.expectedReturnTime) }}</dd>
-            </div>
-            <div>
-              <dt>实际归还时间</dt>
-              <dd>{{ formatDateTime(currentRecord.returnTime) }}</dd>
-            </div>
-            <div>
-              <dt>借用操作人</dt>
-              <dd>{{ currentRecord.operatorId || '-' }}</dd>
-            </div>
-            <div>
-              <dt>归还操作人</dt>
-              <dd>{{ currentRecord.returnOperatorId || '-' }}</dd>
-            </div>
-          </dl>
-        </article>
+          <article class="borrow-detail-view__panel borrow-detail-view__panel--full">
+            <h3>现场备注</h3>
+            <p>{{ currentRecord.remark || '当前无现场补充备注。' }}</p>
+          </article>
+        </template>
 
-        <article class="borrow-detail-view__panel borrow-detail-view__panel--full">
-          <h3>现场备注</h3>
-          <p>{{ currentRecord.remark || '当前无现场补充备注。' }}</p>
-        </article>
-      </section>
+        <template #aside>
+          <ConsoleAsidePanel
+            title="当前流转状态"
+            description="详情页要把正式状态与后续动作放在侧栏里，方便设备管理员做归还确认前快速核对。"
+          >
+            <BorrowStatusTag :status="currentRecord.status" />
+          </ConsoleAsidePanel>
+        </template>
+      </ConsoleDetailLayout>
     </template>
   </section>
 </template>

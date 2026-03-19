@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApprovalMode as CategoryApprovalMode } from '@/api/categories'
 import CategoryForm from '@/components/form/CategoryForm.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
 import { ApprovalMode } from '@/enums'
 
 interface CategoryFormValue {
@@ -52,11 +53,23 @@ function handleSubmit(payload: CategoryFormValue) {
     destroy-on-close
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <CategoryForm
-      :initial-value="initialValue"
-      :category-options="categoryOptions"
-      :submitting="submitting"
-      @submit="handleSubmit"
-    />
+    <ConsoleFeedbackSurface class="manage-category-dialog__surface" state="confirm">
+      <template #confirm>
+        <CategoryForm
+          :initial-value="initialValue"
+          :category-options="categoryOptions"
+          :submitting="submitting"
+          @submit="handleSubmit"
+        />
+      </template>
+    </ConsoleFeedbackSurface>
   </el-dialog>
 </template>
+
+<style scoped lang="scss">
+.manage-category-dialog__surface {
+  min-height: auto;
+  align-items: stretch;
+  text-align: left;
+}
+</style>

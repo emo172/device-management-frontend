@@ -5,6 +5,8 @@ import { computed, onMounted, ref } from 'vue'
 
 import type { ApprovalMode as CategoryApprovalMode } from '@/api/categories'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import { ApprovalModeLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -43,32 +45,31 @@ onMounted(() => {
 
 <template>
   <section class="category-list-view">
-    <header class="category-list-view__header">
-      <div>
-        <p class="category-list-view__eyebrow">Category Console</p>
-        <h1>设备分类管理</h1>
-      </div>
-
-      <!-- 分类创建入口只给设备管理员，系统管理员与普通用户不在前端暴露该入口。 -->
-      <el-button
-        v-if="isDeviceAdmin"
-        class="category-list-view__create"
-        type="primary"
-        @click="manageVisible = true"
-      >
-        <el-icon><FolderAdd /></el-icon>
-        新建分类
-      </el-button>
-    </header>
-
-    <el-card>
-      <template #header>
-        <div class="category-list-view__card-header">
-          <span>分类树</span>
-          <span>共 {{ categoryStore.tree.length }} 个顶级分类</span>
-        </div>
+    <ConsolePageHero
+      eyebrow="Category Console"
+      title="设备分类管理"
+      description="分类树展示全部层级，但真正的新增维护入口只向设备管理员开放，确保前后端职责一致。"
+      class="category-list-view__hero"
+    >
+      <template #actions>
+        <!-- 分类创建入口只给设备管理员，系统管理员与普通用户不在前端暴露该入口。 -->
+        <el-button
+          v-if="isDeviceAdmin"
+          class="category-list-view__create"
+          type="primary"
+          @click="manageVisible = true"
+        >
+          <el-icon><FolderAdd /></el-icon>
+          新建分类
+        </el-button>
       </template>
+    </ConsolePageHero>
 
+    <ConsoleTableSection
+      title="分类树"
+      :count="`${categoryStore.tree.length} 个顶级分类`"
+      class="category-list-view__table-shell"
+    >
       <EmptyState
         v-if="!categoryStore.tree.length && !categoryStore.loading"
         title="暂无分类数据"
@@ -94,7 +95,7 @@ onMounted(() => {
           </div>
         </template>
       </el-tree>
-    </el-card>
+    </ConsoleTableSection>
 
     <Manage
       v-model="manageVisible"
@@ -112,7 +113,6 @@ onMounted(() => {
   gap: 20px;
 }
 
-.category-list-view__header,
 .category-list-view__card-header,
 .category-list-view__tree-node,
 .category-list-view__tree-meta {
@@ -120,22 +120,11 @@ onMounted(() => {
   align-items: center;
 }
 
-.category-list-view__header,
 .category-list-view__card-header,
 .category-list-view__tree-node {
   justify-content: space-between;
 }
 
-.category-list-view__eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #b45309;
-}
-
-.category-list-view__header h1,
 .category-list-view__card-header span,
 .category-list-view__tree-node strong {
   margin: 0;

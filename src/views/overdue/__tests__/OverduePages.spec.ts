@@ -191,6 +191,9 @@ describe('overdue pages', () => {
       size: 10,
       processingStatus: undefined,
     })
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('处理逾期')
   })
 
@@ -300,6 +303,8 @@ describe('overdue pages', () => {
     const wrapper = mount(module.default, { global: commonGlobal })
 
     expect(fetchOverdueDetailSpy).toHaveBeenCalledWith(pendingRecord.id)
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
 
     await wrapper.get('textarea').setValue('已确认损坏')
     await wrapper.get('input[type="number"]').setValue('120')
@@ -344,6 +349,8 @@ describe('overdue pages', () => {
     const wrapper = mount(module.default, { global: commonGlobal })
 
     expect(fetchOverdueDetailSpy).toHaveBeenCalledWith(pendingRecord.id)
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('待处理')
     expect(wrapper.text()).toContain(pendingRecord.borrowRecordId)
   })
