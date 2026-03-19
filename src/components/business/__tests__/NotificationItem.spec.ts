@@ -77,6 +77,7 @@ describe('NotificationItem', () => {
       },
     })
 
+    expect(inAppWrapper.find('.notification-item__surface').exists()).toBe(true)
     expect(inAppWrapper.text()).toContain('未读')
     expect(inAppWrapper.text()).toContain('标记已读')
 

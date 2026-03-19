@@ -58,6 +58,7 @@ describe('Pagination', () => {
     })
 
     expect(wrapper.text()).toContain('2-20-88')
+    expect(wrapper.find('.pagination-wrapper__surface').exists()).toBe(true)
 
     await wrapper.get('.page').trigger('click')
     await wrapper.get('.size').trigger('click')

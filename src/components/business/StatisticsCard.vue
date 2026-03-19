@@ -19,7 +19,7 @@ withDefaults(
 </script>
 
 <template>
-  <article class="statistics-card" :class="`statistics-card--${accent}`">
+  <article class="statistics-card statistics-card__surface" :class="`statistics-card--${accent}`">
     <p class="statistics-card__title">{{ title }}</p>
     <strong class="statistics-card__value">{{ value }}</strong>
     <p class="statistics-card__description">{{ description }}</p>
@@ -28,16 +28,18 @@ withDefaults(
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .statistics-card {
+  @include shell.console-solid-surface;
+
   position: relative;
   overflow: hidden;
   display: grid;
   gap: 10px;
   padding: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
 .statistics-card::after {

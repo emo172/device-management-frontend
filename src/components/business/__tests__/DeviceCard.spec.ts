@@ -72,6 +72,7 @@ describe('DeviceCard', () => {
     })
 
     expect(wrapper.text()).toContain('高精度示波器')
+    expect(wrapper.find('.device-card__surface').exists()).toBe(true)
     expect(wrapper.text()).toContain('DEV-001')
     expect(wrapper.text()).toContain('测试设备')
     expect(wrapper.text()).toContain('A-201')

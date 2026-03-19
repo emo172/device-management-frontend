@@ -21,7 +21,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <article class="device-card">
+  <article class="device-card device-card__surface">
     <div class="device-card__top">
       <div>
         <p class="device-card__eyebrow">{{ device.categoryName }}</p>
@@ -75,17 +75,19 @@ const emit = defineEmits<{
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .device-card {
+  @include shell.console-surface(12px);
+
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92)),
     linear-gradient(135deg, rgba(217, 119, 6, 0.08), transparent 45%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 }
 
 .device-card__top,
