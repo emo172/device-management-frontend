@@ -1,0 +1,14 @@
+// 轻玻璃控制台把玻璃感限制在壳层，避免表格与输入内容区失去可读性。
+@mixin console-surface($blur: var(--app-glass-blur)) {
+  border: 1px solid var(--app-border-glass);
+  background: var(--app-surface-glass);
+  box-shadow: var(--app-shadow-glass);
+  backdrop-filter: blur($blur);
+}
+
+// 内容主体仍然偏实体，避免数据密集页面被毛玻璃噪音覆盖。
+@mixin console-solid-surface {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-solid);
+  box-shadow: var(--app-shadow-solid);
+}

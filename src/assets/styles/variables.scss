@@ -1,16 +1,40 @@
 // 在基础设施阶段先把视觉变量收口，后续业务模块只消费变量而不直接写死颜色。
 :root {
-  --app-color-primary: #2563eb;
+  --app-ink-950: #112636;
+  --app-ink-900: #193247;
+  --app-fog-50: #f4f7f8;
+  --app-fog-100: #e8eef1;
+  --app-surface-glass: rgba(255, 255, 255, 0.72);
+  --app-surface-glass-strong: rgba(255, 255, 255, 0.82);
+  --app-surface-solid: #ffffff;
+  --app-border-soft: rgba(148, 163, 184, 0.18);
+  --app-border-glass: rgba(255, 255, 255, 0.54);
+  --app-accent-amber: #c77b30;
+  --app-accent-teal: #0f766e;
+  --app-accent-blue: #2563eb;
+  --app-accent-rose: #be185d;
+  --app-accent-slate: #475569;
+  --app-accent-violet: #7c3aed;
+  --app-font-family-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --app-font-family-display: 'Noto Serif SC', 'Songti SC', serif;
+  --app-radius-lg: 28px;
+  --app-radius-md: 20px;
+  --app-radius-sm: 14px;
+  --app-shadow-glass: 0 20px 42px rgba(15, 23, 42, 0.08);
+  --app-shadow-solid: 0 16px 32px rgba(15, 23, 42, 0.06);
+  --app-glass-blur: 16px;
+  --app-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
+  // 保留旧变量别名，避免当前已存在页面在壳层重构前因变量切换而大面积失效。
+  --app-color-primary: var(--app-accent-blue);
   --app-color-primary-soft: rgba(37, 99, 235, 0.14);
-  --app-color-surface: rgba(255, 255, 255, 0.84);
-  --app-color-page-start: #edf4ff;
-  --app-color-page-end: #fdf7ed;
-  --app-text-primary: #102033;
+  --app-color-surface: var(--app-surface-glass-strong);
+  --app-color-page-start: var(--app-fog-50);
+  --app-color-page-end: var(--app-fog-100);
+  --app-text-primary: var(--app-ink-950);
   --app-text-secondary: #526277;
   --app-text-placeholder: #8a97a8;
   --app-border-color: rgba(148, 163, 184, 0.28);
-  --app-radius-lg: 24px;
-  --app-radius-md: 16px;
   --app-shadow-card: 0 20px 60px rgba(15, 23, 42, 0.12);
-  --app-font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --app-font-family: var(--app-font-family-sans);
 }

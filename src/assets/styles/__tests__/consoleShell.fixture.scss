@@ -1,0 +1,9 @@
+@use '../_console-shell.scss' as *;
+
+.console-test-surface {
+  @include console-surface();
+}
+
+.console-test-solid-surface {
+  @include console-solid-surface();
+}

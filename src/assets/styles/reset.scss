@@ -9,18 +9,20 @@ html {
   font-size: 16px;
 }
 
+// 本期只保障桌面端体验，因此从全局层直接锁住最小工作宽度。
 body {
   margin: 0;
   min-width: 1280px;
   min-height: 100vh;
-  font-family: var(--app-font-family);
-  color: var(--app-text-primary);
+  font-family: var(--app-font-family-sans);
+  color: var(--app-ink-950);
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 30%),
-    linear-gradient(135deg, var(--app-color-page-start), var(--app-color-page-end));
+    radial-gradient(circle at top right, rgba(199, 123, 48, 0.12), transparent 24%),
+    linear-gradient(135deg, var(--app-fog-50), var(--app-fog-100));
 }
 
-body,
+// 表单控件继承 body 上的统一字体栈，避免浏览器默认字体破坏整站视觉一致性。
 button,
 input,
 textarea,
@@ -33,6 +35,7 @@ a {
   text-decoration: none;
 }
 
+// 根节点保持满高，给后续布局壳和 Hero 容器统一承接空间。
 #app {
   min-height: 100vh;
 }
