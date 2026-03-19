@@ -165,6 +165,8 @@ describe('PromptTemplate view', () => {
 
     expect(getPromptTemplateListMock).toHaveBeenCalled()
     expect(getPromptTemplateDetailMock).toHaveBeenCalledWith('template-1')
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('Prompt 模板管理')
 
     await wrapper.get('[data-testid="prompt-template-card-template-2"]').trigger('click')
@@ -276,6 +278,9 @@ describe('PromptTemplate view', () => {
     expect(
       (wrapper.get('[data-testid="save-template"]').element as HTMLButtonElement).disabled,
     ).toBe(true)
+    expect(
+      (wrapper.get('[data-testid="new-template"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
 
     detailDeferred.resolve({
       id: 'template-1',
@@ -295,5 +300,105 @@ describe('PromptTemplate view', () => {
     expect(
       (wrapper.get('[data-testid="save-template"]').element as HTMLButtonElement).disabled,
     ).toBe(false)
+  })
+
+  it('模板详情加载失败时会锁定保存按钮，避免空表单覆盖已有模板', async () => {
+    const { module, error } = await loadView('PromptTemplate')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    getPromptTemplateListMock.mockResolvedValue([
+      {
+        id: 'template-1',
+        name: '意图识别模板',
+        code: 'intent-recognition',
+        content: '识别用户意图',
+        type: PromptTemplateType.INTENT_RECOGNITION,
+        description: '识别模板',
+        variables: '{"message":"用户输入"}',
+        active: true,
+        version: '1.0.0',
+        createdAt: '2026-03-01T10:00:00',
+        updatedAt: '2026-03-02T10:00:00',
+      },
+      {
+        id: 'template-2',
+        name: '结果反馈模板',
+        code: 'result-feedback',
+        content: '输出反馈结果',
+        type: PromptTemplateType.RESULT_FEEDBACK,
+        description: '结果反馈',
+        variables: null,
+        active: false,
+        version: '1.0.0',
+        createdAt: '2026-03-01T10:00:00',
+        updatedAt: '2026-03-02T10:00:00',
+      },
+    ])
+    getPromptTemplateDetailMock
+      .mockResolvedValueOnce({
+        id: 'template-1',
+        name: '意图识别模板',
+        code: 'intent-recognition',
+        content: '识别用户意图',
+        type: PromptTemplateType.INTENT_RECOGNITION,
+        description: '识别模板',
+        variables: '{"message":"用户输入"}',
+        active: true,
+        version: '1.0.0',
+        createdAt: '2026-03-01T10:00:00',
+        updatedAt: '2026-03-02T10:00:00',
+      })
+      .mockRejectedValueOnce(new Error('detail failed'))
+
+    const wrapper = mount(module.default)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="prompt-template-card-template-2"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      (wrapper.get('[data-testid="save-template"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(wrapper.text()).toContain('模板详情加载失败')
+  })
+
+  it('重新进入页面且模板列表加载失败时，会先清空旧模板上下文避免误编辑旧数据', async () => {
+    const { module, error } = await loadView('PromptTemplate')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const promptTemplateStore = usePromptTemplateStore()
+    promptTemplateStore.currentTemplateId = 'template-old'
+    promptTemplateStore.currentTemplate = {
+      id: 'template-old',
+      name: '旧模板',
+      code: 'old-template',
+      content: '旧内容',
+      type: PromptTemplateType.RESULT_FEEDBACK,
+      description: '旧描述',
+      variables: null,
+      active: false,
+      version: '1.0.0',
+      createdAt: '2026-03-01T10:00:00',
+      updatedAt: '2026-03-02T10:00:00',
+    }
+    getPromptTemplateListMock.mockRejectedValueOnce(new Error('list failed'))
+
+    mount(module.default)
+    await flushPromises()
+
+    expect(promptTemplateStore.currentTemplateId).toBe('')
+    expect(promptTemplateStore.currentTemplate).toBeNull()
   })
 })
