@@ -129,6 +129,9 @@ describe('Profile view', () => {
       },
     })
 
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
+
     await wrapper.get('input[name="realName"]').setValue('  新姓名  ')
     await wrapper.get('input[name="phone"]').setValue('13900139000')
     await wrapper.get('[data-testid="profile-form"]').trigger('submit')

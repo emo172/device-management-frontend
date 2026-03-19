@@ -215,6 +215,7 @@ describe('reservation pending manage view', () => {
       page: 1,
       size: 10,
     })
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
 
     await wrapper.get('[data-type="success"]').trigger('click')
     expect(deviceAuditReservationSpy).toHaveBeenCalledWith('reservation-1', {

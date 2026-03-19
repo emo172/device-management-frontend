@@ -39,7 +39,7 @@ defineProps<{
 </script>
 
 <template>
-  <section class="shared-chart-panel">
+  <section class="shared-chart-panel shared-chart-panel__surface">
     <div class="shared-chart-panel__header">
       <div>
         <h2>{{ title }}</h2>
@@ -57,11 +57,13 @@ defineProps<{
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .shared-chart-panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  @include shell.console-solid-surface;
+
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
   padding: 22px;
 }
 

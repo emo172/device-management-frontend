@@ -3,6 +3,10 @@ import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import PermissionTree from '@/components/business/PermissionTree.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import { UserRole, UserRoleLabel } from '@/enums/UserRole'
 import { useUserStore } from '@/stores/modules/user'
 
@@ -13,10 +17,36 @@ import { useUserStore } from '@/stores/modules/user'
 const userStore = useUserStore()
 
 const selectedPermissionIds = ref<string[]>([])
+const roleListErrorMessage = ref('')
+const rolePermissionErrorMessage = ref('')
+const savingPermissions = ref(false)
 
 const roleList = computed(() => userStore.roleList)
 const selectedRoleId = computed(() => userStore.selectedRoleId)
 const permissionModules = computed(() => userStore.currentRolePermissionTree)
+const currentRole = computed(
+  () => roleList.value.find((role) => role.id === selectedRoleId.value) ?? null,
+)
+const currentRoleLabel = computed(() => {
+  if (!currentRole.value) {
+    return '未选择角色'
+  }
+
+  return UserRoleLabel[currentRole.value.name as UserRole] ?? currentRole.value.name
+})
+const permissionCount = computed(() => selectedPermissionIds.value.length)
+const permissionModuleCount = computed(() =>
+  rolePermissionErrorMessage.value ? 0 : permissionModules.value.length,
+)
+const roleCountText = computed(() => `${roleList.value.length} 个角色`)
+const canSavePermissions = computed(
+  () =>
+    !!selectedRoleId.value &&
+    !userStore.rolePermissionLoading &&
+    !savingPermissions.value &&
+    !rolePermissionErrorMessage.value &&
+    permissionModules.value.length > 0,
+)
 const lastSavedAt = computed(() => {
   if (userStore.lastPermissionUpdate?.roleId !== selectedRoleId.value) {
     return ''
@@ -56,34 +86,63 @@ async function handleSelectRole(roleId: string) {
     return
   }
 
-  await userStore.fetchRolePermissionTree(roleId)
+  rolePermissionErrorMessage.value = ''
+  selectedPermissionIds.value = []
+
+  try {
+    await userStore.fetchRolePermissionTree(roleId)
+  } catch {
+    /**
+     * 角色切换失败时必须显式进入错误态，而不是继续展示上一个角色的权限树，避免把旧授权误保存到新角色。
+     */
+    rolePermissionErrorMessage.value = '当前角色权限加载失败，请重新选择角色或稍后重试。'
+  }
 }
 
 async function handleSave() {
-  if (!selectedRoleId.value) {
+  if (!canSavePermissions.value) {
     return
   }
 
-  await userStore.updateRolePermissions(selectedRoleId.value, {
-    permissionIds: selectedPermissionIds.value,
-  })
-  ElMessage.success('角色权限已保存')
+  try {
+    savingPermissions.value = true
+
+    await userStore.updateRolePermissions(selectedRoleId.value, {
+      permissionIds: selectedPermissionIds.value,
+    })
+    ElMessage.success('角色权限已保存')
+  } catch {
+    // 请求层已经提示失败原因，这里只阻止保存按钮链路抛出未处理拒绝。
+  } finally {
+    savingPermissions.value = false
+  }
 }
 
 onMounted(async () => {
-  const latestRoleList = await userStore.fetchRoleList()
-  const hasValidSelectedRole = latestRoleList.some((role) => role.id === userStore.selectedRoleId)
-  const nextRoleId = hasValidSelectedRole ? userStore.selectedRoleId : latestRoleList[0]?.id
+  roleListErrorMessage.value = ''
+  rolePermissionErrorMessage.value = ''
 
-  /**
-   * 角色列表刷新后必须确认当前选中角色仍然有效。
-   * 如果 store 留着失效角色 ID，页面需要回退到最新角色列表里的首个有效角色，避免出现“没有对应角色卡片却仍展示权限树”的错位状态。
-   */
-  if (
-    nextRoleId &&
-    (!hasValidSelectedRole || (!prefetchedRoleId && !permissionModules.value.length))
-  ) {
-    await handleSelectRole(nextRoleId)
+  try {
+    const latestRoleList = await userStore.fetchRoleList()
+    const hasValidSelectedRole = latestRoleList.some((role) => role.id === userStore.selectedRoleId)
+    const nextRoleId = hasValidSelectedRole ? userStore.selectedRoleId : latestRoleList[0]?.id
+
+    /**
+     * 角色列表刷新后必须确认当前选中角色仍然有效。
+     * 如果 store 留着失效角色 ID，页面需要回退到最新角色列表里的首个有效角色，避免出现“没有对应角色卡片却仍展示权限树”的错位状态。
+     */
+    if (
+      nextRoleId &&
+      (!hasValidSelectedRole || (!prefetchedRoleId && !permissionModules.value.length))
+    ) {
+      await handleSelectRole(nextRoleId)
+    }
+  } catch {
+    /**
+     * 角色列表刷新失败与权限树加载失败不是同一类错误。
+     * 如果页面已经持有有效角色卡片和权限树，就不应因为列表刷新失败而整体禁用编辑能力。
+     */
+    roleListErrorMessage.value = '角色列表加载失败，请稍后重试。'
   }
 })
 
@@ -98,66 +157,153 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="role-permission-view">
-    <header class="role-permission-view__hero">
-      <div>
-        <p class="role-permission-view__eyebrow">System / Role Access</p>
-        <h1 class="role-permission-view__title">角色权限管理</h1>
-        <p class="role-permission-view__description">
-          统一维护系统内三类正式角色的授权边界，避免页面菜单、按钮权限和后端接口授权出现口径漂移。
-        </p>
-      </div>
-
-      <div class="role-permission-view__hero-actions">
+    <ConsolePageHero
+      eyebrow="System / Role Access"
+      title="角色权限管理"
+      description="统一维护系统内三类正式角色的授权边界，避免页面菜单、按钮权限和后端接口授权出现口径漂移。"
+      class="role-permission-view__hero"
+    >
+      <template #actions>
         <el-button
           data-testid="save-role-permissions"
-          :disabled="!selectedRoleId || userStore.rolePermissionLoading"
+          :disabled="!canSavePermissions"
           type="primary"
           @click="handleSave"
         >
           保存权限配置
         </el-button>
-      </div>
-    </header>
+      </template>
 
-    <section class="role-permission-view__role-section">
-      <article
-        v-for="role in roleList"
-        :key="role.id"
-        :data-testid="`role-card-${role.id}`"
-        :class="['role-card', { 'role-card--active': role.id === selectedRoleId }]"
-        @click="handleSelectRole(role.id)"
-      >
-        <p class="role-card__eyebrow">{{ role.name }}</p>
-        <h2>{{ UserRoleLabel[role.name as UserRole] ?? role.name }}</h2>
-        <p>{{ role.description || '暂无角色描述' }}</p>
-      </article>
-    </section>
-
-    <section class="role-permission-view__content">
-      <div class="role-permission-view__content-header">
-        <div>
-          <h2>权限树</h2>
-          <p>按后端真实模块分组展示，勾选结果会整体覆盖当前角色权限。</p>
+      <template #meta>
+        <div class="role-permission-view__meta-pill">
+          <span>当前角色</span>
+          <strong>{{ currentRoleLabel }}</strong>
         </div>
-        <el-tag v-if="lastSavedAt" effect="light">最近保存：{{ lastSavedAt }}</el-tag>
-      </div>
+        <div class="role-permission-view__meta-pill">
+          <span>已选权限</span>
+          <strong>{{ permissionCount }}</strong>
+        </div>
+        <div class="role-permission-view__meta-pill">
+          <span>权限模块</span>
+          <strong>{{ permissionModuleCount }}</strong>
+        </div>
+      </template>
+    </ConsolePageHero>
 
-      <el-skeleton v-if="userStore.rolePermissionLoading && !permissionModules.length" animated>
-        <template #template>
-          <el-skeleton-item variant="p" style="width: 40%" />
-          <el-skeleton-item variant="p" style="width: 70%" />
+    <div class="role-permission-view__layout">
+      <ConsoleTableSection title="角色授权矩阵" :count="roleCountText">
+        <ConsoleFeedbackSurface
+          v-if="roleListErrorMessage"
+          state="error"
+          class="role-permission-view__inline-feedback"
+        >
+          <p class="role-permission-view__feedback-title">角色列表刷新失败</p>
+          <p class="role-permission-view__feedback-description">
+            {{ roleListErrorMessage }}
+          </p>
+          <p v-if="roleList.length" class="role-permission-view__feedback-description">
+            页面已保留当前缓存的角色与权限树，可继续编辑当前角色权限。
+          </p>
+        </ConsoleFeedbackSurface>
+
+        <!-- 角色卡切换必须先于权限树编辑，避免管理员在未知角色上下文里误保存。 -->
+        <section class="role-permission-view__role-section">
+          <article
+            v-for="role in roleList"
+            :key="role.id"
+            :data-testid="`role-card-${role.id}`"
+            :class="['role-card', { 'role-card--active': role.id === selectedRoleId }]"
+            @click="handleSelectRole(role.id)"
+          >
+            <p class="role-card__eyebrow">{{ role.name }}</p>
+            <h2>{{ UserRoleLabel[role.name as UserRole] ?? role.name }}</h2>
+            <p>{{ role.description || '暂无角色描述' }}</p>
+          </article>
+        </section>
+
+        <div class="role-permission-view__content-header">
+          <div>
+            <h3>权限树</h3>
+            <p>按后端真实模块分组展示，勾选结果会整体覆盖当前角色权限。</p>
+          </div>
+          <span v-if="lastSavedAt" class="role-permission-view__save-badge"
+            >最近保存：{{ lastSavedAt }}</span
+          >
+        </div>
+
+        <ConsoleFeedbackSurface v-if="userStore.rolePermissionLoading" state="loading">
+          <p class="role-permission-view__feedback-title">权限树加载中</p>
+          <p class="role-permission-view__feedback-description">
+            正在同步当前角色的真实后端授权，请稍候。
+          </p>
+        </ConsoleFeedbackSurface>
+
+        <ConsoleFeedbackSurface v-else-if="rolePermissionErrorMessage" state="error">
+          <p class="role-permission-view__feedback-title">角色权限加载失败</p>
+          <p class="role-permission-view__feedback-description">
+            {{ rolePermissionErrorMessage }}
+          </p>
+        </ConsoleFeedbackSurface>
+
+        <PermissionTree
+          v-else-if="permissionModules.length"
+          v-model="selectedPermissionIds"
+          :disabled="userStore.rolePermissionLoading"
+          :modules="permissionModules"
+        />
+
+        <ConsoleFeedbackSurface v-else state="empty">
+          <p class="role-permission-view__feedback-title">请选择角色后查看权限树</p>
+          <p class="role-permission-view__feedback-description">
+            切换角色卡片后会即时拉取该角色的最新授权模块。
+          </p>
+        </ConsoleFeedbackSurface>
+      </ConsoleTableSection>
+
+      <!-- 授权摘要固定放在侧栏，避免把权限树主操作区挤成多栏滚动。 -->
+      <ConsoleAsidePanel
+        title="授权摘要"
+        description="角色权限页只面向 SYSTEM_ADMIN，保存动作采用整体覆盖语义。"
+      >
+        <div class="role-permission-view__aside-stack">
+          <section class="role-permission-view__aside-card">
+            <p class="role-permission-view__aside-label">当前角色</p>
+            <h3>{{ currentRoleLabel }}</h3>
+            <p>{{ currentRole?.description || '请先选择需要调整的系统角色。' }}</p>
+          </section>
+
+          <section class="role-permission-view__metrics">
+            <article class="role-permission-view__metric">
+              <span>角色总数</span>
+              <strong>{{ roleList.length }}</strong>
+            </article>
+            <article class="role-permission-view__metric">
+              <span>已选权限</span>
+              <strong>{{ permissionCount }}</strong>
+            </article>
+            <article class="role-permission-view__metric">
+              <span>权限模块</span>
+              <strong>{{ permissionModuleCount }}</strong>
+            </article>
+          </section>
+
+          <section class="role-permission-view__aside-card">
+            <h4>操作提醒</h4>
+            <ul class="role-permission-view__rule-list">
+              <li>保存会整体覆盖当前角色权限，未勾选项会一并撤销。</li>
+              <li>权限树以后端真实授权模块为准，不能只根据前端菜单反推。</li>
+              <li>离开页面会清理授权上下文，避免再次进入时复用旧数据。</li>
+            </ul>
+          </section>
+        </div>
+
+        <template #footer>
+          <p class="role-permission-view__footer-note">
+            {{ lastSavedAt ? `最近一次保存时间：${lastSavedAt}` : '尚未保存当前角色的权限调整。' }}
+          </p>
         </template>
-      </el-skeleton>
-
-      <PermissionTree
-        v-else-if="permissionModules.length"
-        v-model="selectedPermissionIds"
-        :disabled="userStore.rolePermissionLoading"
-        :modules="permissionModules"
-      />
-
-      <el-empty v-else description="请选择角色后查看权限树" />
-    </section>
+      </ConsoleAsidePanel>
+    </div>
   </section>
 </template>
 
@@ -165,30 +311,38 @@ onBeforeUnmount(() => {
 .role-permission-view {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-.role-permission-view__hero,
-.role-permission-view__content,
-.role-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  gap: 20px;
 }
 
 .role-permission-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
+  border-radius: 28px;
   background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 254, 255, 0.92));
+    radial-gradient(circle at top right, rgba(20, 184, 166, 0.2), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.92));
 }
 
-.role-permission-view__eyebrow {
-  margin: 0 0 10px;
+.role-permission-view__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.role-permission-view__meta-pill {
+  min-width: 132px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.64);
+  backdrop-filter: blur(12px);
+}
+
+.role-permission-view__meta-pill span,
+.role-card__eyebrow,
+.role-permission-view__aside-label {
+  display: block;
+  margin: 0 0 8px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -196,22 +350,25 @@ onBeforeUnmount(() => {
   color: #0f766e;
 }
 
-.role-permission-view__title,
-.role-permission-view__content-header h2,
-.role-card h2 {
+.role-permission-view__meta-pill strong,
+.role-card h2,
+.role-permission-view__content-header h3,
+.role-permission-view__aside-card h3,
+.role-permission-view__aside-card h4,
+.role-permission-view__metric strong {
   margin: 0;
   color: var(--app-text-primary);
 }
 
-.role-permission-view__description,
+.role-card p,
 .role-permission-view__content-header p,
-.role-card p {
+.role-permission-view__feedback-description,
+.role-permission-view__aside-card p,
+.role-permission-view__footer-note,
+.role-permission-view__rule-list {
+  margin: 0;
   color: var(--app-text-secondary);
   line-height: 1.7;
-}
-
-.role-permission-view__hero-actions {
-  align-self: flex-start;
 }
 
 .role-permission-view__role-section {
@@ -221,6 +378,10 @@ onBeforeUnmount(() => {
 }
 
 .role-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06);
   padding: 20px 22px;
   cursor: pointer;
   transition:
@@ -236,23 +397,83 @@ onBeforeUnmount(() => {
   box-shadow: 0 18px 42px rgba(15, 118, 110, 0.12);
 }
 
-.role-card__eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #0f766e;
-}
-
-.role-permission-view__content {
-  padding: 24px;
-}
-
 .role-permission-view__content-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 18px;
+}
+
+.role-permission-view__save-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(240, 253, 250, 0.92);
+  color: #0f766e;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.role-permission-view__feedback-title {
+  margin: 0;
+  font-size: 18px;
+  color: var(--app-text-primary);
+}
+
+.role-permission-view__inline-feedback {
+  min-height: 0;
+  align-items: flex-start;
+  padding: 18px 20px;
+  text-align: left;
+}
+
+.role-permission-view__aside-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.role-permission-view__aside-card,
+.role-permission-view__metric {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.role-permission-view__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.role-permission-view__metric {
+  display: grid;
+  gap: 10px;
+}
+
+.role-permission-view__metric span {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+}
+
+.role-permission-view__rule-list {
+  padding-left: 18px;
+}
+
+.role-permission-view__footer-note {
+  width: 100%;
+  font-size: 13px;
+}
+
+@media (max-width: 1180px) {
+  .role-permission-view__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .role-permission-view__role-section,
+  .role-permission-view__metrics {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

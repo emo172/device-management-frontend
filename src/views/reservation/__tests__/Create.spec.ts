@@ -171,6 +171,8 @@ describe('reservation create view', () => {
     await flushPromises()
 
     expect(deviceStore.fetchDeviceList).toHaveBeenCalledWith({ page: 1, size: 100 })
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.get('.device-options').text()).toBe('device-1')
 
     await wrapper.get('.emit-form').trigger('click')
@@ -306,6 +308,8 @@ describe('reservation create view', () => {
     await flushPromises()
 
     expect(userStore.fetchReservationTargetUsers).toHaveBeenCalledWith({ page: 1, size: 100 })
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
 
     await wrapper.get('.proxy-mode').trigger('click')
     await wrapper.get('.target-user').trigger('click')

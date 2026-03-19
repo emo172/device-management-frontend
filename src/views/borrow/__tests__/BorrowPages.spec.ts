@@ -206,6 +206,10 @@ describe('borrow pages', () => {
     const wrapper = mount(module.default, { global: commonGlobal })
 
     expect(fetchBorrowListSpy).toHaveBeenCalledWith({ page: 1, size: 10, status: undefined })
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-summary-grid').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('借用确认')
     expect(wrapper.text()).toContain('归还确认')
   })
@@ -278,6 +282,8 @@ describe('borrow pages', () => {
     const wrapper = mount(module.default, { global: commonGlobal })
 
     expect(fetchReservationListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('热成像仪')
     expect(wrapper.text()).not.toContain('不应出现在候选中的设备')
 
@@ -372,6 +378,8 @@ describe('borrow pages', () => {
       size: 10,
       status: BorrowStatus.BORROWED,
     })
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
 
     await wrapper.get('.borrow-return-view__submit').trigger('click')
 
@@ -461,6 +469,8 @@ describe('borrow pages', () => {
     const wrapper = mount(module.default, { global: commonGlobal })
 
     expect(fetchBorrowDetailSpy).toHaveBeenCalledWith(borrowedRecord.id)
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('借用中')
     expect(wrapper.text()).toContain(borrowedRecord.deviceId)
   })

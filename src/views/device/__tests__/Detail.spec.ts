@@ -108,6 +108,8 @@ describe('device detail view', () => {
     })
 
     expect(deviceStore.fetchDeviceDetail).toHaveBeenCalledWith('device-1')
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('示波器')
     expect(wrapper.text()).toContain('定期保养')
     expect(wrapper.find('.detail-upload').exists()).toBe(true)

@@ -151,6 +151,8 @@ describe('reservation detail view', () => {
     })
 
     expect(fetchReservationDetailSpy).toHaveBeenCalledWith('reservation-1')
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('预约详情')
     expect(wrapper.text()).toContain('设备后系统审批')
     expect(wrapper.text()).toContain('设备管理员')

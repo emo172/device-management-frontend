@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
 
@@ -46,8 +49,11 @@ function getReservationStatusText(status: string) {
 function getSignStatusText(signStatus: string) {
   const labelMap: Record<string, string> = {
     NOT_CHECKED_IN: '待签到',
+    NOT_SIGNED: '待签到',
     CHECKED_IN: '已签到',
+    SIGNED_IN: '已签到',
     CHECKED_IN_TIMEOUT: '签到超时',
+    TIMEOUT: '签到超时',
   }
 
   return labelMap[signStatus] ?? signStatus
@@ -58,7 +64,7 @@ function getSignStatusText(signStatus: string) {
  * 仪表盘提醒只应把“尚未签到”的预约视为待办，避免继续沿用旧字符串导致提醒区漏算或误算。
  */
 function isPendingCheckIn(signStatus: string) {
-  return signStatus === 'NOT_CHECKED_IN'
+  return signStatus === 'NOT_CHECKED_IN' || signStatus === 'NOT_SIGNED'
 }
 
 function isCheckInWindow(startTime: string) {
@@ -104,21 +110,21 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-page user-dashboard">
-    <section class="hero-card dashboard-card">
-      <div>
-        <p class="eyebrow">User Workspace</p>
-        <h1>欢迎回来，{{ welcomeName }}</h1>
-        <p class="hero-copy">
-          今天的仪表盘会优先提醒你最近的预约与签到窗口，减少在多个页面来回切换。
-        </p>
-      </div>
-      <div class="hero-actions">
-        <RouterLink class="primary-link" to="/reservations">查看我的预约</RouterLink>
-        <RouterLink class="secondary-link" to="/ai">AI 对话</RouterLink>
-      </div>
-    </section>
+    <ConsolePageHero
+      eyebrow="User Workspace"
+      :title="`欢迎回来，${welcomeName}`"
+      description="今天的仪表盘会优先提醒你最近的预约与签到窗口，减少在多个页面来回切换。"
+      class="hero-card dashboard-card"
+    >
+      <template #actions>
+        <div class="hero-actions">
+          <RouterLink class="primary-link" to="/reservations">查看我的预约</RouterLink>
+          <RouterLink class="secondary-link" to="/ai">AI 对话</RouterLink>
+        </div>
+      </template>
+    </ConsolePageHero>
 
-    <section class="dashboard-grid user-grid">
+    <ConsoleSummaryGrid class="dashboard-grid user-grid">
       <article class="dashboard-card reminder-card">
         <div class="panel-header">
           <div>
@@ -155,7 +161,7 @@ onMounted(async () => {
 
         <RouterLink class="feature-link" to="/ai">打开 AI 对话</RouterLink>
       </article>
-    </section>
+    </ConsoleSummaryGrid>
 
     <section class="dashboard-card list-card">
       <div class="panel-header">

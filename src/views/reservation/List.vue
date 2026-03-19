@@ -10,6 +10,10 @@ import CheckInStatusTag from '@/components/business/CheckInStatusTag.vue'
 import ReservationStatusTag from '@/components/business/ReservationStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
+import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
@@ -117,13 +121,21 @@ onMounted(() => {
 
 <template>
   <section class="reservation-list-view">
-    <header class="reservation-list-view__hero">
-      <div>
-        <p class="reservation-list-view__eyebrow">Reservation Console</p>
-        <h1 class="reservation-list-view__title">{{ pageTitle }}</h1>
-        <p class="reservation-list-view__description">{{ pageDescription }}</p>
-      </div>
+    <ConsolePageHero
+      eyebrow="Reservation Console"
+      :title="pageTitle"
+      :description="pageDescription"
+      class="reservation-list-view__hero"
+    />
 
+    <ConsoleToolbarShell class="reservation-list-view__toolbar">
+      <p class="reservation-list-view__toolbar-copy">
+        {{
+          isUser
+            ? '列表页仅承接本人预约的刷新、创建与后续动作入口。'
+            : '管理员在本页只做总览与详情跳转，审核流程统一进入管理页。'
+        }}
+      </p>
       <div class="reservation-list-view__hero-actions">
         <el-button @click="loadReservationList()">
           <el-icon><RefreshRight /></el-icon>
@@ -134,9 +146,9 @@ onMounted(() => {
           创建预约
         </el-button>
       </div>
-    </header>
+    </ConsoleToolbarShell>
 
-    <div v-if="reservationCards.length" class="reservation-list-view__card-grid">
+    <ConsoleSummaryGrid v-if="reservationCards.length" class="reservation-list-view__card-grid">
       <ReservationCard
         v-for="reservation in reservationCards"
         :key="reservation.id"
@@ -146,14 +158,13 @@ onMounted(() => {
         @cancel="handleCancel"
         @check-in="handleCheckIn"
       />
-    </div>
+    </ConsoleSummaryGrid>
 
-    <div class="reservation-list-view__table-shell">
-      <div class="reservation-list-view__table-header">
-        <h2>预约列表</h2>
-        <span>共 {{ reservationStore.total }} 条</span>
-      </div>
-
+    <ConsoleTableSection
+      title="预约列表"
+      :count="reservationStore.total"
+      class="reservation-list-view__table-shell"
+    >
       <EmptyState
         v-if="!tableData.length && !reservationStore.loading"
         title="暂无预约记录"
@@ -224,7 +235,9 @@ onMounted(() => {
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #footer>
         <Pagination
           :current-page="reservationStore.query.page ?? 1"
           :page-size="reservationStore.query.size ?? 10"
@@ -233,7 +246,7 @@ onMounted(() => {
           @change="handlePaginationChange"
         />
       </template>
-    </div>
+    </ConsoleTableSection>
   </section>
 </template>
 
@@ -244,19 +257,7 @@ onMounted(() => {
   gap: 24px;
 }
 
-.reservation-list-view__hero,
-.reservation-list-view__table-shell {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-}
-
 .reservation-list-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
@@ -267,6 +268,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.reservation-list-view__toolbar {
+  justify-content: space-between;
+}
+
+.reservation-list-view__toolbar-copy {
+  margin: 0;
+  color: var(--app-text-secondary);
+  line-height: 1.7;
 }
 
 .reservation-list-view__hero-actions {
@@ -301,23 +312,9 @@ onMounted(() => {
 }
 
 .reservation-list-view__card-grid {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
 }
 
-.reservation-list-view__table-shell {
-  padding: 24px;
-}
-
-.reservation-list-view__table-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.reservation-list-view__table-header span,
 .reservation-list-view__hint {
   font-size: 13px;
   color: var(--app-text-secondary);

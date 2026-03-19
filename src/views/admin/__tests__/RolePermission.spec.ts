@@ -11,6 +11,16 @@ import { UserRole } from '@/enums/UserRole'
 const successMock = vi.fn()
 const adminViewModules = import.meta.glob('../*.vue')
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve
+  })
+
+  return { promise, resolve }
+}
+
 vi.mock('element-plus', async (importOriginal) => {
   const actual = await importOriginal<typeof import('element-plus')>()
 
@@ -147,6 +157,8 @@ describe('RolePermission view', () => {
     expect(fetchRoleListSpy).toHaveBeenCalled()
     expect(fetchRolePermissionTreeSpy).toHaveBeenCalledWith('role-user')
     expect(fetchRolePermissionTreeSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('角色权限管理')
     expect(wrapper.text()).toContain('role-user-查看设备')
 
@@ -290,5 +302,228 @@ describe('RolePermission view', () => {
 
     expect(fetchRolePermissionTreeSpy).toHaveBeenCalledTimes(2)
     expect(secondWrapper.text()).toContain('第2次拉取-role-user')
+  })
+
+  it('切换角色拉取失败时不会继续展示旧权限树，也不会允许直接保存', async () => {
+    const { module, error } = await loadView('RolePermission')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const userStore = useUserStore()
+    userStore.roleList = [
+      { id: 'role-user', name: 'USER', description: '普通用户角色' },
+      { id: 'role-device', name: 'DEVICE_ADMIN', description: '设备管理员角色' },
+    ]
+
+    vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue(userStore.roleList)
+    vi.spyOn(userStore, 'fetchRolePermissionTree').mockImplementation(async (roleId: string) => {
+      userStore.selectedRoleId = roleId
+
+      if (roleId === 'role-user') {
+        userStore.currentRolePermissionTree = [
+          {
+            module: 'DEVICE',
+            permissions: [
+              {
+                permissionId: 'perm-1',
+                code: 'device:view',
+                name: 'role-user-查看设备',
+                description: '允许查看设备详情',
+                selected: true,
+              },
+            ],
+          },
+        ]
+
+        return userStore.currentRolePermissionTree
+      }
+
+      throw new Error('load failed')
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          PermissionTree: {
+            props: ['modules', 'modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            template:
+              '<div class="permission-tree-stub">{{ modules[0]?.permissions[0]?.name }}</div>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElSkeleton: { template: '<div><slot /></div>' },
+          ElSkeletonItem: { template: '<span></span>' },
+          ElEmpty: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.permission-tree-stub').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="role-card-role-device"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.permission-tree-stub').exists()).toBe(false)
+    expect(
+      (wrapper.get('[data-testid="save-role-permissions"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
+  it('保存权限请求进行中会锁定保存按钮，避免重复提交同一批权限', async () => {
+    const { module, error } = await loadView('RolePermission')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const userStore = useUserStore()
+    userStore.roleList = [{ id: 'role-user', name: 'USER', description: '普通用户角色' }]
+
+    vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue(userStore.roleList)
+    vi.spyOn(userStore, 'fetchRolePermissionTree').mockImplementation(async (roleId: string) => {
+      userStore.selectedRoleId = roleId
+      userStore.currentRolePermissionTree = [
+        {
+          module: 'DEVICE',
+          permissions: [
+            {
+              permissionId: 'perm-1',
+              code: 'device:view',
+              name: '查看设备',
+              description: '允许查看设备详情',
+              selected: true,
+            },
+          ],
+        },
+      ]
+
+      return userStore.currentRolePermissionTree
+    })
+
+    const saveDeferred = createDeferred<void>()
+    const updateRolePermissionsSpy = vi
+      .spyOn(userStore, 'updateRolePermissions')
+      .mockReturnValueOnce(saveDeferred.promise)
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          PermissionTree: {
+            props: ['modules', 'modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            template:
+              '<div class="permission-tree-stub">{{ modules[0]?.permissions[0]?.name }}</div>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElSkeleton: { template: '<div><slot /></div>' },
+          ElSkeletonItem: { template: '<span></span>' },
+          ElEmpty: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const saveButton = wrapper.get('[data-testid="save-role-permissions"]')
+
+    await saveButton.trigger('click')
+
+    expect(updateRolePermissionsSpy).toHaveBeenCalledTimes(1)
+    expect((saveButton.element as HTMLButtonElement).disabled).toBe(true)
+
+    await saveButton.trigger('click')
+    expect(updateRolePermissionsSpy).toHaveBeenCalledTimes(1)
+
+    saveDeferred.resolve()
+    await flushPromises()
+  })
+
+  it('角色列表刷新失败时若已有有效权限树，页面仍保留编辑能力', async () => {
+    const { module, error } = await loadView('RolePermission')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const userStore = useUserStore()
+    userStore.roleList = [{ id: 'role-user', name: 'USER', description: '普通用户角色' }]
+    userStore.selectedRoleId = 'role-user'
+    userStore.currentRolePermissionTree = [
+      {
+        module: 'DEVICE',
+        permissions: [
+          {
+            permissionId: 'perm-1',
+            code: 'device:view',
+            name: '查看设备',
+            description: '允许查看设备详情',
+            selected: true,
+          },
+        ],
+      },
+    ]
+
+    vi.spyOn(userStore, 'fetchRoleList').mockRejectedValue(new Error('role list failed'))
+    const updateRolePermissionsSpy = vi
+      .spyOn(userStore, 'updateRolePermissions')
+      .mockResolvedValue(undefined)
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          PermissionTree: {
+            props: ['modules', 'modelValue', 'disabled'],
+            emits: ['update:modelValue'],
+            template:
+              '<div class="permission-tree-stub">{{ modules[0]?.permissions[0]?.name }}</div>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElSkeleton: { template: '<div><slot /></div>' },
+          ElSkeletonItem: { template: '<span></span>' },
+          ElEmpty: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.permission-tree-stub').exists()).toBe(true)
+
+    const saveButton = wrapper.get('[data-testid="save-role-permissions"]')
+    expect((saveButton.element as HTMLButtonElement).disabled).toBe(false)
+
+    await saveButton.trigger('click')
+
+    expect(updateRolePermissionsSpy).toHaveBeenCalledWith('role-user', {
+      permissionIds: ['perm-1'],
+    })
   })
 })

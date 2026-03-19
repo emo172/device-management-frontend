@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+
 /**
  * 通用空状态组件。
  * 设备列表、分类树和详情扩展区在无数据时统一用该组件提示，减少页面层重复拼装说明文案与动作按钮。
@@ -15,7 +17,7 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="empty-state">
+  <ConsoleFeedbackSurface class="empty-state empty-state__surface">
     <el-empty>
       <template #description>
         <div class="empty-state__content">
@@ -27,14 +29,12 @@ defineEmits<{
         </div>
       </template>
     </el-empty>
-  </div>
+  </ConsoleFeedbackSurface>
 </template>
 
 <style scoped lang="scss">
 .empty-state {
-  padding: 32px 16px;
   border: 1px dashed rgba(148, 163, 184, 0.4);
-  border-radius: 24px;
   background: rgba(255, 255, 255, 0.7);
 }
 

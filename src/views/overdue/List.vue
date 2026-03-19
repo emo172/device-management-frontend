@@ -8,6 +8,9 @@ import OverdueHandleTypeTag from '@/components/business/OverdueHandleTypeTag.vue
 import OverdueProcessingStatusTag from '@/components/business/OverdueProcessingStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
+import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { OverdueProcessingStatus, OverdueProcessingStatusLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -126,23 +129,25 @@ onMounted(() => {
 
 <template>
   <section class="overdue-list-view">
-    <header class="overdue-list-view__hero">
-      <div>
-        <p class="overdue-list-view__eyebrow">Overdue Board</p>
-        <h1>逾期看板</h1>
-        <p>
-          聚合查看逾期单据、累计逾期时长与处理结果。当前后端逾期接口仍以设备 ID、用户 ID、借还记录
-          ID 为主，不在前端虚构设备名与借用人姓名字段。
-        </p>
-      </div>
-
-      <!-- 逾期处理动作仅对设备管理员开放，普通用户在该页只查看本人逾期记录与处理结果。 -->
-      <div v-if="isDeviceAdmin" class="overdue-list-view__hero-actions">
-        <el-button class="overdue-list-view__hero-handle" type="primary" @click="handleGoHandle()">
-          处理逾期
-        </el-button>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Overdue Board"
+      title="逾期看板"
+      description="聚合查看逾期单据、累计逾期时长与处理结果。当前后端逾期接口仍以设备 ID、用户 ID、借还记录 ID 为主，不在前端虚构设备名与借用人姓名字段。"
+      class="overdue-list-view__hero"
+    >
+      <template #actions>
+        <!-- 逾期处理动作仅对设备管理员开放，普通用户在该页只查看本人逾期记录与处理结果。 -->
+        <div v-if="isDeviceAdmin" class="overdue-list-view__hero-actions">
+          <el-button
+            class="overdue-list-view__hero-handle"
+            type="primary"
+            @click="handleGoHandle()"
+          >
+            处理逾期
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <OverdueAlert
       :pending-count="pendingCount"
@@ -150,7 +155,7 @@ onMounted(() => {
       :is-admin="isDeviceAdmin"
     />
 
-    <section class="overdue-list-view__filter-panel">
+    <ConsoleToolbarShell class="overdue-list-view__filter-panel">
       <div>
         <p class="overdue-list-view__filter-eyebrow">Filter</p>
         <h2>处理状态筛选</h2>
@@ -171,17 +176,13 @@ onMounted(() => {
           <el-button @click="handleReset">重置</el-button>
         </div>
       </div>
-    </section>
+    </ConsoleToolbarShell>
 
-    <section class="overdue-list-view__table-shell">
-      <div class="overdue-list-view__table-header">
-        <div>
-          <p class="overdue-list-view__filter-eyebrow">Records</p>
-          <h2>逾期记录列表</h2>
-        </div>
-        <span>共 {{ overdueStore.total }} 条</span>
-      </div>
-
+    <ConsoleTableSection
+      title="逾期记录列表"
+      :count="overdueStore.total"
+      class="overdue-list-view__table-shell"
+    >
       <EmptyState
         v-if="!tableData.length && !overdueStore.loading"
         title="暂无符合条件的逾期记录"
@@ -247,7 +248,9 @@ onMounted(() => {
             </tbody>
           </table>
         </div>
+      </template>
 
+      <template #footer>
         <Pagination
           :current-page="overdueStore.query.page ?? 1"
           :page-size="overdueStore.query.size ?? 10"
@@ -256,7 +259,7 @@ onMounted(() => {
           @change="handlePaginationChange"
         />
       </template>
-    </section>
+    </ConsoleTableSection>
   </section>
 </template>
 
@@ -266,21 +269,6 @@ onMounted(() => {
   flex-direction: column;
   gap: 24px;
   color: #1e293b;
-}
-
-.overdue-list-view__hero,
-.overdue-list-view__filter-panel,
-.overdue-list-view__table-shell {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-}
-
-.overdue-list-view__hero,
-.overdue-list-view__filter-panel,
-.overdue-list-view__table-shell {
-  padding: 24px 28px;
 }
 
 .overdue-list-view__hero,

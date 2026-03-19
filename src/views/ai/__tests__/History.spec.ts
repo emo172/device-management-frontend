@@ -2,6 +2,8 @@ import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const aiViewModules = import.meta.glob('../*.vue')
+
 const aiStoreState = reactive({
   historyList: [] as Array<Record<string, string | null>>,
   currentHistory: null as Record<string, string | number | null> | null,
@@ -78,8 +80,18 @@ describe('Ai History view', () => {
     })
   })
 
+  async function loadHistoryView() {
+    const loader = aiViewModules['../History.vue']
+
+    if (!loader) {
+      throw new Error('History.vue is missing')
+    }
+
+    return (await loader()) as { default: object }
+  }
+
   it('加载历史列表后，点击记录可以在页内查看详情', async () => {
-    const module = await import('../History.vue')
+    const module = await loadHistoryView()
 
     const wrapper = mount(module.default, {
       global: {
@@ -101,6 +113,9 @@ describe('Ai History view', () => {
 
     await flushPromises()
 
+    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
+    expect(wrapper.find('.conversation-shell__sidebar').exists()).toBe(true)
+    expect(wrapper.find('.conversation-shell__main').exists()).toBe(true)
     expect(fetchHistoryListMock).toHaveBeenCalledTimes(1)
     expect(clearCurrentHistoryMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('历史会话')
@@ -129,7 +144,7 @@ describe('Ai History view', () => {
       createdAt: '2026-03-16T10:00:00',
     }
 
-    const module = await import('../History.vue')
+    const module = await loadHistoryView()
     const wrapper = mount(module.default, {
       global: {
         stubs: {

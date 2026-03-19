@@ -3,6 +3,10 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ResetPasswordForm from '@/components/form/ResetPasswordForm.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { UserRoleLabel } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
 import { isPhone } from '@/utils/validate'
@@ -95,6 +99,8 @@ async function handleSubmitProfile() {
       realName: profileForm.realName.trim(),
       phone: profileForm.phone.trim(),
     })
+  } catch {
+    // 请求层已经统一提示失败原因，这里只负责收口表单提交链路，避免出现未处理拒绝。
   } finally {
     submitting.value = false
   }
@@ -133,6 +139,8 @@ async function handleClosePasswordDialog() {
 
   try {
     await clearPasswordTabQuery()
+  } catch {
+    // 路由替换失败时保持当前弹窗已关闭状态，避免关闭路径留下未处理拒绝。
   } finally {
     passwordDialogClosing.value = false
   }
@@ -150,96 +158,109 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 
 <template>
   <section class="profile-page">
-    <div class="profile-page__hero">
-      <p class="profile-page__eyebrow">User / Profile</p>
-      <h1 class="profile-page__title">个人中心</h1>
-      <p class="profile-page__description">
-        统一查看当前账号身份信息，并在不触碰登录标识的前提下维护姓名、手机号与密码。
-      </p>
-    </div>
+    <ConsolePageHero
+      eyebrow="User / Profile"
+      title="个人中心"
+      description="统一查看当前账号身份信息，并在不触碰登录标识的前提下维护姓名、手机号与密码。"
+      class="profile-page__hero"
+    >
+      <template #actions>
+        <el-button type="primary" @click="handleOpenPasswordDialog">修改密码</el-button>
+      </template>
+    </ConsolePageHero>
 
-    <div class="profile-page__grid">
-      <el-card class="profile-card profile-card--summary" shadow="never">
-        <div class="profile-card__header">
-          <div>
-            <p class="profile-card__eyebrow">账户信息</p>
-            <h2 class="profile-card__title">当前登录资料</h2>
+    <ConsoleDetailLayout class="profile-page__layout">
+      <template #main>
+        <el-card class="profile-card" shadow="never">
+          <div class="profile-card__header">
+            <div>
+              <p class="profile-card__eyebrow">资料编辑</p>
+              <h2 class="profile-card__title">维护可编辑资料</h2>
+            </div>
           </div>
-          <el-tag type="info">{{ roleLabel }}</el-tag>
-        </div>
 
-        <!-- 用户名与邮箱属于登录身份标识，当前后端仅开放展示，不允许在个人中心直接改写。 -->
-        <dl class="profile-meta">
-          <div class="profile-meta__item">
-            <dt>用户名</dt>
-            <dd>{{ currentUser?.username || '-' }}</dd>
-          </div>
-          <div class="profile-meta__item">
-            <dt>邮箱</dt>
-            <dd>{{ currentUser?.email || '-' }}</dd>
-          </div>
-          <div class="profile-meta__item">
-            <dt>姓名</dt>
-            <dd>{{ currentUser?.realName || '-' }}</dd>
-          </div>
-          <div class="profile-meta__item">
-            <dt>手机号</dt>
-            <dd>{{ currentUser?.phone || '-' }}</dd>
-          </div>
-          <div class="profile-meta__item">
-            <dt>角色</dt>
-            <dd>{{ roleLabel }}</dd>
-          </div>
-        </dl>
-      </el-card>
+          <form
+            data-testid="profile-form"
+            class="profile-form"
+            @submit.prevent="handleSubmitProfile"
+          >
+            <!-- 用户名与邮箱属于登录身份标识，当前后端仅开放展示，不允许在个人中心直接改写。 -->
+            <label class="profile-form__field">
+              <span class="profile-form__label">用户名</span>
+              <el-input :model-value="currentUser?.username || ''" name="username" disabled />
+              <p class="profile-form__hint">用户名由认证体系维护，个人中心仅展示不可修改。</p>
+            </label>
 
-      <el-card class="profile-card" shadow="never">
-        <div class="profile-card__header">
-          <div>
-            <p class="profile-card__eyebrow">资料编辑</p>
-            <h2 class="profile-card__title">维护可编辑资料</h2>
+            <label class="profile-form__field">
+              <span class="profile-form__label">邮箱</span>
+              <el-input :model-value="currentUser?.email || ''" name="email" disabled />
+              <p class="profile-form__hint">邮箱作为登录与找回密码依据，当前页面不开放编辑。</p>
+            </label>
+
+            <label class="profile-form__field">
+              <span class="profile-form__label">姓名</span>
+              <el-input v-model="profileForm.realName" name="realName" placeholder="请输入姓名" />
+              <p v-if="errors.realName" class="profile-form__error">{{ errors.realName }}</p>
+            </label>
+
+            <label class="profile-form__field">
+              <span class="profile-form__label">手机号</span>
+              <el-input v-model="profileForm.phone" name="phone" placeholder="请输入手机号" />
+              <p v-if="errors.phone" class="profile-form__error">{{ errors.phone }}</p>
+            </label>
+
+            <div class="profile-form__actions">
+              <el-button
+                type="primary"
+                native-type="submit"
+                :disabled="saveButtonLoading"
+                :loading="saveButtonLoading"
+              >
+                保存资料
+              </el-button>
+            </div>
+          </form>
+        </el-card>
+      </template>
+
+      <template #aside>
+        <ConsoleAsidePanel
+          title="账户概览"
+          description="用户名与邮箱是认证标识，只展示不编辑；系统会把角色信息与密码快捷入口统一收口在这个侧栏。"
+        >
+          <div class="profile-page__aside-head">
+            <div>
+              <p class="profile-page__aside-user">{{ currentUser?.username || '-' }}</p>
+              <p class="profile-page__aside-email">{{ currentUser?.email || '-' }}</p>
+            </div>
+            <el-tag type="info">{{ roleLabel }}</el-tag>
           </div>
-          <el-button type="default" @click="handleOpenPasswordDialog">修改密码</el-button>
-        </div>
 
-        <form data-testid="profile-form" class="profile-form" @submit.prevent="handleSubmitProfile">
-          <label class="profile-form__field">
-            <span class="profile-form__label">用户名</span>
-            <el-input :model-value="currentUser?.username || ''" name="username" disabled />
-            <p class="profile-form__hint">用户名由认证体系维护，个人中心仅展示不可修改。</p>
-          </label>
+          <dl class="profile-meta">
+            <div class="profile-meta__item">
+              <dt>姓名</dt>
+              <dd>{{ currentUser?.realName || '-' }}</dd>
+            </div>
+            <div class="profile-meta__item">
+              <dt>手机号</dt>
+              <dd>{{ currentUser?.phone || '-' }}</dd>
+            </div>
+            <div class="profile-meta__item">
+              <dt>角色</dt>
+              <dd>{{ roleLabel }}</dd>
+            </div>
+          </dl>
 
-          <label class="profile-form__field">
-            <span class="profile-form__label">邮箱</span>
-            <el-input :model-value="currentUser?.email || ''" name="email" disabled />
-            <p class="profile-form__hint">邮箱作为登录与找回密码依据，当前页面不开放编辑。</p>
-          </label>
-
-          <label class="profile-form__field">
-            <span class="profile-form__label">姓名</span>
-            <el-input v-model="profileForm.realName" name="realName" placeholder="请输入姓名" />
-            <p v-if="errors.realName" class="profile-form__error">{{ errors.realName }}</p>
-          </label>
-
-          <label class="profile-form__field">
-            <span class="profile-form__label">手机号</span>
-            <el-input v-model="profileForm.phone" name="phone" placeholder="请输入手机号" />
-            <p v-if="errors.phone" class="profile-form__error">{{ errors.phone }}</p>
-          </label>
-
-          <div class="profile-form__actions">
-            <el-button
-              type="primary"
-              native-type="submit"
-              :disabled="saveButtonLoading"
-              :loading="saveButtonLoading"
-            >
-              保存资料
-            </el-button>
-          </div>
-        </form>
-      </el-card>
-    </div>
+          <ConsoleFeedbackSurface state="confirm" class="profile-page__security-tip">
+            <strong>安全提醒</strong>
+            <p>
+              头部快捷入口会直接打开密码弹窗；关闭弹窗时会同步清理 `tab=password`
+              查询参数，避免刷新后重复弹出。
+            </p>
+          </ConsoleFeedbackSurface>
+        </ConsoleAsidePanel>
+      </template>
+    </ConsoleDetailLayout>
 
     <el-dialog
       :model-value="passwordDialogVisible"
@@ -265,51 +286,14 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 }
 
 .profile-page__hero {
-  padding: 28px 32px;
-  border: 1px solid rgba(14, 116, 144, 0.12);
-  border-radius: 28px;
   background:
     radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 32%),
     linear-gradient(135deg, rgba(240, 253, 250, 0.96), rgba(236, 253, 245, 0.9));
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-}
-
-.profile-page__eyebrow,
-.profile-card__eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0f766e;
-}
-
-.profile-page__title,
-.profile-card__title {
-  margin: 0;
-  color: var(--app-text-primary);
-}
-
-.profile-page__title {
-  font-size: 30px;
-}
-
-.profile-page__description {
-  max-width: 720px;
-  margin: 12px 0 0;
-  line-height: 1.75;
-  color: var(--app-text-secondary);
-}
-
-.profile-page__grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.05fr);
-  gap: 24px;
 }
 
 .profile-card {
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 24px;
+  border-radius: 28px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
 }
@@ -322,31 +306,17 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
   margin-bottom: 24px;
 }
 
-.profile-meta {
-  display: grid;
-  gap: 14px;
+.profile-card__eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.profile-card__title {
   margin: 0;
-}
-
-.profile-meta__item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(240, 249, 255, 0.9));
-}
-
-.profile-meta__item dt {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--app-text-secondary);
-}
-
-.profile-meta__item dd {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
   color: var(--app-text-primary);
 }
 
@@ -385,5 +355,73 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 .profile-form__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.profile-page__aside-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.profile-page__aside-user,
+.profile-page__aside-email {
+  margin: 0;
+}
+
+.profile-page__aside-user {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-text-primary);
+}
+
+.profile-page__aside-email {
+  margin-top: 6px;
+  color: var(--app-text-secondary);
+}
+
+.profile-meta {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.profile-meta__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(240, 249, 255, 0.9));
+}
+
+.profile-meta__item dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text-secondary);
+}
+
+.profile-meta__item dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--app-text-primary);
+}
+
+.profile-page__security-tip {
+  min-height: 0;
+  align-items: flex-start;
+  padding: 18px 20px;
+  text-align: left;
+}
+
+.profile-page__security-tip strong,
+.profile-page__security-tip p {
+  margin: 0;
+}
+
+.profile-page__security-tip p {
+  color: var(--app-text-secondary);
+  line-height: 1.7;
 }
 </style>

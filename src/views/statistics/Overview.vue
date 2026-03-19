@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 
 import StatisticsCard from '@/components/business/StatisticsCard.vue'
+import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import { formatDate } from '@/utils'
 
@@ -24,6 +27,18 @@ function resolveInitialDate() {
 }
 
 const selectedDate = ref(resolveInitialDate())
+
+const isOverviewLoading = computed(() => {
+  if (!statisticsStore.loading) {
+    return false
+  }
+
+  if (!statisticsStore.overview) {
+    return true
+  }
+
+  return statisticsStore.query.date === selectedDate.value
+})
 
 const overviewCards = computed(() => {
   const overview = statisticsStore.overview
@@ -108,28 +123,40 @@ onMounted(() => {
 
 <template>
   <section class="statistics-overview-view">
-    <header class="statistics-overview-view__hero">
-      <div>
-        <p class="statistics-overview-view__eyebrow">Statistics Console</p>
-        <h1 class="statistics-overview-view__title">统计分析总览</h1>
-        <p class="statistics-overview-view__description">
-          系统管理员在这里统一选择统计日期，并快速跳转到利用率、借用、逾期和热门时段等分析页。
+    <ConsolePageHero
+      eyebrow="Statistics Console"
+      title="统计分析总览"
+      description="系统管理员在这里统一选择统计日期，并快速跳转到利用率、借用、逾期和热门时段等分析页。"
+      class="statistics-overview-view__hero"
+    >
+      <template #actions>
+        <div class="statistics-overview-view__controls">
+          <!-- 日期筛选统一写在总览页，确保统计模块所有子页共享同一日口径。 -->
+          <el-date-picker
+            v-model="selectedDate"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="选择统计日期"
+            @update:modelValue="handleDateChange"
+          />
+        </div>
+      </template>
+    </ConsolePageHero>
+
+    <ConsoleFeedbackSurface
+      v-if="isOverviewLoading"
+      state="loading"
+      class="statistics-overview-view__loading"
+    >
+      <template #loading>
+        <p class="statistics-overview-view__loading-text">统计总览加载中</p>
+        <p class="statistics-overview-view__loading-desc">
+          正在同步当前日期的预约、借还与逾期口径。
         </p>
-      </div>
+      </template>
+    </ConsoleFeedbackSurface>
 
-      <div class="statistics-overview-view__controls">
-        <!-- 日期筛选统一写在总览页，确保统计模块所有子页共享同一日口径。 -->
-        <el-date-picker
-          v-model="selectedDate"
-          type="date"
-          value-format="YYYY-MM-DD"
-          placeholder="选择统计日期"
-          @update:modelValue="handleDateChange"
-        />
-      </div>
-    </header>
-
-    <section class="statistics-overview-view__card-grid">
+    <ConsoleSummaryGrid v-else class="statistics-overview-view__card-grid">
       <StatisticsCard
         v-for="card in overviewCards"
         :key="card.title"
@@ -139,7 +166,7 @@ onMounted(() => {
         :trend-label="card.trendLabel"
         :accent="card.accent"
       />
-    </section>
+    </ConsoleSummaryGrid>
 
     <section class="statistics-overview-view__nav-grid">
       <RouterLink
@@ -163,17 +190,10 @@ onMounted(() => {
 
 .statistics-overview-view__hero,
 .statistics-overview-view__nav-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 22px 56px rgba(15, 23, 42, 0.08);
 }
 
 .statistics-overview-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(13, 148, 136, 0.18), transparent 34%),
     radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.14), transparent 28%),
@@ -204,6 +224,16 @@ onMounted(() => {
 
 .statistics-overview-view__controls {
   align-self: flex-start;
+}
+
+.statistics-overview-view__loading-text,
+.statistics-overview-view__loading-desc {
+  margin: 0;
+}
+
+.statistics-overview-view__loading-desc {
+  color: var(--app-text-secondary);
+  line-height: 1.7;
 }
 
 .statistics-overview-view__card-grid,

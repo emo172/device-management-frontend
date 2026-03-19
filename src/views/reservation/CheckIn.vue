@@ -7,6 +7,9 @@ import type { ReservationDetailResponse } from '@/api/reservations'
 import CheckInStatusTag from '@/components/business/CheckInStatusTag.vue'
 import ReservationStatusTag from '@/components/business/ReservationStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
@@ -153,15 +156,12 @@ onUnmounted(() => {
 
 <template>
   <section class="reservation-check-in-view">
-    <header class="reservation-check-in-view__hero">
-      <div>
-        <p class="reservation-check-in-view__eyebrow">Reservation Check In</p>
-        <h1>预约签到</h1>
-        <p class="reservation-check-in-view__description">
-          在预约开始前 30 分钟到开始后 60 分钟内完成签到，并根据实际签到时点反馈正常或超时结果。
-        </p>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Reservation Check In"
+      title="预约签到"
+      description="在预约开始前 30 分钟到开始后 60 分钟内完成签到，并根据实际签到时点反馈正常或超时结果。"
+      class="reservation-check-in-view__hero"
+    />
 
     <EmptyState
       v-if="!reservationDetail"
@@ -170,57 +170,58 @@ onUnmounted(() => {
     />
 
     <template v-else>
-      <div class="reservation-check-in-view__grid">
-        <el-card class="reservation-check-in-view__card">
-          <template #header>
-            <div class="reservation-check-in-view__card-header">
-              <span>预约信息</span>
-            </div>
-          </template>
+      <ConsoleDetailLayout class="reservation-check-in-view__grid">
+        <template #main>
+          <el-card class="reservation-check-in-view__card">
+            <template #header>
+              <div class="reservation-check-in-view__card-header">
+                <span>预约信息</span>
+              </div>
+            </template>
 
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="设备名称">{{
-              reservationDetail.deviceName
-            }}</el-descriptions-item>
-            <el-descriptions-item label="预约人">{{
-              reservationDetail.userName
-            }}</el-descriptions-item>
-            <el-descriptions-item label="预约状态">
-              <ReservationStatusTag :status="reservationDetail.status" />
-            </el-descriptions-item>
-            <el-descriptions-item label="签到状态">
-              <CheckInStatusTag :status="reservationDetail.signStatus" />
-            </el-descriptions-item>
-            <el-descriptions-item label="预约时间" :span="2">
-              {{ formatDateTime(reservationDetail.startTime) }} -
-              {{ formatDateTime(reservationDetail.endTime) }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="设备名称">{{
+                reservationDetail.deviceName
+              }}</el-descriptions-item>
+              <el-descriptions-item label="预约人">{{
+                reservationDetail.userName
+              }}</el-descriptions-item>
+              <el-descriptions-item label="预约状态">
+                <ReservationStatusTag :status="reservationDetail.status" />
+              </el-descriptions-item>
+              <el-descriptions-item label="签到状态">
+                <CheckInStatusTag :status="reservationDetail.signStatus" />
+              </el-descriptions-item>
+              <el-descriptions-item label="预约时间" :span="2">
+                {{ formatDateTime(reservationDetail.startTime) }} -
+                {{ formatDateTime(reservationDetail.endTime) }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
+        </template>
 
-        <el-card class="reservation-check-in-view__card">
-          <template #header>
-            <div class="reservation-check-in-view__card-header">
-              <span>签到反馈</span>
-            </div>
-          </template>
-
-          <el-alert :title="feedbackTitle" type="info" :closable="false">
-            {{ feedbackDescription }}
-          </el-alert>
-
-          <!-- 只有 USER 且为本人预约时才渲染签到按钮；管理员与非本人都只能查看结果。 -->
-          <el-button
-            v-if="canSubmitCheckIn"
-            class="reservation-check-in-view__submit"
-            type="primary"
-            :loading="submitting"
-            @click="handleCheckIn"
+        <template #aside>
+          <ConsoleAsidePanel
+            title="签到反馈"
+            description="只有普通用户本人预约且处于签到窗口内时，右侧才开放提交入口，管理员始终保持只读。"
           >
-            一键签到
-          </el-button>
-        </el-card>
-      </div>
+            <el-alert :title="feedbackTitle" type="info" :closable="false">
+              {{ feedbackDescription }}
+            </el-alert>
+
+            <!-- 只有 USER 且为本人预约时才渲染签到按钮；管理员与非本人都只能查看结果。 -->
+            <el-button
+              v-if="canSubmitCheckIn"
+              class="reservation-check-in-view__submit"
+              type="primary"
+              :loading="submitting"
+              @click="handleCheckIn"
+            >
+              一键签到
+            </el-button>
+          </ConsoleAsidePanel>
+        </template>
+      </ConsoleDetailLayout>
     </template>
   </section>
 </template>
@@ -232,7 +233,6 @@ onUnmounted(() => {
   gap: 24px;
 }
 
-.reservation-check-in-view__hero,
 .reservation-check-in-view__card {
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 28px;
@@ -241,39 +241,13 @@ onUnmounted(() => {
 }
 
 .reservation-check-in-view__hero {
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
 }
-
-.reservation-check-in-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0369a1;
-}
-
-.reservation-check-in-view__hero h1,
 .reservation-check-in-view__card-header span {
   margin: 0;
   color: var(--app-text-primary);
-}
-
-.reservation-check-in-view__description {
-  max-width: 760px;
-  margin: 14px 0 0;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--app-text-secondary);
-}
-
-.reservation-check-in-view__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
 }
 
 .reservation-check-in-view__card-header {

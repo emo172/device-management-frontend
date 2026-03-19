@@ -62,6 +62,7 @@ describe('common business helpers', () => {
     await wrapper.get('.search-bar__submit').trigger('click')
     await wrapper.get('.search-bar__reset').trigger('click')
 
+    expect(wrapper.find('.search-bar__surface').exists()).toBe(true)
     expect(wrapper.emitted('update:modelValue')).toEqual([['传感器'], ['']])
     expect(wrapper.emitted('search')).toEqual([['示波器']])
     expect(wrapper.emitted('reset')).toEqual([[]])
@@ -82,12 +83,16 @@ describe('common business helpers', () => {
         modelValue: true,
         title: '确认删除',
         message: '删除后不可恢复',
+        loading: true,
+        confirmType: 'danger',
       },
       global: {
         stubs: {
           ElButton: {
+            props: ['loading', 'type'],
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              "<button :data-loading=\"loading ? 'true' : 'false'\" :data-type=\"type || 'default'\" @click=\"$emit('click')\"><slot /></button>",
           },
           ElDialog: {
             props: ['modelValue', 'title'],
@@ -100,6 +105,9 @@ describe('common business helpers', () => {
     })
 
     expect(wrapper.text()).toContain('删除后不可恢复')
+    expect(wrapper.find('.confirm-dialog__surface').exists()).toBe(true)
+    expect(wrapper.get('.confirm-dialog__confirm').attributes('data-loading')).toBe('true')
+    expect(wrapper.get('.confirm-dialog__confirm').attributes('data-type')).toBe('danger')
 
     await wrapper.get('.confirm-dialog__cancel').trigger('click')
     await wrapper.get('.confirm-dialog__confirm').trigger('click')
@@ -140,6 +148,7 @@ describe('common business helpers', () => {
 
     expect(wrapper.text()).toContain('暂无设备')
     expect(wrapper.text()).toContain('请调整筛选条件后重试')
+    expect(wrapper.find('.empty-state__surface').exists()).toBe(true)
 
     await wrapper.get('.empty-action').trigger('click')
 

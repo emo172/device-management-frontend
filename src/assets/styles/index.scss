@@ -1,3 +1,5 @@
+// 样式入口先注入设计 token，再提供壳层 mixin，最后落基础重置与组件库覆写，避免依赖顺序颠倒。
 @use './variables.scss';
+@use './console-shell.scss';
 @use './reset.scss';
 @use './element-override.scss';

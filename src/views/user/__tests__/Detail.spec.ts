@@ -59,7 +59,7 @@ describe('user detail view', () => {
 
     const module = (await loader()) as { default: object }
 
-    mount(module.default, {
+    const wrapper = mount(module.default, {
       global: {
         stubs: {
           FreezeStatusTag: { template: '<div></div>' },
@@ -74,5 +74,7 @@ describe('user detail view', () => {
 
     expect(resetCurrentManagedUserMock).toHaveBeenCalledTimes(1)
     expect(fetchUserDetailMock).toHaveBeenCalledWith('user-2')
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
   })
 })

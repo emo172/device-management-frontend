@@ -4,6 +4,9 @@ import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import DeviceForm from '@/components/form/DeviceForm.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { DeviceStatus } from '@/enums'
 import { useCategoryStore } from '@/stores/modules/category'
 import { useDeviceStore } from '@/stores/modules/device'
@@ -69,18 +72,34 @@ onUnmounted(() => {
 
 <template>
   <section class="device-form-page">
-    <header class="device-form-page__header">
-      <p>Device Edit</p>
-      <h1>编辑设备</h1>
-    </header>
-
-    <DeviceForm
-      mode="edit"
-      :initial-value="initialValue"
-      :category-options="categoryStore.options"
-      :submitting="deviceStore.loading"
-      @submit="handleSubmit"
+    <ConsolePageHero
+      eyebrow="Device Edit"
+      title="编辑设备"
+      description="编辑页只修改基础档案，不在这里混入状态流转和图片维护，避免单页职责膨胀。"
     />
+
+    <ConsoleDetailLayout>
+      <template #main>
+        <DeviceForm
+          mode="edit"
+          :initial-value="initialValue"
+          :category-options="categoryStore.options"
+          :submitting="deviceStore.loading"
+          @submit="handleSubmit"
+        />
+      </template>
+
+      <template #aside>
+        <ConsoleAsidePanel
+          title="编辑说明"
+          description="设备编号在编辑页保持只读，避免把历史预约与借还记录关联的主标识链路打断。"
+        >
+          <p class="device-form-page__note">
+            离开页面会清理当前设备缓存，确保切换到下一台设备时不会短暂闪现旧详情。
+          </p>
+        </ConsoleAsidePanel>
+      </template>
+    </ConsoleDetailLayout>
   </section>
 </template>
 
@@ -91,17 +110,9 @@ onUnmounted(() => {
   gap: 20px;
 }
 
-.device-form-page__header p {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #b45309;
-}
-
-.device-form-page__header h1 {
+.device-form-page__note {
   margin: 0;
-  color: var(--app-text-primary);
+  color: var(--app-text-secondary);
+  line-height: 1.7;
 }
 </style>

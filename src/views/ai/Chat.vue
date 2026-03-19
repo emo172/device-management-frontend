@@ -4,6 +4,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import AiChatBox from '@/components/business/AiChatBox.vue'
 import AiMessage from '@/components/business/AiMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConversationShell from '@/components/layout/ConversationShell.vue'
 import { AiIntentType, AiIntentTypeLabel } from '@/enums'
 import { useAiChat } from '@/composables/useAiChat'
 
@@ -34,10 +35,14 @@ const latestIntentText = computed(() => {
 const latestIntentCode = computed(() => latestResult.value?.intent || '等待 AI 返回')
 
 async function handleSubmitMessage(message: string) {
-  const result = await sendMessage(message)
+  try {
+    const result = await sendMessage(message)
 
-  if (result) {
-    draftMessage.value = ''
+    if (result) {
+      draftMessage.value = ''
+    }
+  } catch {
+    // 发送失败提示由组合式函数统一处理，这里只阻止输入提交链路出现未处理拒绝。
   }
 }
 
@@ -72,45 +77,53 @@ watch(
 
       <div class="ai-chat-view__hero-actions">
         <el-tag type="success" effect="light">会话：{{ sessionId || '新会话' }}</el-tag>
-        <RouterLink class="ai-chat-view__history-link" to="/ai/history">查看历史会话</RouterLink>
       </div>
     </header>
 
-    <section class="ai-chat-view__summary-grid">
-      <article class="ai-chat-view__summary-card">
-        <p>最新意图</p>
-        <strong>{{ latestIntentCode }}</strong>
-        <span>{{ latestIntentText }}</span>
-      </article>
-      <article class="ai-chat-view__summary-card summary-card--amber">
-        <p>执行结果</p>
-        <strong>{{ latestResult?.executeResult || '等待发送' }}</strong>
-        <span>发送后立即回显当前一轮执行状态</span>
-      </article>
-    </section>
+    <ConversationShell class="ai-chat-view__shell">
+      <template #sidebar>
+        <div class="ai-chat-view__sidebar-stack">
+          <article class="ai-chat-view__summary-card">
+            <p>最新意图</p>
+            <strong>{{ latestIntentCode }}</strong>
+            <span>{{ latestIntentText }}</span>
+          </article>
+          <article class="ai-chat-view__summary-card summary-card--amber">
+            <p>执行结果</p>
+            <strong>{{ latestResult?.executeResult || '等待发送' }}</strong>
+            <span>发送后立即回显当前一轮执行状态</span>
+          </article>
 
-    <section class="ai-chat-view__conversation">
-      <div ref="messageScroller" class="ai-chat-view__messages">
-        <EmptyState
-          v-if="!messages.length"
-          title="开始第一轮 AI 对话"
-          description="你可以询问空闲设备、预约建议或取消限制；页面会在当前窗口保留本轮消息流。"
-        />
-
-        <div v-else class="ai-chat-view__message-list">
-          <AiMessage v-for="message in messages" :key="message.id" :message="message" />
+          <!-- AI 历史页与即时对话页共用会话工作台语义，入口固定放在侧栏，避免主消息流被跳转操作打断。 -->
+          <RouterLink class="ai-chat-view__history-link" to="/ai/history">查看历史会话</RouterLink>
         </div>
-      </div>
+      </template>
 
-      <p v-if="errorMessage" class="ai-chat-view__error">{{ errorMessage }}</p>
+      <template #main>
+        <div ref="messageScroller" class="ai-chat-view__messages">
+          <EmptyState
+            v-if="!messages.length"
+            title="开始第一轮 AI 对话"
+            description="你可以询问空闲设备、预约建议或取消限制；页面会在当前窗口保留本轮消息流。"
+          />
 
-      <AiChatBox
-        v-model="draftMessage"
-        :loading="loading"
-        @submit="handleSubmitMessage"
-        @reset="handleResetConversation"
-      />
-    </section>
+          <div v-else class="ai-chat-view__message-list">
+            <AiMessage v-for="message in messages" :key="message.id" :message="message" />
+          </div>
+        </div>
+
+        <p v-if="errorMessage" class="ai-chat-view__error">{{ errorMessage }}</p>
+      </template>
+
+      <template #footer>
+        <AiChatBox
+          v-model="draftMessage"
+          :loading="loading"
+          @submit="handleSubmitMessage"
+          @reset="handleResetConversation"
+        />
+      </template>
+    </ConversationShell>
   </section>
 </template>
 
@@ -181,9 +194,9 @@ watch(
   border: 1px solid rgba(15, 118, 110, 0.14);
 }
 
-.ai-chat-view__summary-grid {
+.ai-chat-view__shell,
+.ai-chat-view__sidebar-stack {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -209,14 +222,8 @@ watch(
   font-size: 22px;
 }
 
-.ai-chat-view__conversation {
-  display: grid;
-  grid-template-rows: minmax(420px, 1fr) auto;
-  gap: 18px;
-  padding: 22px;
-}
-
 .ai-chat-view__messages {
+  min-height: 420px;
   overflow-y: auto;
   padding-right: 6px;
 }

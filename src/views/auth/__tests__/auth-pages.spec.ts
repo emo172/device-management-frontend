@@ -131,6 +131,8 @@ describe('auth public pages', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
+    expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
+    expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(loginMock).toHaveBeenCalledWith({ account: 'demo', password: 'Password123' })
     expect(pushMock).toHaveBeenCalledWith('/devices?keyword=示波器')
   })
@@ -199,6 +201,8 @@ describe('auth public pages', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
+    expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
+    expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(registerMock).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('请输入用户名')
     expect(wrapper.text()).toContain('请输入合法的邮箱地址')
@@ -282,6 +286,8 @@ describe('auth public pages', () => {
     await wrapper.get('[data-testid="send-code-button"]').trigger('click')
     await flushPromises()
 
+    expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
+    expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(sendVerificationCodeMock).toHaveBeenCalledWith({ email: 'demo@example.com' })
     const getCountdownValue = () =>
       Number(wrapper.get('[data-testid="send-code-button"]').text().match(/\d+/)?.[0])
@@ -312,6 +318,8 @@ describe('auth public pages', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
+    expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
+    expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(resetPasswordMock).toHaveBeenCalledWith({
       email: 'demo@example.com',
       verificationCode: '123456',

@@ -1,11 +1,42 @@
 // 先在全局层覆写 Element Plus 主题变量，确保后续所有业务组件共享同一视觉基线。
 :root {
-  --el-color-primary: var(--app-color-primary);
-  --el-border-radius-base: 12px;
-  --el-font-family: var(--app-font-family);
+  --el-color-primary: var(--app-accent-blue);
+  --el-border-radius-base: var(--app-radius-sm);
+  --el-font-family: var(--app-font-family-sans);
+}
+
+// Element Plus 的交互控件保持清晰边界，玻璃感只放在外层容器，不把输入内容区做成重毛玻璃。
+.el-button:focus-visible,
+.el-input__wrapper:focus-within,
+.el-select__wrapper.is-focused,
+.el-pagination button:focus-visible {
+  box-shadow: var(--app-focus-ring);
+}
+
+.el-button {
+  border-radius: var(--app-radius-sm);
 }
 
 .el-card {
-  border-color: var(--app-border-color);
-  box-shadow: var(--app-shadow-card);
+  border-color: var(--app-border-soft);
+  box-shadow: var(--app-shadow-solid);
+}
+
+.el-dialog {
+  border: 1px solid var(--app-border-glass);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-glass-strong);
+  box-shadow: var(--app-shadow-glass);
+  backdrop-filter: blur(var(--app-glass-blur));
+}
+
+.el-table {
+  --el-table-border-color: var(--app-border-soft);
+  --el-table-header-bg-color: rgba(17, 38, 54, 0.04);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--app-radius-sm);
 }

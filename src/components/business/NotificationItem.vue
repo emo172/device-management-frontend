@@ -110,7 +110,7 @@ function handleMarkRead() {
 
 <template>
   <article
-    class="notification-item"
+    class="notification-item notification-item__surface"
     :class="{ 'notification-item--read': isInAppChannel && notification.readFlag === 1 }"
   >
     <div class="notification-item__icon-shell">
@@ -155,15 +155,17 @@ function handleMarkRead() {
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .notification-item {
+  @include shell.console-surface(12px);
+
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   gap: 18px;
   padding: 22px 24px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
 }
 
 .notification-item--read {

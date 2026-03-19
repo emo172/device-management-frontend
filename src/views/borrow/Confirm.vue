@@ -6,6 +6,9 @@ import { useRoute, useRouter } from 'vue-router'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { useBorrowStore } from '@/stores/modules/borrow'
 import { useReservationStore } from '@/stores/modules/reservation'
 import { formatDateTime } from '@/utils/date'
@@ -104,28 +107,27 @@ onMounted(() => {
 
 <template>
   <section class="borrow-confirm-view">
-    <header class="borrow-confirm-view__hero">
-      <div>
-        <p class="borrow-confirm-view__eyebrow">Confirm Borrow</p>
-        <h1>借用确认</h1>
-        <p>
-          从当前已加载的预约分页结果中筛选“已批准且已签到”的候选预约。等后端补齐专用筛选接口后，这里可以无缝切换为真实候选池。
-        </p>
-      </div>
-
-      <div class="borrow-confirm-view__actions">
-        <el-button @click="handleBack">返回台账</el-button>
-        <el-button
-          class="borrow-confirm-view__submit"
-          type="primary"
-          :disabled="!selectedReservation"
-          :loading="submitting"
-          @click="handleSubmit"
-        >
-          确认借出
-        </el-button>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Confirm Borrow"
+      title="借用确认"
+      description="从当前已加载的预约分页结果中筛选已批准且已签到的候选预约；等后端补齐专用筛选接口后，这里可以无缝切换为真实候选池。"
+      class="borrow-confirm-view__hero"
+    >
+      <template #actions>
+        <div class="borrow-confirm-view__actions">
+          <el-button @click="handleBack">返回台账</el-button>
+          <el-button
+            class="borrow-confirm-view__submit"
+            type="primary"
+            :disabled="!selectedReservation"
+            :loading="submitting"
+            @click="handleSubmit"
+          >
+            确认借出
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <section class="borrow-confirm-view__notice">
       <strong>当前页候选筛选说明</strong>
@@ -143,75 +145,86 @@ onMounted(() => {
     />
 
     <template v-else>
-      <section class="borrow-confirm-view__layout">
-        <article class="borrow-confirm-view__candidate-panel">
-          <div class="borrow-confirm-view__panel-header">
-            <p class="borrow-confirm-view__eyebrow">Candidates</p>
-            <h2>可确认借出的预约</h2>
-          </div>
+      <ConsoleDetailLayout class="borrow-confirm-view__layout">
+        <template #main>
+          <article class="borrow-confirm-view__candidate-panel">
+            <div class="borrow-confirm-view__panel-header">
+              <p class="borrow-confirm-view__eyebrow">Candidates</p>
+              <h2>可确认借出的预约</h2>
+            </div>
 
-          <div class="borrow-confirm-view__candidate-list">
-            <button
-              v-for="item in candidateReservations"
-              :key="item.id"
-              class="borrow-confirm-view__candidate-card"
-              :class="{
-                'borrow-confirm-view__candidate-card--active': selectedReservationId === item.id,
-              }"
-              type="button"
-              @click="handleSelectReservation(item.id)"
-            >
-              <strong>{{ item.deviceName }}</strong>
-              <span>{{ item.userName }} · {{ item.deviceNumber }}</span>
-              <span>{{ formatDateTime(item.startTime) }} - {{ formatDateTime(item.endTime) }}</span>
-              <span>{{ item.purpose }}</span>
-            </button>
-          </div>
+            <div class="borrow-confirm-view__candidate-list">
+              <button
+                v-for="item in candidateReservations"
+                :key="item.id"
+                class="borrow-confirm-view__candidate-card"
+                :class="{
+                  'borrow-confirm-view__candidate-card--active': selectedReservationId === item.id,
+                }"
+                type="button"
+                @click="handleSelectReservation(item.id)"
+              >
+                <strong>{{ item.deviceName }}</strong>
+                <span>{{ item.userName }} · {{ item.deviceNumber }}</span>
+                <span
+                  >{{ formatDateTime(item.startTime) }} - {{ formatDateTime(item.endTime) }}</span
+                >
+                <span>{{ item.purpose }}</span>
+              </button>
+            </div>
 
-          <Pagination
-            :current-page="reservationStore.query.page ?? pagination.page"
-            :page-size="reservationStore.query.size ?? pagination.size"
-            :total="reservationStore.total"
-            :disabled="reservationStore.loading"
-            @change="handlePaginationChange"
-          />
-        </article>
+            <Pagination
+              :current-page="reservationStore.query.page ?? pagination.page"
+              :page-size="reservationStore.query.size ?? pagination.size"
+              :total="reservationStore.total"
+              :disabled="reservationStore.loading"
+              @change="handlePaginationChange"
+            />
+          </article>
+        </template>
 
-        <article class="borrow-confirm-view__detail-panel">
-          <div class="borrow-confirm-view__panel-header">
-            <p class="borrow-confirm-view__eyebrow">Selection</p>
-            <h2>确认说明</h2>
-          </div>
+        <template #aside>
+          <ConsoleAsidePanel
+            title="确认说明"
+            description="确认借出只针对左侧当前选中的正式候选预约，备注会原样透传给后端借用确认接口。"
+          >
+            <div class="borrow-confirm-view__panel-header">
+              <p class="borrow-confirm-view__eyebrow">Selection</p>
+              <h2>确认说明</h2>
+            </div>
 
-          <template v-if="selectedReservation">
-            <dl class="borrow-confirm-view__detail-list">
-              <div>
-                <dt>预约编号</dt>
-                <dd>{{ selectedReservation.id }}</dd>
-              </div>
-              <div>
-                <dt>设备</dt>
-                <dd>{{ selectedReservation.deviceName }}（{{ selectedReservation.deviceId }}）</dd>
-              </div>
-              <div>
-                <dt>借用人</dt>
-                <dd>{{ selectedReservation.userName }}（{{ selectedReservation.userId }}）</dd>
-              </div>
-            </dl>
+            <template v-if="selectedReservation">
+              <dl class="borrow-confirm-view__detail-list">
+                <div>
+                  <dt>预约编号</dt>
+                  <dd>{{ selectedReservation.id }}</dd>
+                </div>
+                <div>
+                  <dt>设备</dt>
+                  <dd>
+                    {{ selectedReservation.deviceName }}（{{ selectedReservation.deviceId }}）
+                  </dd>
+                </div>
+                <div>
+                  <dt>借用人</dt>
+                  <dd>{{ selectedReservation.userName }}（{{ selectedReservation.userId }}）</dd>
+                </div>
+              </dl>
 
-            <label class="borrow-confirm-view__remark-field">
-              <span>现场备注（可选）</span>
-              <textarea
-                v-model="remark"
-                rows="5"
-                placeholder="例如：设备外观检查正常，现场已交接。"
-              />
-            </label>
-          </template>
+              <label class="borrow-confirm-view__remark-field">
+                <span>现场备注（可选）</span>
+                <textarea
+                  v-model="remark"
+                  rows="5"
+                  placeholder="例如：设备外观检查正常，现场已交接。"
+                />
+              </label>
+            </template>
 
-          <p v-else class="borrow-confirm-view__empty-tip">请先从左侧选择一条候选预约。</p>
-        </article>
-      </section>
+            <p v-else class="borrow-confirm-view__empty-tip">请先从左侧选择一条候选预约。</p>
+          </ConsoleAsidePanel>
+        </template>
+      </ConsoleDetailLayout>
     </template>
   </section>
 </template>

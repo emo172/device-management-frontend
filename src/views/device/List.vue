@@ -9,6 +9,9 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import DeviceCard from '@/components/business/DeviceCard.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import DeviceStatusTag from '@/components/business/DeviceStatusTag.vue'
 import { DeviceStatusLabel, DeviceStatus } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
@@ -111,27 +114,26 @@ onMounted(() => {
 
 <template>
   <section class="device-list-view">
-    <header class="device-list-view__hero">
-      <div>
-        <p class="device-list-view__eyebrow">Device Console</p>
-        <h1 class="device-list-view__title">设备中心</h1>
-        <p class="device-list-view__description">
-          统一查看设备状态、分类归属与位置分布。仅设备管理员可在此维护设备主数据，其余角色保持只读访问。
-        </p>
-      </div>
-
-      <!-- 设备写入口只对 DEVICE_ADMIN 可见，避免系统管理员误触发后端 403。 -->
-      <div class="device-list-view__hero-actions">
-        <el-button @click="loadDeviceList()">
-          <el-icon><RefreshRight /></el-icon>
-          刷新
-        </el-button>
-        <el-button v-if="isDeviceAdmin" type="primary" @click="handleCreate">
-          <el-icon><Plus /></el-icon>
-          新增设备
-        </el-button>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Device Console"
+      title="设备中心"
+      description="统一查看设备状态、分类归属与位置分布。仅设备管理员可在此维护设备主数据，其余角色保持只读访问。"
+      class="device-list-view__hero"
+    >
+      <template #actions>
+        <!-- 设备写入口只对 DEVICE_ADMIN 可见，避免系统管理员误触发后端 403。 -->
+        <div class="device-list-view__hero-actions">
+          <el-button @click="loadDeviceList()">
+            <el-icon><RefreshRight /></el-icon>
+            刷新
+          </el-button>
+          <el-button v-if="isDeviceAdmin" type="primary" @click="handleCreate">
+            <el-icon><Plus /></el-icon>
+            新增设备
+          </el-button>
+        </div>
+      </template>
+    </ConsolePageHero>
 
     <SearchBar
       v-model="filters.categoryName"
@@ -141,7 +143,7 @@ onMounted(() => {
       @reset="handleReset"
     />
 
-    <div v-if="deviceCards.length" class="device-list-view__card-grid">
+    <ConsoleSummaryGrid v-if="deviceCards.length" class="device-list-view__card-grid">
       <DeviceCard
         v-for="device in deviceCards"
         :key="device.id"
@@ -152,14 +154,13 @@ onMounted(() => {
         @status="handleQuickStatusChange"
         @delete="handleOpenDelete"
       />
-    </div>
+    </ConsoleSummaryGrid>
 
-    <div class="device-list-view__table-shell">
-      <div class="device-list-view__table-header">
-        <h2>设备列表</h2>
-        <span>共 {{ deviceStore.total }} 条</span>
-      </div>
-
+    <ConsoleTableSection
+      title="设备列表"
+      :count="deviceStore.total"
+      class="device-list-view__table-shell"
+    >
       <EmptyState
         v-if="!tableData.length && !deviceStore.loading"
         title="暂无符合条件的设备"
@@ -200,15 +201,17 @@ onMounted(() => {
                   <el-button text type="warning" @click="handleQuickStatusChange(scope.row.id)">
                     状态变更
                   </el-button>
-                  <el-button text type="danger" @click="handleOpenDelete(scope.row.id)"
-                    >删除</el-button
-                  >
+                  <el-button text type="danger" @click="handleOpenDelete(scope.row.id)">
+                    删除
+                  </el-button>
                 </template>
               </div>
             </template>
           </el-table-column>
         </el-table>
+      </template>
 
+      <template #footer>
         <Pagination
           :current-page="deviceStore.query.page ?? 1"
           :page-size="deviceStore.query.size ?? 10"
@@ -217,7 +220,7 @@ onMounted(() => {
           @change="handlePaginationChange"
         />
       </template>
-    </div>
+    </ConsoleTableSection>
 
     <ConfirmDialog
       v-model="deleteDialogVisible"
@@ -236,19 +239,7 @@ onMounted(() => {
   gap: 24px;
 }
 
-.device-list-view__hero,
-.device-list-view__table-shell {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-}
-
 .device-list-view__hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
   background:
     radial-gradient(circle at top right, rgba(217, 119, 6, 0.16), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
@@ -293,25 +284,7 @@ onMounted(() => {
 }
 
 .device-list-view__card-grid {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.device-list-view__table-shell {
-  padding: 24px;
-}
-
-.device-list-view__table-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.device-list-view__table-header span {
-  font-size: 13px;
-  color: var(--app-text-secondary);
 }
 
 .device-list-view__link {

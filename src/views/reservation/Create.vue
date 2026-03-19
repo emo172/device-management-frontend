@@ -7,6 +7,9 @@ import type { DeviceResponse } from '@/api/devices'
 import type { UserListItemResponse } from '@/api/users'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import ReservationForm from '@/components/form/ReservationForm.vue'
+import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
+import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { DeviceStatus, UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useDeviceStore } from '@/stores/modules/device'
@@ -157,47 +160,61 @@ onMounted(() => {
 
 <template>
   <section class="reservation-create-page">
-    <header class="reservation-create-page__header">
-      <div>
-        <p>Reservation Create</p>
-        <h1>{{ isSystemAdmin ? '创建 / 代预约' : '创建预约' }}</h1>
-      </div>
-    </header>
+    <ConsolePageHero
+      eyebrow="Reservation Create"
+      :title="isSystemAdmin ? '创建 / 代预约' : '创建预约'"
+      description="创建页只承接角色差异与冲突回填，字段编辑和业务校验统一留在 ReservationForm 内部。"
+    />
 
-    <el-card v-if="isSystemAdmin" class="reservation-create-page__mode-card">
-      <template #header>
-        <span>创建模式</span>
+    <ConsoleDetailLayout>
+      <template #main>
+        <el-card v-if="isSystemAdmin" class="reservation-create-page__mode-card">
+          <template #header>
+            <span>创建模式</span>
+          </template>
+
+          <el-radio-group v-model="createMode">
+            <el-radio-button label="self" value="self">本人预约</el-radio-button>
+            <el-radio-button label="proxy" value="proxy">代预约</el-radio-button>
+          </el-radio-group>
+
+          <!-- 只有 SYSTEM_ADMIN 才能在创建页切换为代预约，并且必须显式选择目标 USER。 -->
+          <el-select
+            v-if="createMode === 'proxy'"
+            v-model="targetUserId"
+            class="reservation-create-page__target-user"
+            placeholder="请选择目标用户"
+          >
+            <el-option
+              v-for="user in reservationTargetUsers"
+              :key="user.id"
+              :label="`${user.realName || user.username}（${user.username}）`"
+              :value="user.id"
+            />
+          </el-select>
+        </el-card>
+
+        <ReservationForm
+          :initial-value="initialValue"
+          :device-options="deviceOptions"
+          :server-conflict-message="serverConflictMessage"
+          :submitting="submitting"
+          @submit="handleFormSubmit"
+          @clear-conflict="handleClearConflict"
+        />
       </template>
 
-      <el-radio-group v-model="createMode">
-        <el-radio-button label="self" value="self">本人预约</el-radio-button>
-        <el-radio-button label="proxy" value="proxy">代预约</el-radio-button>
-      </el-radio-group>
-
-      <!-- 只有 SYSTEM_ADMIN 才能在创建页切换为代预约，并且必须显式选择目标 USER。 -->
-      <el-select
-        v-if="createMode === 'proxy'"
-        v-model="targetUserId"
-        class="reservation-create-page__target-user"
-        placeholder="请选择目标用户"
-      >
-        <el-option
-          v-for="user in reservationTargetUsers"
-          :key="user.id"
-          :label="`${user.realName || user.username}（${user.username}）`"
-          :value="user.id"
-        />
-      </el-select>
-    </el-card>
-
-    <ReservationForm
-      :initial-value="initialValue"
-      :device-options="deviceOptions"
-      :server-conflict-message="serverConflictMessage"
-      :submitting="submitting"
-      @submit="handleFormSubmit"
-      @clear-conflict="handleClearConflict"
-    />
+      <template #aside>
+        <ConsoleAsidePanel
+          title="预约约束"
+          description="设备列表只保留 AVAILABLE 状态，提交阶段若命中后端冲突校验，消息会持续回填到表单直到用户调整完毕。"
+        >
+          <p class="reservation-create-page__note">
+            系统管理员切到代预约后必须显式选择目标用户，避免把代预约请求误落到当前登录账号。
+          </p>
+        </ConsoleAsidePanel>
+      </template>
+    </ConsoleDetailLayout>
 
     <ConfirmDialog
       v-model="confirmVisible"
@@ -217,16 +234,6 @@ onMounted(() => {
   gap: 20px;
 }
 
-.reservation-create-page__header p {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0369a1;
-}
-
-.reservation-create-page__header h1,
 .reservation-create-page__mode-card :deep(.el-card__header) {
   margin: 0;
   color: var(--app-text-primary);
@@ -240,5 +247,11 @@ onMounted(() => {
   display: block;
   max-width: 360px;
   margin-top: 16px;
+}
+
+.reservation-create-page__note {
+  margin: 0;
+  color: var(--app-text-secondary);
+  line-height: 1.7;
 }
 </style>

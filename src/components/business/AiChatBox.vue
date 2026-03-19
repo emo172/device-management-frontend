@@ -34,7 +34,7 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="ai-chat-box">
+  <div class="ai-chat-box ai-chat-box__surface">
     <textarea
       :value="modelValue"
       class="ai-chat-box__textarea"
@@ -58,12 +58,14 @@ function handleSubmit() {
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .ai-chat-box {
+  @include shell.console-surface(12px);
+
   padding: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
 }
 
 .ai-chat-box__textarea {
@@ -82,7 +84,7 @@ function handleSubmit() {
 
 .ai-chat-box__textarea:focus {
   border-color: rgba(15, 118, 110, 0.36);
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08);
+  box-shadow: var(--app-focus-ring);
 }
 
 .ai-chat-box__footer,

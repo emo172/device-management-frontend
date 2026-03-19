@@ -118,6 +118,8 @@ describe('UserDashboard', () => {
     await flushPromises()
 
     expect(fetchReservationListMock).toHaveBeenCalledWith({ page: 1, size: 5 })
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-summary-grid').exists()).toBe(true)
     expect(wrapper.text()).toContain('演示用户')
     expect(wrapper.text()).toContain('待签到提醒')
     expect(wrapper.text()).toContain('AI 对话')
@@ -125,6 +127,41 @@ describe('UserDashboard', () => {
     expect(wrapper.text()).toContain('待签到')
     expect(wrapper.text()).toContain('签到超时')
     expect(wrapper.text()).not.toContain('3D 打印机')
+
+    vi.useRealTimers()
+  })
+
+  it('兼容旧签到状态别名，避免待签到提醒漏算', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-16T09:00:00'))
+
+    reservationState.list = [
+      {
+        id: 'reservation-legacy',
+        deviceName: '热像仪',
+        startTime: '2026-03-16T09:20:00',
+        endTime: '2026-03-16T10:00:00',
+        status: 'APPROVED',
+        signStatus: 'NOT_SIGNED',
+      },
+    ]
+
+    const UserDashboard = (await import('@/views/dashboard/UserDashboard.vue')).default
+    const wrapper = mount(UserDashboard, {
+      global: {
+        stubs: {
+          RouterLink: defineComponent({
+            props: { to: { type: [String, Object], default: '' } },
+            template: '<a><slot /></a>',
+          }),
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('热像仪')
+    expect(wrapper.text()).toContain('待签到')
 
     vi.useRealTimers()
   })

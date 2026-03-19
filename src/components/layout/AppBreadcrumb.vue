@@ -19,14 +19,26 @@ const breadcrumbItems = computed(() =>
 </script>
 
 <template>
-  <el-breadcrumb class="app-breadcrumb" separator="/">
-    <el-breadcrumb-item v-for="item in breadcrumbItems" :key="`${item.path}-${item.title}`">
-      {{ item.title }}
-    </el-breadcrumb-item>
-  </el-breadcrumb>
+  <div class="app-breadcrumb__surface">
+    <el-breadcrumb class="app-breadcrumb" separator="/">
+      <el-breadcrumb-item v-for="item in breadcrumbItems" :key="`${item.path}-${item.title}`">
+        {{ item.title }}
+      </el-breadcrumb-item>
+    </el-breadcrumb>
+  </div>
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
+.app-breadcrumb__surface {
+  @include shell.console-surface(10px);
+
+  min-width: 0;
+  padding: 10px 16px;
+  border-radius: 999px;
+}
+
 .app-breadcrumb {
   min-width: 0;
 }

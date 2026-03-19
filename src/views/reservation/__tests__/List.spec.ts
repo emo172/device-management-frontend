@@ -177,6 +177,9 @@ describe('reservation list view', () => {
     })
 
     expect(fetchReservationListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('我的预约')
     expect(wrapper.text()).toContain('user')
     expect(wrapper.text()).toContain('创建预约')
@@ -315,6 +318,9 @@ describe('reservation list view', () => {
       },
     })
 
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('全部预约')
     expect(wrapper.text()).toContain('admin')
     expect(wrapper.text()).toContain('创建预约')
@@ -375,6 +381,9 @@ describe('reservation list view', () => {
       },
     })
 
+    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('创建预约')
   })
 })
