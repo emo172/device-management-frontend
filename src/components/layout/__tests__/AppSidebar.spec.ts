@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UserRole } from '@/enums/UserRole'
 import { createAppPinia } from '@/stores'
+import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
 
 const routeState = {
@@ -22,9 +23,24 @@ vi.mock('vue-router', async (importOriginal) => {
 
 const AppSidebar = (await import('../AppSidebar.vue')).default
 
+function mountSidebar() {
+  return mount(AppSidebar, {
+    global: {
+      stubs: {
+        ElAside: { template: '<aside><slot /></aside>' },
+        ElIcon: { template: '<i><slot /></i>' },
+        ElMenu: { template: '<nav><slot /></nav>' },
+        ElMenuItem: { template: '<div><slot /></div>' },
+        ElScrollbar: { template: '<div><slot /></div>' },
+      },
+    },
+  })
+}
+
 describe('AppSidebar', () => {
   beforeEach(() => {
     setActivePinia(createAppPinia())
+    routeState.path = '/dashboard'
   })
 
   it('为普通用户渲染 AI 对话入口，但不展示统计分析', () => {
@@ -38,18 +54,10 @@ describe('AppSidebar', () => {
       username: 'user',
     })
 
-    const wrapper = mount(AppSidebar, {
-      global: {
-        stubs: {
-          ElAside: { template: '<aside><slot /></aside>' },
-          ElIcon: { template: '<i><slot /></i>' },
-          ElMenu: { template: '<nav><slot /></nav>' },
-          ElMenuItem: { template: '<div><slot /></div>' },
-          ElScrollbar: { template: '<div><slot /></div>' },
-        },
-      },
-    })
+    const wrapper = mountSidebar()
 
+    expect(wrapper.find('.app-sidebar__surface').exists()).toBe(true)
+    expect(wrapper.find('.app-sidebar__role-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('AI 对话')
     expect(wrapper.text()).toContain('我的预约')
     expect(wrapper.text()).not.toContain('统计分析')
@@ -67,17 +75,7 @@ describe('AppSidebar', () => {
       username: 'admin',
     })
 
-    const wrapper = mount(AppSidebar, {
-      global: {
-        stubs: {
-          ElAside: { template: '<aside><slot /></aside>' },
-          ElIcon: { template: '<i><slot /></i>' },
-          ElMenu: { template: '<nav><slot /></nav>' },
-          ElMenuItem: { template: '<div><slot /></div>' },
-          ElScrollbar: { template: '<div><slot /></div>' },
-        },
-      },
-    })
+    const wrapper = mountSidebar()
 
     expect(wrapper.text()).toContain('用户管理')
     expect(wrapper.text()).toContain('统计分析')
@@ -101,17 +99,7 @@ describe('AppSidebar', () => {
       username: 'device-admin',
     })
 
-    const wrapper = mount(AppSidebar, {
-      global: {
-        stubs: {
-          ElAside: { template: '<aside><slot /></aside>' },
-          ElIcon: { template: '<i><slot /></i>' },
-          ElMenu: { template: '<nav><slot /></nav>' },
-          ElMenuItem: { template: '<div><slot /></div>' },
-          ElScrollbar: { template: '<div><slot /></div>' },
-        },
-      },
-    })
+    const wrapper = mountSidebar()
 
     expect(wrapper.text()).toContain('预约管理')
     expect(wrapper.text()).toContain('预约审核')
@@ -151,5 +139,25 @@ describe('AppSidebar', () => {
     })
 
     expect(wrapper.get('.menu-stub').attributes('data-active')).toBe('/borrows')
+  })
+
+  it('折叠侧边栏时切换到收起态角色信息区', () => {
+    const appStore = useAppStore()
+    appStore.setSidebarCollapsed(true)
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const wrapper = mountSidebar()
+
+    expect(wrapper.find('.app-sidebar__role-panel--collapsed').exists()).toBe(true)
+    expect(wrapper.find('.app-sidebar__brand-text').exists()).toBe(false)
   })
 })

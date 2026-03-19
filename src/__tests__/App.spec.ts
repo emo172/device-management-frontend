@@ -7,24 +7,17 @@ const routeState = {
   meta: {} as Record<string, unknown>,
 }
 
-vi.mock('@/layouts/DefaultLayout.vue', () => ({
+vi.mock('@/components/layout/AppHeader.vue', () => ({
   default: defineComponent({
-    name: 'DefaultLayoutStub',
-    template: '<div class="default-layout"><slot /></div>',
+    name: 'AppHeaderStub',
+    template: '<div class="app-header-stub">头部</div>',
   }),
 }))
 
-vi.mock('@/layouts/AuthLayout.vue', () => ({
+vi.mock('@/components/layout/AppSidebar.vue', () => ({
   default: defineComponent({
-    name: 'AuthLayoutStub',
-    template: '<div class="auth-layout"><slot /></div>',
-  }),
-}))
-
-vi.mock('@/layouts/BlankLayout.vue', () => ({
-  default: defineComponent({
-    name: 'BlankLayoutStub',
-    template: '<div class="blank-layout"><slot /></div>',
+    name: 'AppSidebarStub',
+    template: '<div class="app-sidebar-stub">侧边栏</div>',
   }),
 }))
 
@@ -50,6 +43,8 @@ describe('App', () => {
     const wrapper = mount(App)
 
     expect(wrapper.find('.auth-layout').exists()).toBe(true)
+    expect(wrapper.find('.auth-layout__hero-panel').exists()).toBe(true)
+    expect(wrapper.find('.auth-layout__content-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('路由内容')
   })
 
@@ -59,6 +54,17 @@ describe('App', () => {
     const wrapper = mount(App)
 
     expect(wrapper.find('.default-layout').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__surface').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__main-shell').exists()).toBe(true)
+    expect(wrapper.text()).toContain('路由内容')
+  })
+
+  it('显式声明 blank 布局时切换到 BlankLayout', () => {
+    routeState.meta = { layout: 'blank' }
+
+    const wrapper = mount(App)
+
+    expect(wrapper.find('.blank-layout').exists()).toBe(true)
     expect(wrapper.text()).toContain('路由内容')
   })
 })

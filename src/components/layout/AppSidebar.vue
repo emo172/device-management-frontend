@@ -113,50 +113,63 @@ function handleSelect(path: string) {
 
 <template>
   <el-aside :width="appStore.sidebarCollapsed ? '88px' : '248px'" class="app-sidebar">
-    <div class="app-sidebar__brand">
-      <span class="app-sidebar__logo">DM</span>
-      <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__brand-text">
-        <strong>智能设备管理系统</strong>
-        <span>Device Console</span>
+    <div class="app-sidebar__surface">
+      <div class="app-sidebar__brand">
+        <span class="app-sidebar__logo">DM</span>
+        <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__brand-text">
+          <strong>智能设备管理系统</strong>
+          <span>Device Console</span>
+        </div>
       </div>
-    </div>
 
-    <el-scrollbar class="app-sidebar__scrollbar">
-      <!-- 侧边栏菜单严格按当前角色裁剪，避免未授权角色看到不应出现的业务入口。 -->
-      <el-menu
-        :collapse="appStore.sidebarCollapsed"
-        :default-active="activePath"
-        class="app-sidebar__menu"
-        @select="handleSelect"
-      >
-        <el-menu-item v-for="item in visibleMenuItems" :key="item.title" :index="item.path">
-          <el-icon>
-            <component :is="item.icon" />
-          </el-icon>
-          <span>{{ item.title }}</span>
-        </el-menu-item>
-      </el-menu>
-    </el-scrollbar>
+      <el-scrollbar class="app-sidebar__scrollbar">
+        <!-- 侧边栏菜单严格按当前角色裁剪，避免未授权角色看到不应出现的业务入口。 -->
+        <el-menu
+          :collapse="appStore.sidebarCollapsed"
+          :default-active="activePath"
+          class="app-sidebar__menu"
+          @select="handleSelect"
+        >
+          <el-menu-item v-for="item in visibleMenuItems" :key="item.title" :index="item.path">
+            <el-icon>
+              <component :is="item.icon" />
+            </el-icon>
+            <span>{{ item.title }}</span>
+          </el-menu-item>
+        </el-menu>
+      </el-scrollbar>
 
-    <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__footer">
-      当前角色：{{ currentRole || '未登录' }}
-    </div>
-    <div v-else class="app-sidebar__footer app-sidebar__footer--collapsed">
-      <el-icon><Histogram /></el-icon>
+      <!-- 底部角色区只做当前会话身份提示，折叠态改为紧凑图标，避免宽度收起后文字挤压。 -->
+      <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__role-panel">
+        当前角色：{{ currentRole || '未登录' }}
+      </div>
+      <div v-else class="app-sidebar__role-panel app-sidebar__role-panel--collapsed">
+        <el-icon><Histogram /></el-icon>
+      </div>
     </div>
   </el-aside>
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .app-sidebar {
+  height: 100vh;
+  padding: 16px 0 16px 16px;
+  background: transparent;
+  transition: width 0.24s ease;
+}
+
+.app-sidebar__surface {
+  @include shell.console-surface(14px);
+
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  border-right: 1px solid rgba(148, 163, 184, 0.18);
+  height: 100%;
+  border-radius: var(--app-radius-lg) 0 0 var(--app-radius-lg);
   background:
     radial-gradient(circle at top, rgba(233, 180, 76, 0.16), transparent 32%),
-    linear-gradient(180deg, #fdfcf8 0%, #f6f8fb 100%);
-  transition: width 0.24s ease;
+    var(--app-surface-glass);
 }
 
 .app-sidebar__brand {
@@ -192,7 +205,7 @@ function handleSelect(path: string) {
 }
 
 .app-sidebar__brand-text span,
-.app-sidebar__footer {
+.app-sidebar__role-panel {
   font-size: 12px;
   color: var(--app-text-secondary);
 }
@@ -217,12 +230,12 @@ function handleSelect(path: string) {
   color: #9a3412;
 }
 
-.app-sidebar__footer {
+.app-sidebar__role-panel {
   padding: 18px 20px 22px;
   border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
-.app-sidebar__footer--collapsed {
+.app-sidebar__role-panel--collapsed {
   display: flex;
   align-items: center;
   justify-content: center;
