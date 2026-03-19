@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConversationShell from '@/components/layout/ConversationShell.vue'
 import { useAiStore } from '@/stores/modules/ai'
 import { formatDateTime } from '@/utils/date'
 
@@ -14,12 +15,21 @@ const aiStore = useAiStore()
 const activeHistoryId = ref<string | null>(null)
 
 async function loadHistoryList() {
-  await aiStore.fetchHistoryList()
+  try {
+    await aiStore.fetchHistoryList()
+  } catch {
+    // 请求层已经统一提示，这里只阻止历史加载链路出现未处理拒绝。
+  }
 }
 
 async function handleSelectHistory(historyId: string) {
   activeHistoryId.value = historyId
-  await aiStore.fetchHistoryDetail(historyId)
+
+  try {
+    await aiStore.fetchHistoryDetail(historyId)
+  } catch {
+    // 请求层已经统一提示，这里避免点击历史摘要时抛出未处理拒绝。
+  }
 }
 
 onMounted(() => {
@@ -47,80 +57,84 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="ai-history-view__grid">
-      <article class="ai-history-view__list-card">
-        <div class="ai-history-view__panel-header">
-          <div>
-            <h2>历史摘要</h2>
-            <p>共 {{ aiStore.historyList.length }} 条</p>
+    <ConversationShell class="ai-history-view__shell">
+      <template #sidebar>
+        <article class="ai-history-view__list-card">
+          <div class="ai-history-view__panel-header">
+            <div>
+              <h2>历史摘要</h2>
+              <p>共 {{ aiStore.historyList.length }} 条</p>
+            </div>
           </div>
-        </div>
 
-        <EmptyState
-          v-if="!aiStore.historyList.length && !aiStore.loading"
-          title="暂无历史会话"
-          description="发起至少一轮 AI 对话后，这里才会出现可回看的历史记录。"
-        />
+          <EmptyState
+            v-if="!aiStore.historyList.length && !aiStore.loading"
+            title="暂无历史会话"
+            description="发起至少一轮 AI 对话后，这里才会出现可回看的历史记录。"
+          />
 
-        <div v-else class="ai-history-view__list">
-          <button
-            v-for="item in aiStore.historyList"
-            :key="item.id"
-            :data-history-id="item.id"
-            class="ai-history-view__history-item"
-            :class="{ 'ai-history-view__history-item--active': activeHistoryId === item.id }"
-            @click="handleSelectHistory(item.id)"
-          >
-            <strong>{{ item.userInput }}</strong>
-            <span>意图：{{ item.intent }}</span>
-            <span>执行：{{ item.executeResult }}</span>
-            <time>{{ formatDateTime(item.createdAt) }}</time>
-          </button>
-        </div>
-      </article>
+          <div v-else class="ai-history-view__list">
+            <button
+              v-for="item in aiStore.historyList"
+              :key="item.id"
+              :data-history-id="item.id"
+              class="ai-history-view__history-item"
+              :class="{ 'ai-history-view__history-item--active': activeHistoryId === item.id }"
+              @click="handleSelectHistory(item.id)"
+            >
+              <strong>{{ item.userInput }}</strong>
+              <span>意图：{{ item.intent }}</span>
+              <span>执行：{{ item.executeResult }}</span>
+              <time>{{ formatDateTime(item.createdAt) }}</time>
+            </button>
+          </div>
+        </article>
+      </template>
 
-      <article class="ai-history-view__detail-card">
-        <div class="ai-history-view__panel-header">
-          <div>
-            <h2>详情预览</h2>
-            <p>页内直接查看单条历史详情，不依赖额外弹窗。</p>
+      <template #main>
+        <article class="ai-history-view__detail-card">
+          <div class="ai-history-view__panel-header">
+            <div>
+              <h2>详情预览</h2>
+              <p>页内直接查看单条历史详情，不依赖额外弹窗。</p>
+            </div>
           </div>
-        </div>
 
-        <EmptyState
-          v-if="!aiStore.currentHistory"
-          title="选择一条历史记录"
-          description="点击左侧摘要后，右侧会展示本轮 AI 的回复内容、结构化结果与错误提示。"
-        />
+          <EmptyState
+            v-if="!aiStore.currentHistory"
+            title="选择一条历史记录"
+            description="点击左侧摘要后，右侧会展示本轮 AI 的回复内容、结构化结果与错误提示。"
+          />
 
-        <dl v-else class="ai-history-view__detail-list">
-          <div>
-            <dt>用户输入</dt>
-            <dd>{{ aiStore.currentHistory.userInput }}</dd>
-          </div>
-          <div>
-            <dt>AI 回复</dt>
-            <dd>{{ aiStore.currentHistory.aiResponse }}</dd>
-          </div>
-          <div>
-            <dt>识别意图</dt>
-            <dd>{{ aiStore.currentHistory.intent }}</dd>
-          </div>
-          <div>
-            <dt>执行结果</dt>
-            <dd>{{ aiStore.currentHistory.executeResult }}</dd>
-          </div>
-          <div>
-            <dt>结构化信息</dt>
-            <dd>{{ aiStore.currentHistory.extractedInfo || '无' }}</dd>
-          </div>
-          <div>
-            <dt>错误信息</dt>
-            <dd>{{ aiStore.currentHistory.errorMessage || '无' }}</dd>
-          </div>
-        </dl>
-      </article>
-    </section>
+          <dl v-else class="ai-history-view__detail-list">
+            <div>
+              <dt>用户输入</dt>
+              <dd>{{ aiStore.currentHistory.userInput }}</dd>
+            </div>
+            <div>
+              <dt>AI 回复</dt>
+              <dd>{{ aiStore.currentHistory.aiResponse }}</dd>
+            </div>
+            <div>
+              <dt>识别意图</dt>
+              <dd>{{ aiStore.currentHistory.intent }}</dd>
+            </div>
+            <div>
+              <dt>执行结果</dt>
+              <dd>{{ aiStore.currentHistory.executeResult }}</dd>
+            </div>
+            <div>
+              <dt>结构化信息</dt>
+              <dd>{{ aiStore.currentHistory.extractedInfo || '无' }}</dd>
+            </div>
+            <div>
+              <dt>错误信息</dt>
+              <dd>{{ aiStore.currentHistory.errorMessage || '无' }}</dd>
+            </div>
+          </dl>
+        </article>
+      </template>
+    </ConversationShell>
   </section>
 </template>
 
@@ -197,15 +211,14 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.ai-history-view__grid {
+.ai-history-view__shell {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
   gap: 20px;
 }
 
 .ai-history-view__list-card,
 .ai-history-view__detail-card {
-  padding: 22px;
+  height: 100%;
 }
 
 .ai-history-view__panel-header {

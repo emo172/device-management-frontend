@@ -2,6 +2,8 @@ import { computed, defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const aiViewModules = import.meta.glob('../*.vue')
+
 const aiChatState = reactive({
   loading: false,
   sessionId: 'session-1',
@@ -87,8 +89,18 @@ describe('Ai Chat view', () => {
     }
   }
 
+  async function loadChatView() {
+    const loader = aiViewModules['../Chat.vue']
+
+    if (!loader) {
+      throw new Error('Chat.vue is missing')
+    }
+
+    return (await loader()) as { default: object }
+  }
+
   it('展示最新意图结果，并允许通过输入框发送消息', async () => {
-    const module = await import('../Chat.vue')
+    const module = await loadChatView()
 
     const wrapper = mount(module.default, {
       global: {
@@ -114,6 +126,9 @@ describe('Ai Chat view', () => {
       },
     })
 
+    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
+    expect(wrapper.find('.conversation-shell__sidebar').exists()).toBe(true)
+    expect(wrapper.find('.conversation-shell__main').exists()).toBe(true)
     expect(wrapper.text()).toContain('AI 对话助手')
     expect(wrapper.text()).toContain('HELP')
     expect(wrapper.text()).toContain('GUIDE')
@@ -133,7 +148,7 @@ describe('Ai Chat view', () => {
     aiChatState.messages = []
     aiChatState.latestResult = null
 
-    const module = await import('../Chat.vue')
+    const module = await loadChatView()
     const wrapper = mount(module.default, {
       global: {
         stubs: {
@@ -172,7 +187,7 @@ describe('Ai Chat view', () => {
     aiChatState.latestResult = null
     sendMessageMock.mockResolvedValueOnce(null)
 
-    const module = await import('../Chat.vue')
+    const module = await loadChatView()
     const wrapper = mount(module.default, {
       global: {
         stubs: {

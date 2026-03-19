@@ -129,6 +129,8 @@ describe('notification list view', () => {
 
     await flushPromises()
 
+    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
+    expect(wrapper.find('.notification-list-view__filters').exists()).toBe(true)
     expect(wrapper.text()).toContain('通知中心')
     expect(wrapper.text()).toContain('逾期提醒')
     expect(wrapper.text()).toContain('预约提醒')

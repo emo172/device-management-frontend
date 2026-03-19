@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="auth-panel">
+  <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
       <p class="auth-panel__eyebrow">{{ props.eyebrow }}</p>
       <h1 class="auth-panel__title">{{ props.title }}</h1>
@@ -242,11 +242,13 @@ onBeforeUnmount(() => {
       </el-button>
     </form>
 
-    <div class="auth-panel__footer auth-panel__footer--stacked">
-      <p class="auth-panel__helper">{{ props.helperText }}</p>
-      <div class="auth-panel__links">
-        <RouterLink class="auth-panel__link" to="/login">返回登录</RouterLink>
-        <RouterLink class="auth-panel__link" to="/register">注册新账号</RouterLink>
+    <div class="auth-panel__actions">
+      <div class="auth-panel__footer auth-panel__footer--stacked">
+        <p class="auth-panel__helper">{{ props.helperText }}</p>
+        <div class="auth-panel__links">
+          <RouterLink class="auth-panel__link" to="/login">返回登录</RouterLink>
+          <RouterLink class="auth-panel__link" to="/register">注册新账号</RouterLink>
+        </div>
       </div>
     </div>
   </section>

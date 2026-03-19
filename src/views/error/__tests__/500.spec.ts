@@ -5,7 +5,18 @@ import { NavigationFailureType } from 'vue-router'
 
 import { useAppStore } from '@/stores/modules/app'
 
+const errorViewModules = import.meta.glob('../*.vue')
 const pushMock = vi.fn()
+
+async function loadError500View() {
+  const loader = errorViewModules['../500.vue']
+
+  if (!loader) {
+    throw new Error('500.vue is missing')
+  }
+
+  return (await loader()) as { default: object }
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -36,9 +47,11 @@ describe('500 error page', () => {
       },
     })
 
-    const ErrorPage = (await import('../500.vue')).default
+    const ErrorPage = (await loadError500View()).default
     const wrapper = mount(ErrorPage)
 
+    expect(wrapper.find('.error-view__surface').exists()).toBe(true)
+    expect(wrapper.find('.error-view__action').exists()).toBe(true)
     expect(wrapper.text()).toContain('服务暂时不可用')
     expect(wrapper.text()).toContain('设备详情加载失败，请稍后重试。')
     expect(wrapper.text()).toContain('错误来源：request')
@@ -68,7 +81,7 @@ describe('500 error page', () => {
     store.setFatalError(fatalError)
     pushMock.mockRejectedValueOnce(new Error('navigation failed'))
 
-    const ErrorPage = (await import('../500.vue')).default
+    const ErrorPage = (await loadError500View()).default
     const wrapper = mount(ErrorPage)
 
     await wrapper.get('[data-testid="retry-action"]').trigger('click')
@@ -97,7 +110,7 @@ describe('500 error page', () => {
       from: { path: '/500' },
     })
 
-    const ErrorPage = (await import('../500.vue')).default
+    const ErrorPage = (await loadError500View()).default
     const wrapper = mount(ErrorPage)
 
     await wrapper.get('[data-testid="retry-action"]').trigger('click')
@@ -125,7 +138,7 @@ describe('500 error page', () => {
       from: { path: '/500' },
     })
 
-    const ErrorPage = (await import('../500.vue')).default
+    const ErrorPage = (await loadError500View()).default
     const wrapper = mount(ErrorPage)
 
     await wrapper.get('[data-testid="go-home-action"]').trigger('click')
@@ -136,7 +149,7 @@ describe('500 error page', () => {
   })
 
   it('falls back to generic copy and hides retry when current error is not retryable', async () => {
-    const ErrorPage = (await import('../500.vue')).default
+    const ErrorPage = (await loadError500View()).default
     const wrapper = mount(ErrorPage)
 
     expect(wrapper.text()).toContain('系统暂时无法完成当前操作')

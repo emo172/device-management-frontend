@@ -91,7 +91,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <section class="auth-panel">
+  <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
       <p class="auth-panel__eyebrow">Auth / Register</p>
       <h1 class="auth-panel__title">创建你的设备账号</h1>
@@ -180,8 +180,10 @@ async function handleSubmit() {
       </el-button>
     </form>
 
-    <div class="auth-panel__footer">
-      <RouterLink class="auth-panel__link" to="/login">已有账号？去登录</RouterLink>
+    <div class="auth-panel__actions">
+      <div class="auth-panel__footer">
+        <RouterLink class="auth-panel__link" to="/login">已有账号？去登录</RouterLink>
+      </div>
     </div>
   </section>
 </template>

@@ -1,8 +1,13 @@
 @mixin auth-panel-base {
+  // 认证页沿用整站语言，但内层表单更偏实体，避免登录输入区因为玻璃感过强而降低可读性。
   .auth-panel {
     display: flex;
     flex-direction: column;
     gap: 28px;
+  }
+
+  .auth-panel__surface {
+    min-height: 100%;
   }
 
   .auth-panel__intro {
@@ -17,14 +22,14 @@
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #d97706;
+    color: var(--app-accent-amber);
   }
 
   .auth-panel__title {
     margin: 0;
     font-size: clamp(28px, 4vw, 36px);
     line-height: 1.15;
-    color: var(--app-text-primary);
+    color: var(--app-ink-950);
   }
 
   .auth-panel__description {
@@ -40,6 +45,10 @@
     gap: 18px;
   }
 
+  .auth-form :is(.el-input__wrapper, .el-select__wrapper, .el-textarea__inner) {
+    background: rgba(255, 255, 255, 0.92);
+  }
+
   .auth-form__field {
     display: flex;
     flex-direction: column;
@@ -49,7 +58,7 @@
   .auth-form__label {
     font-size: 14px;
     font-weight: 600;
-    color: var(--app-text-primary);
+    color: var(--app-ink-950);
   }
 
   .auth-form__error {
@@ -62,14 +71,26 @@
     margin-top: 6px;
   }
 
+  .auth-form__submit :is(.el-button, button) {
+    min-height: 44px;
+    border-radius: var(--app-radius-sm);
+  }
+
   .auth-panel__footer {
     display: flex;
+  }
+
+  // 认证页把辅助链接、提示语和提交后续动作集中到 actions 区，方便双面板母版统一控制底部层级。
+  .auth-panel__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
 
   .auth-panel__link {
     font-size: 14px;
     font-weight: 600;
-    color: #0f766e;
+    color: var(--app-accent-teal);
     text-decoration: none;
   }
 

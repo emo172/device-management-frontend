@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 
+import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
+import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useBorrowStore } from '@/stores/modules/borrow'
@@ -117,27 +119,27 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-page admin-dashboard">
-    <section class="dashboard-card admin-hero">
-      <div>
-        <p class="eyebrow">Admin Console</p>
-        <h1>{{ displayName }}，这里是今天的管理概览</h1>
-        <p class="hero-copy">
-          {{
-            isSystemAdmin
-              ? '系统管理员看全局趋势与审批负载。'
-              : '设备管理员看现场处理事项与设备运行状态。'
-          }}
-        </p>
-      </div>
-      <RouterLink
-        class="hero-link"
-        :to="isSystemAdmin ? '/statistics' : '/reservations/manage/pending'"
-      >
-        {{ isSystemAdmin ? '进入统计分析' : '进入预约审核' }}
-      </RouterLink>
-    </section>
+    <ConsolePageHero
+      eyebrow="Admin Console"
+      :title="`${displayName}，这里是今天的管理概览`"
+      :description="
+        isSystemAdmin
+          ? '系统管理员看全局趋势与审批负载。'
+          : '设备管理员看现场处理事项与设备运行状态。'
+      "
+      class="dashboard-card admin-hero"
+    >
+      <template #actions>
+        <RouterLink
+          class="hero-link"
+          :to="isSystemAdmin ? '/statistics' : '/reservations/manage/pending'"
+        >
+          {{ isSystemAdmin ? '进入统计分析' : '进入预约审核' }}
+        </RouterLink>
+      </template>
+    </ConsolePageHero>
 
-    <section class="overview-grid">
+    <ConsoleSummaryGrid class="overview-grid">
       <article
         v-if="isSystemAdminOverviewPending"
         class="dashboard-card overview-loading-card"
@@ -159,7 +161,7 @@ onMounted(async () => {
         <p class="overview-title">{{ card.title }}</p>
         <strong class="overview-value">{{ card.value }}</strong>
       </article>
-    </section>
+    </ConsoleSummaryGrid>
 
     <section class="dashboard-grid admin-grid">
       <article class="dashboard-card reminder-card">

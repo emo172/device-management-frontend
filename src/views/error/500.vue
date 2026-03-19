@@ -83,38 +83,46 @@ async function handleRetry() {
 </script>
 
 <template>
-  <ViewPlaceholder eyebrow="500" :title="pageContent.title" :description="pageContent.description">
-    <template #actions>
-      <p class="error-page__source">错误来源：{{ pageContent.source }}</p>
-      <button
-        v-if="retryPath"
-        type="button"
-        class="error-page__action error-page__action--secondary"
-        data-testid="retry-action"
-        @click="handleRetry"
+  <section class="error-view">
+    <div class="error-view__surface">
+      <ViewPlaceholder
+        eyebrow="500"
+        :title="pageContent.title"
+        :description="pageContent.description"
       >
-        重试
-      </button>
-      <button
-        type="button"
-        class="error-page__action"
-        data-testid="go-home-action"
-        @click="handleGoHome"
-      >
-        返回首页
-      </button>
-    </template>
-  </ViewPlaceholder>
+        <template #actions>
+          <p class="error-view__source">错误来源：{{ pageContent.source }}</p>
+          <button
+            v-if="retryPath"
+            type="button"
+            class="error-view__action error-view__action--secondary"
+            data-testid="retry-action"
+            @click="handleRetry"
+          >
+            重试
+          </button>
+          <button
+            type="button"
+            class="error-view__action"
+            data-testid="go-home-action"
+            @click="handleGoHome"
+          >
+            返回首页
+          </button>
+        </template>
+      </ViewPlaceholder>
+    </div>
+  </section>
 </template>
 
 <style scoped lang="scss">
-.error-page__source {
+.error-view__source {
   margin: 0 auto 0 0;
   font-size: 13px;
   color: var(--app-text-secondary);
 }
 
-.error-page__action {
+.error-view__action {
   padding: 10px 18px;
   border: none;
   border-radius: 999px;
@@ -124,7 +132,7 @@ async function handleRetry() {
   cursor: pointer;
 }
 
-.error-page__action--secondary {
+.error-view__action--secondary {
   background: rgba(15, 23, 42, 0.08);
   color: var(--app-text-primary);
 }

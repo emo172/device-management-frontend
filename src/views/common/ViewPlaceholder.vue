@@ -12,17 +12,23 @@ defineProps<{
 
 <template>
   <section class="view-placeholder">
-    <p class="view-placeholder__eyebrow">{{ eyebrow }}</p>
-    <h1 class="view-placeholder__title">{{ title }}</h1>
-    <p class="view-placeholder__description">{{ description }}</p>
-    <div v-if="$slots.actions" class="view-placeholder__actions">
-      <slot name="actions" />
+    <div class="view-placeholder__surface">
+      <p class="view-placeholder__eyebrow">{{ eyebrow }}</p>
+      <h1 class="view-placeholder__title">{{ title }}</h1>
+      <p class="view-placeholder__description">{{ description }}</p>
+      <div v-if="$slots.actions" class="view-placeholder__actions">
+        <slot name="actions" />
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped lang="scss">
 .view-placeholder {
+  display: grid;
+}
+
+.view-placeholder__surface {
   padding: 32px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 24px;
