@@ -45,6 +45,8 @@ export interface UpdateDeviceStatusRequest {
 /**
  * 设备列表项。
  * 对应后端 `DeviceResponse`。
+ * 后端现在也会把公开图片地址带回列表结果，因此这里把 `imageUrl` 保持为可选字段，
+ * 兼容仍未补齐该字段的旧测试桩，同时允许列表卡片继续直接消费 `/files/**` 路径。
  */
 export interface DeviceResponse {
   id: string
@@ -55,6 +57,7 @@ export interface DeviceResponse {
   status: string
   description: string
   location: string
+  imageUrl?: string | null
 }
 
 /**

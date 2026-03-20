@@ -85,6 +85,24 @@ describe('devices api', () => {
     expect(putMock).toHaveBeenNthCalledWith(1, '/devices/device-1', updatePayload)
     expect(putMock).toHaveBeenNthCalledWith(2, '/devices/device-1/status', statusPayload)
     expect(deleteMock).toHaveBeenCalledWith('/devices/device-1')
+
+    const [, createBody] = postMock.mock.calls[0] as [
+      string,
+      typeof createPayload & { categoryId?: string },
+    ]
+    const [, updateBody] = putMock.mock.calls[0] as [
+      string,
+      typeof updatePayload & { categoryId?: string },
+    ]
+
+    /*
+     * 设备建档与编辑继续沿用 `categoryName`，
+     * 这样才能和后端 `CreateDeviceRequest`、`UpdateDeviceRequest` 保持一致，避免回退到旧的分类 ID 提交口径。
+     */
+    expect(createBody.categoryName).toBe('仪器')
+    expect(createBody).not.toHaveProperty('categoryId')
+    expect(updateBody.categoryName).toBe('仪器')
+    expect(updateBody).not.toHaveProperty('categoryId')
   })
 
   it('uploads device image with file field via form data', async () => {

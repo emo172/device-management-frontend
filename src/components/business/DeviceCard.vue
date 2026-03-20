@@ -22,6 +22,14 @@ const emit = defineEmits<{
 
 <template>
   <article class="device-card device-card__surface">
+    <!-- 列表卡片直接消费后端返回的 `/files/**` 公开地址，避免前端再手工拼接旧上传路径。 -->
+    <el-image
+      v-if="device.imageUrl"
+      class="device-card__image"
+      :src="device.imageUrl"
+      fit="cover"
+    />
+
     <div class="device-card__top">
       <div>
         <p class="device-card__eyebrow">{{ device.categoryName }}</p>
@@ -136,6 +144,13 @@ const emit = defineEmits<{
   font-size: 14px;
   line-height: 1.7;
   color: var(--app-text-secondary);
+}
+
+.device-card__image {
+  width: 100%;
+  height: 180px;
+  border-radius: 18px;
+  overflow: hidden;
 }
 
 .device-card__actions {

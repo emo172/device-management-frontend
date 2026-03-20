@@ -34,6 +34,15 @@ describe('categories api', () => {
 
     await expect(createCategory(payload)).resolves.toBe(response)
     expect(postMock).toHaveBeenCalledWith('/device-categories', payload)
+
+    const [, requestBody] = postMock.mock.calls[0] as [string, CreateCategoryRequest & { parentId?: string }]
+
+    /*
+     * 分类创建仍按后端 DTO 提交 `parentName`，
+     * 防止前端回退到旧的 `parentId` 口径后与联调接口脱节。
+     */
+    expect(requestBody.parentName).toBe('设备管理')
+    expect(requestBody).not.toHaveProperty('parentId')
   })
 
   it('loads category tree from tree endpoint', async () => {
