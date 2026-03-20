@@ -48,6 +48,22 @@ const selectedReservation = computed(() => {
   return candidateReservations.value.find((item) => item.id === selectedReservationId.value) ?? null
 })
 
+/**
+ * 借用确认候选当前仍复用预约接口。
+ * 如果后端尚未补齐设备名或借用人姓名，这里必须回退到真实 ID，避免页面渲染出空标题或伪造占位文案。
+ */
+function resolveReservationDeviceLabel(item: { deviceName?: string | null; deviceId: string }) {
+  return item.deviceName?.trim() || item.deviceId
+}
+
+function resolveReservationUserLabel(item: { userName?: string | null; userId: string }) {
+  return item.userName?.trim() || item.userId
+}
+
+function resolveReservationDeviceMeta(item: { deviceNumber?: string | null; deviceId: string }) {
+  return item.deviceNumber?.trim() || item.deviceId
+}
+
 async function loadCandidateReservations(overrides?: { page: number; size: number }) {
   pagination.value = {
     page: overrides?.page ?? pagination.value.page,
@@ -164,8 +180,10 @@ onMounted(() => {
                 type="button"
                 @click="handleSelectReservation(item.id)"
               >
-                <strong>{{ item.deviceName }}</strong>
-                <span>{{ item.userName }} · {{ item.deviceNumber }}</span>
+                <strong>{{ resolveReservationDeviceLabel(item) }}</strong>
+                <span>
+                  {{ resolveReservationUserLabel(item) }} · {{ resolveReservationDeviceMeta(item) }}
+                </span>
                 <span
                   >{{ formatDateTime(item.startTime) }} - {{ formatDateTime(item.endTime) }}</span
                 >
@@ -202,12 +220,12 @@ onMounted(() => {
                 <div>
                   <dt>设备</dt>
                   <dd>
-                    {{ selectedReservation.deviceName }}（{{ selectedReservation.deviceId }}）
+                    {{ resolveReservationDeviceLabel(selectedReservation) }}（{{ selectedReservation.deviceId }}）
                   </dd>
                 </div>
                 <div>
                   <dt>借用人</dt>
-                  <dd>{{ selectedReservation.userName }}（{{ selectedReservation.userId }}）</dd>
+                  <dd>{{ resolveReservationUserLabel(selectedReservation) }}（{{ selectedReservation.userId }}）</dd>
                 </div>
               </dl>
 

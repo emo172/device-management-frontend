@@ -42,6 +42,22 @@ const filters = reactive({
 const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
 const tableData = computed(() => borrowStore.list)
 
+/**
+ * 借还列表优先展示后端已回传的真实名称；
+ * 若当前环境仍只有 ID，则回退到 ID 文本，不让页面因为字段缺失出现空白主信息。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
+
+/**
+ * 后端正式归还接口同时接受 `BORROWED` 与 `OVERDUE` 两种借还状态。
+ * 列表页必须跟随这个真实契约开放入口，避免逾期记录在页面上变成“看得到、却无法完成归还闭环”的死链路。
+ */
+function isReturnEligibleStatus(status: string) {
+  return status === BorrowStatus.BORROWED || status === BorrowStatus.OVERDUE
+}
+
 const summaryCards = computed(() => {
   const borrowedCount = borrowStore.list.filter(
     (item) => item.status === BorrowStatus.BORROWED,
@@ -117,7 +133,7 @@ onMounted(() => {
     <ConsolePageHero
       eyebrow="Borrow Ledger"
       title="借还台账"
-      description="统一查看借用确认、归还闭环与逾期流转。当前后端借还记录接口未直接返回设备名称与借用人姓名，因此本页优先展示真实可用的设备 ID、用户 ID 与预约编号。"
+      description="统一查看借用确认、归还闭环与逾期流转。前端优先展示后端已回传的设备名称与借用人姓名；若当前环境仍只返回 ID，则稳定回退到真实 ID，而不是虚构展示字段。"
       class="borrow-list-view__hero"
     >
       <template #actions>
@@ -183,8 +199,8 @@ onMounted(() => {
             <thead>
               <tr>
                 <th>预约编号</th>
-                <th>设备 ID</th>
-                <th>{{ isDeviceAdmin ? '借用人 ID' : '我的用户 ID' }}</th>
+                <th>设备</th>
+                <th>{{ isDeviceAdmin ? '借用人' : '我的账号' }}</th>
                 <th>借用时间</th>
                 <th>预计归还时间</th>
                 <th>状态</th>
@@ -202,8 +218,8 @@ onMounted(() => {
                     {{ record.reservationId }}
                   </button>
                 </td>
-                <td>{{ record.deviceId }}</td>
-                <td>{{ record.userId }}</td>
+                <td>{{ displayIdentityName(record.deviceName, record.deviceId) }}</td>
+                <td>{{ displayIdentityName(record.userName, record.userId) }}</td>
                 <td>{{ formatDateTime(record.borrowTime) }}</td>
                 <td>{{ formatDateTime(record.expectedReturnTime) }}</td>
                 <td>
@@ -215,7 +231,7 @@ onMounted(() => {
 
                     <!-- 归还确认只能由设备管理员发起，且仅对仍处于借用中的正式记录展示。 -->
                     <el-button
-                      v-if="isDeviceAdmin && record.status === BorrowStatus.BORROWED"
+                      v-if="isDeviceAdmin && isReturnEligibleStatus(record.status)"
                       text
                       type="warning"
                       @click="handleGoReturn(record.id)"

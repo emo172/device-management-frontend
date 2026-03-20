@@ -78,8 +78,9 @@ describe('category list view', () => {
       global: {
         stubs: {
           Manage: {
-            props: ['modelValue'],
-            template: '<div v-if="modelValue" class="manage-visible"></div>',
+            props: ['modelValue', 'categoryOptions'],
+            template:
+              '<div><div v-if="modelValue" class="manage-visible"></div><div class="manage-options">{{ categoryOptions[0]?.value }}|{{ categoryOptions[0]?.children?.length ?? 0 }}</div></div>',
           },
           EmptyState: { template: '<div><slot /></div>' },
           ElButton: {
@@ -96,6 +97,7 @@ describe('category list view', () => {
 
     expect(categoryStore.fetchCategoryTree).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('新建分类')
+    expect(wrapper.get('.manage-options').text()).toBe('测试设备|0')
 
     await wrapper.get('.category-list-view__create').trigger('click')
 

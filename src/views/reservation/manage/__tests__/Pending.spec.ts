@@ -3,7 +3,7 @@ import { defineComponent, h, provide, inject } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ReservationListItemResponse } from '@/api/reservations'
+import type { ReservationListItemResponse, ReservationResponse } from '@/api/reservations'
 import { UserRole } from '@/enums'
 import { createAppPinia } from '@/stores'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -107,6 +107,45 @@ function createPendingRecord(status: string): ReservationListItemResponse {
   }
 }
 
+function createPendingActionResponse(
+  overrides?: Partial<ReservationResponse>,
+): ReservationResponse {
+  return {
+    id: 'reservation-1',
+    batchId: null,
+    userId: 'user-1',
+    userName: '普通用户',
+    createdBy: 'user-1',
+    createdByName: '普通用户',
+    reservationMode: 'SELF',
+    deviceId: 'device-1',
+    deviceName: '示波器',
+    deviceNumber: 'DEV-001',
+    deviceStatus: 'AVAILABLE',
+    startTime: '2026-03-20T09:00:00',
+    endTime: '2026-03-20T10:00:00',
+    purpose: '实验',
+    remark: null,
+    status: 'PENDING_DEVICE_APPROVAL',
+    signStatus: 'NOT_CHECKED_IN',
+    approvalModeSnapshot: 'DEVICE_ONLY',
+    deviceApproverId: null,
+    deviceApproverName: null,
+    deviceApprovedAt: null,
+    deviceApprovalRemark: null,
+    systemApproverId: null,
+    systemApproverName: null,
+    systemApprovedAt: null,
+    systemApprovalRemark: null,
+    cancelReason: null,
+    cancelTime: null,
+    checkedInAt: null,
+    createdAt: '2026-03-19T08:00:00',
+    updatedAt: '2026-03-19T08:00:00',
+    ...overrides,
+  }
+}
+
 describe('reservation pending manage view', () => {
   beforeEach(() => {
     pushMock.mockReset()
@@ -149,34 +188,33 @@ describe('reservation pending manage view', () => {
       .mockResolvedValue({ total: 1, records: reservationStore.list })
     const deviceAuditReservationSpy = vi
       .spyOn(reservationStore, 'deviceAuditReservation')
-      .mockResolvedValue({
-        id: 'reservation-1',
-        batchId: null,
-        userId: 'user-1',
-        createdBy: 'user-1',
-        reservationMode: 'SELF',
-        deviceId: 'device-1',
-        status: 'APPROVED',
-        signStatus: 'NOT_CHECKED_IN',
-        approvalModeSnapshot: 'DEVICE_ONLY',
-        deviceApproverId: 'device-admin-1',
-        systemApproverId: null,
-      })
+      .mockResolvedValue(
+        createPendingActionResponse({
+          status: 'APPROVED',
+          deviceApproverId: 'device-admin-1',
+          deviceApproverName: '设备管理员',
+          deviceApprovedAt: '2026-03-19T09:00:00',
+        }),
+      )
     const manualProcessReservationSpy = vi
       .spyOn(reservationStore, 'manualProcessReservation')
-      .mockResolvedValue({
-        id: 'reservation-2',
-        batchId: null,
-        userId: 'user-2',
-        createdBy: 'user-2',
-        reservationMode: 'SELF',
-        deviceId: 'device-2',
-        status: 'APPROVED',
-        signStatus: 'CHECKED_IN',
-        approvalModeSnapshot: 'DEVICE_ONLY',
-        deviceApproverId: 'device-admin-1',
-        systemApproverId: null,
-      })
+      .mockResolvedValue(
+        createPendingActionResponse({
+          id: 'reservation-2',
+          userId: 'user-2',
+          userName: '普通用户2',
+          createdBy: 'user-2',
+          createdByName: '普通用户2',
+          deviceId: 'device-2',
+          deviceName: '频谱仪',
+          deviceNumber: 'DEV-002',
+          status: 'APPROVED',
+          signStatus: 'CHECKED_IN',
+          deviceApproverId: 'device-admin-1',
+          deviceApproverName: '设备管理员',
+          checkedInAt: '2026-03-20T09:10:00',
+        }),
+      )
 
     promptMock.mockResolvedValue({ value: '设备条件满足' })
 
@@ -277,19 +315,17 @@ describe('reservation pending manage view', () => {
     ).mockResolvedValue({ total: 1, records: reservationStore.list })
     const manualProcessReservationSpy = vi
       .spyOn(reservationStore, 'manualProcessReservation')
-      .mockResolvedValue({
-        id: 'reservation-1',
-        batchId: null,
-        userId: 'user-1',
-        createdBy: 'user-1',
-        reservationMode: 'SELF',
-        deviceId: 'device-1',
-        status: 'APPROVED',
-        signStatus: 'CHECKED_IN',
-        approvalModeSnapshot: 'DEVICE_ONLY',
-        deviceApproverId: 'device-admin-1',
-        systemApproverId: 'system-admin-1',
-      })
+      .mockResolvedValue(
+        createPendingActionResponse({
+          status: 'APPROVED',
+          signStatus: 'CHECKED_IN',
+          deviceApproverId: 'device-admin-1',
+          deviceApproverName: '设备管理员',
+          systemApproverId: 'system-admin-1',
+          systemApproverName: '系统管理员',
+          checkedInAt: '2026-03-20T09:10:00',
+        }),
+      )
 
     const wrapper = mount(module.default, {
       global: {

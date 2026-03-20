@@ -54,7 +54,7 @@ const detailResponse = {
   status: 'AVAILABLE',
   description: '实验室公共设备',
   location: 'A-201',
-  imageUrl: null,
+  imageUrl: '/files/devices/device-1.png',
   statusLogs: [{ oldStatus: 'AVAILABLE', newStatus: 'MAINTENANCE', reason: '定期保养' }],
 }
 
@@ -64,7 +64,7 @@ describe('device detail view', () => {
     routeState.params.id = 'device-1'
   })
 
-  it('进入详情页会加载设备详情，并为设备管理员展示图片上传入口', async () => {
+  it('进入详情页会加载设备详情，并继续使用 /files 路径展示图片', async () => {
     const { module, error } = await loadDetailView()
 
     expect(error).toBeNull()
@@ -98,7 +98,10 @@ describe('device detail view', () => {
           ElDescriptions: { template: '<div><slot /></div>' },
           ElDescriptionsItem: { template: '<div><slot /></div>' },
           ElIcon: { template: '<i><slot /></i>' },
-          ElImage: { template: '<img />' },
+          ElImage: {
+            props: ['src'],
+            template: '<img class="detail-image" :src="src" />',
+          },
           ElTag: { template: '<span><slot /></span>' },
           ElTimeline: { template: '<div><slot /></div>' },
           ElTimelineItem: { template: '<div><slot /></div>' },
@@ -113,6 +116,7 @@ describe('device detail view', () => {
     expect(wrapper.text()).toContain('示波器')
     expect(wrapper.text()).toContain('定期保养')
     expect(wrapper.find('.detail-upload').exists()).toBe(true)
+    expect(wrapper.get('.detail-image').attributes('src')).toBe('/files/devices/device-1.png')
   })
 
   it('普通用户查看详情时不显示图片上传入口', async () => {
@@ -149,7 +153,10 @@ describe('device detail view', () => {
           ElDescriptions: { template: '<div><slot /></div>' },
           ElDescriptionsItem: { template: '<div><slot /></div>' },
           ElIcon: { template: '<i><slot /></i>' },
-          ElImage: { template: '<img />' },
+          ElImage: {
+            props: ['src'],
+            template: '<img class="detail-image" :src="src" />',
+          },
           ElTag: { template: '<span><slot /></span>' },
           ElTimeline: { template: '<div><slot /></div>' },
           ElTimelineItem: { template: '<div><slot /></div>' },
@@ -159,6 +166,7 @@ describe('device detail view', () => {
     })
 
     expect(wrapper.find('.detail-upload').exists()).toBe(false)
+    expect(wrapper.get('.detail-image').attributes('src')).toBe('/files/devices/device-1.png')
   })
 
   it('离开详情页时会清理当前设备缓存，避免下一台设备短暂闪现旧数据', async () => {
@@ -196,7 +204,10 @@ describe('device detail view', () => {
           ElDescriptions: { template: '<div><slot /></div>' },
           ElDescriptionsItem: { template: '<div><slot /></div>' },
           ElIcon: { template: '<i><slot /></i>' },
-          ElImage: { template: '<img />' },
+          ElImage: {
+            props: ['src'],
+            template: '<img class="detail-image" :src="src" />',
+          },
           ElTag: { template: '<span><slot /></span>' },
           ElTimeline: { template: '<div><slot /></div>' },
           ElTimelineItem: { template: '<div><slot /></div>' },

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { toRaw } from 'vue'
 
 import type { ReservationDetailResponse } from '@/api/reservations'
 import { UserRole } from '@/enums'
@@ -642,6 +643,95 @@ describe('reservation store', () => {
     expect(store.list[0]?.cancelReason).toBe('课程调整')
   })
 
+  it('stores api standardized reservation detail without requiring second normalization', async () => {
+    getReservationDetailMock.mockResolvedValue({
+      id: 'reservation-legacy',
+      batchId: null,
+      userId: 'user-2',
+      userName: 'demo-user',
+      createdBy: 'admin-1',
+      createdByName: 'demo-admin',
+      reservationMode: 'ON_BEHALF',
+      deviceId: 'device-1',
+      deviceName: '示波器',
+      deviceNumber: 'DEV-001',
+      deviceStatus: 'AVAILABLE',
+      startTime: '2026-03-18T09:00:00',
+      endTime: '2026-03-18T10:00:00',
+      purpose: '课程实验',
+      remark: '请提前准备',
+      status: 'APPROVED',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+      deviceApproverId: 'device-admin-1',
+      deviceApproverName: '设备管理员',
+      deviceApprovedAt: '2026-03-18T08:20:00',
+      deviceApprovalRemark: '设备通过',
+      systemApproverId: 'system-admin-1',
+      systemApproverName: '系统管理员',
+      systemApprovedAt: '2026-03-18T08:40:00',
+      systemApprovalRemark: '系统通过',
+      cancelReason: null,
+      cancelTime: null,
+      checkedInAt: null,
+      createdAt: '2026-03-18T08:00:00',
+      updatedAt: '2026-03-18T08:40:00',
+    })
+
+    const store = useReservationStore()
+
+    await store.fetchReservationDetail('reservation-legacy')
+
+    expect(store.currentReservation).toMatchObject({
+      reservationMode: 'ON_BEHALF',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+    })
+  })
+
+  it('reuses api normalized detail result instead of cloning it again in store', async () => {
+    const normalizedDetail: ReservationDetailResponse = {
+      id: 'reservation-api-normalized',
+      batchId: null,
+      userId: 'user-3',
+      userName: 'demo-user',
+      createdBy: 'admin-1',
+      createdByName: 'demo-admin',
+      reservationMode: 'ON_BEHALF',
+      deviceId: 'device-3',
+      deviceName: '频谱仪',
+      deviceNumber: 'DEV-003',
+      deviceStatus: 'AVAILABLE',
+      startTime: '2026-03-18T09:00:00',
+      endTime: '2026-03-18T10:00:00',
+      purpose: '课程实验',
+      remark: '请提前准备',
+      status: 'APPROVED',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+      deviceApproverId: 'device-admin-1',
+      deviceApproverName: '设备管理员',
+      deviceApprovedAt: '2026-03-18T08:20:00',
+      deviceApprovalRemark: '设备通过',
+      systemApproverId: 'system-admin-1',
+      systemApproverName: '系统管理员',
+      systemApprovedAt: '2026-03-18T08:40:00',
+      systemApprovalRemark: '系统通过',
+      cancelReason: null,
+      cancelTime: null,
+      checkedInAt: null,
+      createdAt: '2026-03-18T08:00:00',
+      updatedAt: '2026-03-18T08:40:00',
+    }
+    getReservationDetailMock.mockResolvedValue(normalizedDetail)
+
+    const store = useReservationStore()
+    const result = await store.fetchReservationDetail('reservation-api-normalized')
+
+    expect(result).toBe(normalizedDetail)
+    expect(toRaw(store.currentReservation)).toBe(normalizedDetail)
+  })
+
   it('ignores stale reservation detail responses when a newer route request finishes first', async () => {
     const detailA: ReservationDetailResponse = {
       id: 'reservation-a',
@@ -902,5 +992,52 @@ describe('reservation store', () => {
     expect(getReservationListMock).toHaveBeenCalledTimes(2)
     expect(result.total).toBe(1)
     expect(result.records).toHaveLength(1)
+  })
+
+  it('continues managed reservation paging beyond 20 backend pages when total still has more records', async () => {
+    /**
+     * 这里故意构造 21 页唯一数据，保护“管理员本地分组不能因为静态页数上限而悄悄截断”的风险点。
+     */
+    for (let index = 1; index <= 21; index += 1) {
+      getReservationListMock.mockResolvedValueOnce({
+        total: 21,
+        records: [
+          {
+            id: `reservation-${index}`,
+            batchId: null,
+            userId: `user-${index}`,
+            userName: `普通用户${index}`,
+            createdBy: `user-${index}`,
+            createdByName: `普通用户${index}`,
+            reservationMode: 'SELF',
+            deviceId: `device-${index}`,
+            deviceName: `设备${index}`,
+            deviceNumber: `DEV-${index}`,
+            startTime: '2026-03-20T09:00:00',
+            endTime: '2026-03-20T10:00:00',
+            purpose: '实验',
+            status: 'PENDING_DEVICE_APPROVAL',
+            signStatus: 'NOT_CHECKED_IN',
+            approvalModeSnapshot: 'DEVICE_ONLY',
+            cancelReason: null,
+            cancelTime: null,
+          },
+        ],
+      })
+    }
+
+    const store = useReservationStore()
+    const result = await store.fetchManagedReservationPage({
+      role: UserRole.DEVICE_ADMIN,
+      view: 'pending',
+      page: 1,
+      size: 10,
+    })
+
+    expect(getReservationListMock).toHaveBeenCalledTimes(21)
+    expect(result.total).toBe(21)
+    expect(result.records).toHaveLength(10)
+    expect(result.records[0]?.id).toBe('reservation-1')
+    expect(result.records[9]?.id).toBe('reservation-10')
   })
 })

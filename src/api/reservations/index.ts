@@ -1,4 +1,10 @@
 import request from '@/api/request'
+import {
+  normalizeCheckInPayload,
+  normalizeReservationTimeRangePayload,
+  normalizeReservationWorkflowRecord,
+  normalizeReservationWorkflowRecords,
+} from '@/utils'
 
 import type {
   AuditReservationRequest,
@@ -41,7 +47,10 @@ export type {
  * 对应 `GET /api/reservations?page&size`，后端当前不支持额外筛选字段，因此这里只透传最小分页参数。
  */
 export function getReservationList(params: ReservationListQuery) {
-  return request.get<ReservationPageResponse>('/reservations', { params })
+  return request.get<ReservationPageResponse>('/reservations', { params }).then((result) => ({
+    ...result,
+    records: normalizeReservationWorkflowRecords(result.records),
+  }))
 }
 
 /**
@@ -49,7 +58,9 @@ export function getReservationList(params: ReservationListQuery) {
  * 对应 `GET /api/reservations/{id}`，Task 22 只用于列表页详情跳转预留与取消后回填最新详情口径。
  */
 export function getReservationDetail(reservationId: string) {
-  return request.get<ReservationDetailResponse>(`/reservations/${reservationId}`)
+  return request
+    .get<ReservationDetailResponse>(`/reservations/${reservationId}`)
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -57,7 +68,12 @@ export function getReservationDetail(reservationId: string) {
  * 对应 `POST /api/reservations`，普通用户预约与本人场景统一走该接口。
  */
 export function createReservation(data: CreateReservationRequest) {
-  return request.post<ReservationResponse, CreateReservationRequest>('/reservations', data)
+  return request
+    .post<ReservationResponse, CreateReservationRequest>(
+      '/reservations',
+      normalizeReservationTimeRangePayload(data),
+    )
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -65,7 +81,12 @@ export function createReservation(data: CreateReservationRequest) {
  * 对应 `POST /api/reservations/proxy`，只有代预约场景才允许提交 `targetUserId`。
  */
 export function createProxyReservation(data: ProxyReservationRequest) {
-  return request.post<ReservationResponse, ProxyReservationRequest>('/reservations/proxy', data)
+  return request
+    .post<ReservationResponse, ProxyReservationRequest>(
+      '/reservations/proxy',
+      normalizeReservationTimeRangePayload(data),
+    )
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -76,7 +97,7 @@ export function deviceAuditReservation(reservationId: string, data: AuditReserva
   return request.post<ReservationResponse, AuditReservationRequest>(
     `/reservations/${reservationId}/audit`,
     data,
-  )
+  ).then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -87,7 +108,7 @@ export function systemAuditReservation(reservationId: string, data: AuditReserva
   return request.post<ReservationResponse, AuditReservationRequest>(
     `/reservations/${reservationId}/system-audit`,
     data,
-  )
+  ).then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -97,8 +118,8 @@ export function systemAuditReservation(reservationId: string, data: AuditReserva
 export function checkInReservation(reservationId: string, data: CheckInRequest) {
   return request.post<ReservationResponse, CheckInRequest>(
     `/reservations/${reservationId}/check-in`,
-    data,
-  )
+    normalizeCheckInPayload(data),
+  ).then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -109,7 +130,7 @@ export function cancelReservation(reservationId: string, data: CancelReservation
   return request.post<ReservationDetailResponse, CancelReservationRequest>(
     `/reservations/${reservationId}/cancel`,
     data,
-  )
+  ).then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -120,7 +141,7 @@ export function manualProcessReservation(reservationId: string, data: ManualProc
   return request.put<ReservationResponse, ManualProcessRequest>(
     `/reservations/${reservationId}/manual-process`,
     data,
-  )
+  ).then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -128,9 +149,14 @@ export function manualProcessReservation(reservationId: string, data: ManualProc
  * 对应 `POST /api/reservation-batches`，批次由后端汇总成功数与失败数。
  */
 export function createReservationBatch(data: CreateReservationBatchRequest) {
+  const normalizedPayload = {
+    ...data,
+    items: data.items.map((item) => normalizeReservationTimeRangePayload(item)),
+  }
+
   return request.post<ReservationBatchResponse, CreateReservationBatchRequest>(
     '/reservation-batches',
-    data,
+    normalizedPayload,
   )
 }
 

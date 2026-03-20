@@ -2,28 +2,10 @@
 import { computed } from 'vue'
 
 import { CheckInStatus, CheckInStatusLabel, CheckInStatusTagType } from '@/enums'
+import { normalizeCheckInStatus } from '@/utils'
 
 const checkInStatusLabelMap = CheckInStatusLabel as Record<string, string>
 const checkInStatusTagTypeMap = CheckInStatusTagType as Record<string, string>
-
-function normalizeCheckInStatus(status: string) {
-  /**
-   * 真相源优先以后端实际代码为准；这里额外兼容文档曾出现过的别名值，避免联调阶段因为旧口径回包直接把标签渲染成空白。
-   */
-  if (status === 'NOT_SIGNED') {
-    return CheckInStatus.NOT_CHECKED_IN
-  }
-
-  if (status === 'SIGNED_IN') {
-    return CheckInStatus.CHECKED_IN
-  }
-
-  if (status === 'TIMEOUT') {
-    return CheckInStatus.CHECKED_IN_TIMEOUT
-  }
-
-  return status
-}
 
 /**
  * 签到状态标签。
@@ -33,6 +15,9 @@ const props = defineProps<{
   status: string
 }>()
 
+/**
+ * 标签组件仍保留一层本地归一化，避免未经过 API/Store 标准化的旧回包直接渲染成裸状态码。
+ */
 const normalizedStatus = computed(() => normalizeCheckInStatus(props.status))
 const label = computed(() => checkInStatusLabelMap[normalizedStatus.value] || props.status)
 const tagType = computed(() => checkInStatusTagTypeMap[normalizedStatus.value] || 'info')

@@ -13,7 +13,13 @@ import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { ApprovalModeLabel, ReservationModeLabel, UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
-import { canCheckInReservation, formatDateTime, formatEmptyValue } from '@/utils'
+import {
+  canCheckInReservation,
+  formatDateTime,
+  formatEmptyValue,
+  normalizeApprovalMode,
+  normalizeReservationMode,
+} from '@/utils'
 
 /**
  * 预约详情页。
@@ -53,19 +59,13 @@ const canGoToCheckIn = computed(() => {
 })
 
 function formatApprovalMode(mode: string) {
-  if (mode === 'DEVICE_AND_SYSTEM') {
-    return approvalModeLabelMap.DEVICE_THEN_SYSTEM
-  }
-
-  return approvalModeLabelMap[mode] || mode
+  const normalizedMode = normalizeApprovalMode(mode)
+  return approvalModeLabelMap[normalizedMode] || mode
 }
 
 function formatReservationMode(mode: string) {
-  if (mode === 'PROXY') {
-    return reservationModeLabelMap.ON_BEHALF
-  }
-
-  return reservationModeLabelMap[mode] || mode
+  const normalizedMode = normalizeReservationMode(mode)
+  return reservationModeLabelMap[normalizedMode] || mode
 }
 
 function handleGoToCheckIn() {

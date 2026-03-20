@@ -85,4 +85,30 @@ describe('category store', () => {
     expect(store.tree).toHaveLength(2)
     expect(store.tree[1]?.name).toBe('传感器')
   })
+
+  it('本地树插入只接受根分类 parentName，非根名称不能被当作受支持契约', () => {
+    const store = useCategoryStore()
+    store.tree = structuredClone(categoryTree)
+
+    store.insertCategoryNode(
+      {
+        id: 'category-4',
+        name: '非法子分类',
+        parentId: 'category-2',
+        sortOrder: 2,
+        description: '不应插入到非根节点',
+        defaultApprovalMode: 'DEVICE_ONLY',
+        children: [],
+      },
+      '高端仪器',
+    )
+
+    /*
+     * 后端只按根分类名解析 `parentName`，
+     * 因此前端本地树也不能把非根分类名当成合法父级，否则页面回显会与真实接口契约不一致。
+     */
+    expect(store.tree[0]?.children).toHaveLength(1)
+    expect(store.tree[0]?.children[0]?.name).toBe('高端仪器')
+    expect(store.tree[0]?.children[0]?.children).toHaveLength(0)
+  })
 })

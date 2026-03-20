@@ -171,6 +171,47 @@ describe('auth store', () => {
     expect(routerPushMock).not.toHaveBeenCalled()
   })
 
+  it('登录后若远端返回未知角色，不会静默降级成普通用户', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.USER_INFO,
+      JSON.stringify({
+        userId: 'stale-user',
+        username: 'stale',
+        email: 'stale@example.com',
+        realName: '旧用户',
+        phone: '13800000000',
+        role: UserRole.USER,
+      }),
+    )
+
+    loginMock.mockResolvedValue({
+      userId: 'user-1',
+      username: 'demo',
+      role: UserRole.USER,
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+    })
+    getCurrentUserMock.mockResolvedValue({
+      userId: 'user-1',
+      username: 'demo',
+      email: 'demo@example.com',
+      realName: '测试用户',
+      phone: '13800000000',
+      role: 'AUDITOR',
+    })
+
+    const store = useAuthStore()
+
+    await expect(store.login({ account: 'demo', password: 'Password123' })).rejects.toThrow(
+      '未知的用户角色',
+    )
+
+    expect(clearTokensMock).toHaveBeenCalledTimes(1)
+    expect(store.currentUser).toBeNull()
+    expect(store.userRole).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.USER_INFO)).toBeNull()
+  })
+
   it('rolls back session state when register succeeds but current user hydration fails', async () => {
     registerMock.mockResolvedValue({
       userId: 'user-2',
@@ -307,6 +348,42 @@ describe('auth store', () => {
       phone: '13600000000',
       role: UserRole.DEVICE_ADMIN,
     })
+  })
+
+  it('会话恢复遇到未知角色时，会按契约异常上报而不是降级成普通用户', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.USER_INFO,
+      JSON.stringify({
+        userId: 'stale-user',
+        username: 'stale',
+        email: 'stale@example.com',
+        realName: '旧用户',
+        phone: '13800000000',
+        role: UserRole.USER,
+      }),
+    )
+
+    hasTokenMock.mockReturnValue(true)
+    getAccessTokenMock.mockReturnValue('persisted-access')
+    getRefreshTokenMock.mockReturnValue('persisted-refresh')
+    getCurrentUserMock.mockResolvedValue({
+      userId: 'user-5',
+      username: 'mystery-user',
+      email: 'mystery@example.com',
+      realName: '未知角色用户',
+      phone: '13500000000',
+      role: 'AUDITOR',
+    })
+
+    const store = useAuthStore()
+    await store.initializeAuth()
+
+    expect(runFatalErrorHandlerMock).toHaveBeenCalledTimes(1)
+    expect(runUnauthorizedHandlerMock).not.toHaveBeenCalled()
+    expect(store.initialized).toBe(true)
+    expect(store.currentUser).toBeNull()
+    expect(store.userRole).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.USER_INFO)).toBeNull()
   })
 
   it('updates profile and security actions through auth endpoints', async () => {

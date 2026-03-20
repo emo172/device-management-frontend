@@ -24,7 +24,8 @@ function normalizeQueryValue(value: LocationQueryValue | LocationQueryValue[] | 
 
 /**
  * 归还确认页。
- * 设备管理员只应操作仍处于借用中的正式借还记录，因此页面在查询层直接固定 `BORROWED` 状态，避免把已归还记录再次送回后端确认。
+ * 页面会先拉取当前分页可见的借还记录，再在前端收敛出“可归还闭环”的 `BORROWED` / `OVERDUE` 子集；
+ * 这样既不会把已归还记录送回正式归还接口，也不会把逾期中的可归还记录挡在通用入口之外。
  */
 const route = useRoute()
 const router = useRouter()
@@ -35,13 +36,41 @@ const remark = ref('')
 const submitting = ref(false)
 const pagination = ref({ page: 1, size: 10 })
 
+/**
+ * 正式归还接口允许借用中和已逾期两类记录继续闭环。
+ * 页面先拉取当前分页可见记录，再在前端收敛出真正可继续闭环的 `BORROWED` / `OVERDUE` 子集；
+ * 若用户从逾期记录带着 `recordId` 深链进入，也要补拉该条记录并允许继续归还。
+ */
+function isReturnEligibleStatus(status: string) {
+  return status === BorrowStatus.BORROWED || status === BorrowStatus.OVERDUE
+}
+
 const borrowedCandidates = computed(() => {
-  return borrowStore.list.filter((item) => item.status === BorrowStatus.BORROWED)
+  return borrowStore.list.filter((item) => isReturnEligibleStatus(item.status))
+})
+
+const hasAnyRecords = computed(() => borrowStore.total > 0)
+const shouldShowFullPageEmpty = computed(() => {
+  return (
+    !borrowStore.loading &&
+    !hasAnyRecords.value &&
+    !borrowStore.list.length &&
+    !selectedRecordId.value &&
+    !borrowedCandidates.value.length
+  )
 })
 
 const selectedRecord = computed(() => {
   return borrowedCandidates.value.find((item) => item.id === selectedRecordId.value) ?? null
 })
+
+/**
+ * 归还确认页优先展示后端已回传的真实名称；
+ * 若当前环境仍缺少名称字段，则继续回退到 ID，保证管理员在联调环境里仍能定位记录。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
 
 async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
   pagination.value = {
@@ -52,7 +81,6 @@ async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
   const result = await borrowStore.fetchBorrowList({
     page: pagination.value.page,
     size: pagination.value.size,
-    status: BorrowStatus.BORROWED,
   })
 
   if (
@@ -61,7 +89,7 @@ async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
   ) {
     const record = await borrowStore.fetchBorrowDetail(selectedRecordId.value).catch(() => null)
 
-    if (record?.status === BorrowStatus.BORROWED) {
+    if (record && isReturnEligibleStatus(record.status)) {
       borrowStore.replaceRecordInList(record)
     }
   }
@@ -111,7 +139,7 @@ onMounted(() => {
     <ConsolePageHero
       eyebrow="Confirm Return"
       title="归还确认"
-      description="统一处理仍处于借用中的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
+      description="统一处理仍处于借用中或已逾期的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
       class="borrow-return-view__hero"
     >
       <template #actions>
@@ -131,9 +159,9 @@ onMounted(() => {
     </ConsolePageHero>
 
     <EmptyState
-      v-if="!borrowedCandidates.length && !borrowStore.loading"
+      v-if="shouldShowFullPageEmpty"
       title="当前没有待归还记录"
-      description="所有正式借还记录都已归还，或者后端当前分页结果里没有处于借用中的记录。"
+      description="所有正式借还记录都已归还，或者后端当前分页结果里没有处于借用中 / 已逾期的可归还记录。"
       action-text="重新加载"
       @action="loadBorrowedRecords"
     />
@@ -144,10 +172,10 @@ onMounted(() => {
           <article class="borrow-return-view__candidate-panel">
             <div class="borrow-return-view__panel-header">
               <p class="borrow-return-view__eyebrow">Borrowed</p>
-              <h2>待归还记录</h2>
+              <h2>可归还闭环记录</h2>
             </div>
 
-            <div class="borrow-return-view__candidate-list">
+            <div v-if="borrowedCandidates.length" class="borrow-return-view__candidate-list">
               <button
                 v-for="item in borrowedCandidates"
                 :key="item.id"
@@ -159,14 +187,21 @@ onMounted(() => {
                 @click="handleSelectRecord(item.id)"
               >
                 <div class="borrow-return-view__candidate-title">
-                  <strong>{{ item.deviceId }}</strong>
+                  <strong>{{ displayIdentityName(item.deviceName, item.deviceId) }}</strong>
                   <BorrowStatusTag :status="item.status" />
                 </div>
                 <span>借还记录：{{ item.id }}</span>
-                <span>借用人：{{ item.userId }}</span>
+                <span>借用人：{{ displayIdentityName(item.userName, item.userId) }}</span>
                 <span>预计归还：{{ formatDateTime(item.expectedReturnTime) }}</span>
               </button>
             </div>
+            <EmptyState
+              v-else-if="!borrowStore.loading"
+              title="当前页没有可归还记录"
+              description="当前页只返回了已归还等不可继续闭环的记录，请继续翻页查看仍处于借用中或已逾期的记录。"
+              action-text="重新加载"
+              @action="loadBorrowedRecords"
+            />
 
             <Pagination
               :current-page="borrowStore.query.page ?? pagination.page"
@@ -181,7 +216,7 @@ onMounted(() => {
         <template #aside>
           <ConsoleAsidePanel
             title="归还说明"
-            description="归还确认只针对借用中的正式借还记录，备注会跟归还结果一起留在现场处理链路里。"
+            description="归还确认针对仍处于借用中或已逾期的正式借还记录，备注会跟归还结果一起留在现场处理链路里。"
           >
             <div class="borrow-return-view__panel-header">
               <p class="borrow-return-view__eyebrow">Selection</p>
@@ -197,6 +232,14 @@ onMounted(() => {
                 <div>
                   <dt>预约 ID</dt>
                   <dd>{{ selectedRecord.reservationId }}</dd>
+                </div>
+                <div>
+                  <dt>设备</dt>
+                  <dd>{{ displayIdentityName(selectedRecord.deviceName, selectedRecord.deviceId) }}</dd>
+                </div>
+                <div>
+                  <dt>借用人</dt>
+                  <dd>{{ displayIdentityName(selectedRecord.userName, selectedRecord.userId) }}</dd>
                 </div>
                 <div>
                   <dt>借用时间</dt>

@@ -26,7 +26,10 @@ export interface OverdueRecordResponse {
   id: string
   borrowRecordId: string
   userId: string
+  userName?: string | null
   deviceId: string
+  deviceName?: string | null
+  deviceNumber?: string | null
   overdueHours: number
   overdueDays: number
   processingStatus: string

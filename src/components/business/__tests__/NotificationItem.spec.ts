@@ -50,6 +50,14 @@ const emailNotification = {
   title: '邮件提醒',
 }
 
+const readInAppNotification = {
+  ...inAppNotification,
+  id: 'notice-3',
+  readFlag: 1,
+  readAt: '2026-03-16T08:30:00',
+  title: '已读站内信提醒',
+}
+
 describe('NotificationItem', () => {
   it('shows read status only for in-app notifications and uses neutral copy for other channels', async () => {
     const { module, error } = await loadComponent('NotificationItem')
@@ -100,5 +108,36 @@ describe('NotificationItem', () => {
     expect(emailWrapper.text()).toContain('无已读回执')
     expect(emailWrapper.text()).not.toContain('未读')
     expect(emailWrapper.text()).not.toContain('标记已读')
+  })
+
+  it('shows read timestamp for read in-app notifications', async () => {
+    const { module, error } = await loadComponent('NotificationItem')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        notification: readInAppNotification,
+      },
+      global: {
+        stubs: {
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTag: { template: '<span class="tag-stub"><slot /></span>' },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('已读')
+    expect(wrapper.text()).toContain('已读时间')
+    expect(wrapper.text()).toContain('2026-03-16 08:30:00')
   })
 })

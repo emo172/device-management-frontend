@@ -83,11 +83,44 @@ describe('router guards', () => {
       userId: 'user-1',
       username: 'user',
     })
+    authStore.initialized = true
 
     const router = createGuardedRouter()
     await router.push('/login')
 
     expect(router.currentRoute.value.path).toBe('/dashboard')
+  })
+
+  it('有缓存用户但尚未完成初始化时，访问高权限路由前会先远端校验身份', async () => {
+    setAccessToken('access-token')
+    setRefreshToken('refresh-token')
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+    authStore.initialized = false
+
+    getCurrentUserMock.mockResolvedValue({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const router = createGuardedRouter()
+
+    await router.push('/statistics')
+
+    expect(getCurrentUserMock).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/statistics')
   })
 
   it('有 token 但用户资料补拉临时失败时，允许回到登录页避免导航锁死', async () => {
@@ -120,6 +153,32 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/login')
     expect(authStore.accessToken).toBe('expired-access-token')
     expect(authStore.refreshToken).toBe('expired-refresh-token')
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('有缓存用户但尚未完成初始化时，访问登录页会先校验远端会话而不是直接跳仪表盘', async () => {
+    setAccessToken('expired-access-token')
+    setRefreshToken('expired-refresh-token')
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'expired@example.com',
+      phone: '13600000000',
+      realName: '过期用户',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'user-4',
+      username: 'expired-user',
+    })
+    authStore.initialized = false
+
+    getCurrentUserMock.mockRejectedValue({ response: { status: 401 } })
+
+    const router = createGuardedRouter()
+
+    await router.push('/login')
+
+    expect(getCurrentUserMock).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/login')
     expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
   })
 
@@ -192,6 +251,7 @@ describe('router guards', () => {
       userId: 'user-1',
       username: 'user',
     })
+    authStore.initialized = true
 
     const router = createGuardedRouter()
 

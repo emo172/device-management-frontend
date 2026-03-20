@@ -103,6 +103,18 @@ const summaryText = computed(() => {
   return `${props.notification.content.slice(0, 96)}...`
 })
 
+/**
+ * 已读时间必须直接展示后端回执。
+ * 通知中心不能在前端自行推测“什么时候读过”，因此只有后端明确返回 `readAt` 时才回显该字段。
+ */
+const readAtText = computed(() => {
+  if (!isInAppChannel.value || props.notification.readFlag !== 1 || !props.notification.readAt) {
+    return ''
+  }
+
+  return `已读时间：${formatDateTime(props.notification.readAt)}`
+})
+
 function handleMarkRead() {
   emit('mark-read', props.notification.id)
 }
@@ -137,6 +149,7 @@ function handleMarkRead() {
         <div>
           <h3 class="notification-item__title">{{ notification.title }}</h3>
           <p class="notification-item__summary">{{ summaryText }}</p>
+          <p v-if="readAtText" class="notification-item__read-at">{{ readAtText }}</p>
         </div>
 
         <!-- 仅站内信支持已读回执，邮件和短信在通知中心只能查看投递结果，不能伪造已读状态。 -->
@@ -230,6 +243,12 @@ function handleMarkRead() {
   margin: 10px 0 0;
   font-size: 14px;
   line-height: 1.7;
+  color: var(--app-text-secondary);
+}
+
+.notification-item__read-at {
+  margin: 10px 0 0;
+  font-size: 12px;
   color: var(--app-text-secondary);
 }
 </style>

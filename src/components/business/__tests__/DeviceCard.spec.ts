@@ -32,6 +32,7 @@ const device = {
   deviceNumber: 'DEV-001',
   categoryId: 'cat-1',
   categoryName: '测试设备',
+  imageUrl: '/files/devices/device-1.png',
   status: 'AVAILABLE',
   description: '实验室公共设备',
   location: 'A-201',
@@ -59,6 +60,10 @@ describe('DeviceCard', () => {
             props: ['status'],
             template: '<span class="device-status">{{ status }}</span>',
           },
+          ElImage: {
+            props: ['src'],
+            template: '<img class="device-card__image" :src="src" />',
+          },
           ElIcon: { template: '<i><slot /></i>' },
           ElButton: {
             emits: ['click'],
@@ -76,6 +81,7 @@ describe('DeviceCard', () => {
     expect(wrapper.text()).toContain('DEV-001')
     expect(wrapper.text()).toContain('测试设备')
     expect(wrapper.text()).toContain('A-201')
+    expect(wrapper.get('.device-card__image').attributes('src')).toBe('/files/devices/device-1.png')
 
     await wrapper.get('.device-card__detail').trigger('click')
     await wrapper.get('.device-card__edit').trigger('click')
@@ -109,6 +115,10 @@ describe('DeviceCard', () => {
             props: ['status'],
             template: '<span>{{ status }}</span>',
           },
+          ElImage: {
+            props: ['src'],
+            template: '<img class="device-card__image" :src="src" />',
+          },
           ElIcon: { template: '<i><slot /></i>' },
           ElButton: {
             emits: ['click'],
@@ -125,5 +135,6 @@ describe('DeviceCard', () => {
     expect(wrapper.find('.device-card__status').exists()).toBe(false)
     expect(wrapper.find('.device-card__delete').exists()).toBe(false)
     expect(wrapper.find('.device-card__detail').exists()).toBe(true)
+    expect(wrapper.get('.device-card__image').attributes('src')).toBe('/files/devices/device-1.png')
   })
 })

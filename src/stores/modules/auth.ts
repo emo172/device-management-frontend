@@ -6,7 +6,7 @@ import { UserRole } from '@/enums/UserRole'
 import router from '@/router'
 import { runFatalErrorHandler, runUnauthorizedHandler } from '@/stores/sessionBridge'
 import { useNotificationStore } from '@/stores/modules/notification'
-import { getStorageObject, setStorageObject } from '@/utils/storage'
+import { getStorageObject, removeStorageItem, setStorageObject } from '@/utils/storage'
 import {
   clearTokens,
   getAccessToken,
@@ -45,6 +45,10 @@ function normalizeUserRole(role: string): UserRole {
 
   if (role === UserRole.SYSTEM_ADMIN) {
     return UserRole.SYSTEM_ADMIN
+  }
+
+  if (role !== UserRole.USER) {
+    throw new Error(`未知的用户角色：${role}`)
   }
 
   return UserRole.USER
@@ -105,11 +109,19 @@ export const useAuthStore = defineStore('auth', {
      * 当前用户资料既服务页面渲染，也写入本地缓存，便于刷新后先恢复基础身份再做远端校验。
      */
     setCurrentUser(user: authApi.CurrentUserResponse | null) {
-      this.currentUser = user ? normalizeCurrentUser(user) : null
+      /**
+       * 先清空内存态与持久化缓存，再接受新的远端身份资料。
+       * 这样即便后端返回了未知角色等契约异常，也不会继续保留旧用户资料误导菜单和路由鉴权。
+       */
+      this.currentUser = null
+      removeStorageItem(STORAGE_KEYS.USER_INFO)
 
-      if (this.currentUser) {
-        setStorageObject(STORAGE_KEYS.USER_INFO, this.currentUser)
+      if (!user) {
+        return
       }
+
+      this.currentUser = normalizeCurrentUser(user)
+      setStorageObject(STORAGE_KEYS.USER_INFO, this.currentUser)
     },
 
     /**

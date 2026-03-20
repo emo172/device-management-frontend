@@ -26,7 +26,10 @@ async function loadDeviceForm() {
   }
 }
 
-const categoryOptions = [{ label: '测试设备', value: '测试设备' }]
+const categoryOptions = [
+  { label: '测试设备', value: '测试设备' },
+  { label: '教学设备', value: '教学设备' },
+]
 
 const initialValue = {
   name: '示波器',
@@ -38,7 +41,7 @@ const initialValue = {
 }
 
 describe('DeviceForm', () => {
-  it('创建设备时允许编辑设备编号并提交完整表单', async () => {
+  it('创建设备时允许编辑设备编号并按分类名称提交完整表单', async () => {
     const { module, error } = await loadDeviceForm()
 
     expect(error).toBeNull()
@@ -91,16 +94,19 @@ describe('DeviceForm', () => {
     expect(wrapper.get('.device-form__number').attributes('disabled')).toBeUndefined()
 
     await wrapper.get('.device-form__name').setValue('新示波器')
+    await wrapper.get('.device-form__category').setValue('教学设备')
     await wrapper.get('.device-form__submit').trigger('click')
 
-    expect(wrapper.emitted('submit')).toEqual([
-      [
-        {
-          ...initialValue,
-          name: '新示波器',
-        },
-      ],
-    ])
+    const payload = wrapper.emitted('submit')?.[0]?.[0] as
+      | (typeof initialValue & { categoryId?: string })
+      | undefined
+
+    expect(payload).toEqual({
+      ...initialValue,
+      name: '新示波器',
+      categoryName: '教学设备',
+    })
+    expect(payload).not.toHaveProperty('categoryId')
   })
 
   it('编辑模式下锁定设备编号，避免误改唯一识别码', async () => {

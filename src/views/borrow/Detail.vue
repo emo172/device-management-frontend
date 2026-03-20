@@ -26,6 +26,22 @@ const recordId = computed(() => String(route.params.id ?? ''))
 const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
 const currentRecord = computed(() => borrowStore.currentRecord)
 
+/**
+ * 借还详情页优先展示后端真实名称；
+ * 若当前环境仍缺失名称字段，则继续回退到 ID，避免详情页出现空白主信息。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
+
+/**
+ * 借还详情页与列表页需要使用同一套可归还状态口径。
+ * 后端允许逾期记录继续走正式归还确认，因此详情页不能把 `OVERDUE` 错误拦在操作入口之外。
+ */
+function isReturnEligibleStatus(status: string | undefined) {
+  return status === BorrowStatus.BORROWED || status === BorrowStatus.OVERDUE
+}
+
 function handleBack() {
   void router.push('/borrows')
 }
@@ -63,7 +79,7 @@ onBeforeUnmount(() => {
 
           <!-- 仅设备管理员可从详情继续发起归还确认，且仅对借用中的正式记录开放。 -->
           <el-button
-            v-if="isDeviceAdmin && currentRecord?.status === BorrowStatus.BORROWED"
+            v-if="isDeviceAdmin && isReturnEligibleStatus(currentRecord?.status)"
             type="primary"
             @click="handleGoReturn"
           >
@@ -96,12 +112,16 @@ onBeforeUnmount(() => {
                 <dd>{{ currentRecord.reservationId }}</dd>
               </div>
               <div>
-                <dt>设备 ID</dt>
-                <dd>{{ currentRecord.deviceId }}</dd>
+                <dt>设备</dt>
+                <dd>{{ displayIdentityName(currentRecord.deviceName, currentRecord.deviceId) }}</dd>
               </div>
               <div>
-                <dt>用户 ID</dt>
-                <dd>{{ currentRecord.userId }}</dd>
+                <dt>设备编号</dt>
+                <dd>{{ currentRecord.deviceNumber || currentRecord.deviceId }}</dd>
+              </div>
+              <div>
+                <dt>用户</dt>
+                <dd>{{ displayIdentityName(currentRecord.userName, currentRecord.userId) }}</dd>
               </div>
             </dl>
           </article>

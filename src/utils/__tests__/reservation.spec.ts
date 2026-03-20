@@ -5,6 +5,9 @@ import {
   canCancelReservation,
   canCheckInReservation,
   getReservationCheckInStage,
+  normalizeApprovalMode,
+  normalizeCheckInStatus,
+  normalizeReservationMode,
   shouldShowCancelWindowHint,
   validateReservationTimeRange,
 } from '../reservation'
@@ -25,11 +28,29 @@ describe('reservation utils', () => {
   it('仅在开始前超过 24 小时时允许自助取消', () => {
     expect(canCancelReservation(reservationBase, new Date('2026-03-17T09:59:59'))).toBe(true)
     expect(canCancelReservation(reservationBase, new Date('2026-03-17T10:00:00'))).toBe(false)
+    expect(
+      canCancelReservation(
+        {
+          ...reservationBase,
+          signStatus: 'CHECKED_IN',
+        },
+        new Date('2026-03-17T09:59:59'),
+      ),
+    ).toBe(false)
   })
 
   it('仅在未开始且进入 24 小时窗口后显示联系管理员提示', () => {
     expect(shouldShowCancelWindowHint(reservationBase, new Date('2026-03-17T10:00:00'))).toBe(true)
     expect(shouldShowCancelWindowHint(reservationBase, new Date('2026-03-18T10:00:01'))).toBe(false)
+    expect(
+      shouldShowCancelWindowHint(
+        {
+          ...reservationBase,
+          signStatus: 'CHECKED_IN_TIMEOUT',
+        },
+        new Date('2026-03-17T10:00:00'),
+      ),
+    ).toBe(false)
   })
 
   it('签到按钮覆盖边界时间和旧别名状态兼容', () => {
@@ -84,10 +105,19 @@ describe('reservation utils', () => {
     ).toEqual([])
   })
 
+  it('把旧审批模式、预约模式和签到状态别名统一归一到标准口径', () => {
+    expect(normalizeApprovalMode('DEVICE_AND_SYSTEM')).toBe('DEVICE_THEN_SYSTEM')
+    expect(normalizeReservationMode('PROXY')).toBe('ON_BEHALF')
+    expect(normalizeCheckInStatus('NOT_SIGNED')).toBe('NOT_CHECKED_IN')
+    expect(normalizeCheckInStatus('SIGNED_IN')).toBe('CHECKED_IN')
+    expect(normalizeCheckInStatus('TIMEOUT')).toBe('CHECKED_IN_TIMEOUT')
+  })
+
   it('基于详情时间字段生成预约状态时间线', () => {
     expect(typeof buildReservationTimelineItems).toBe('function')
 
     const items = buildReservationTimelineItems({
+      status: 'APPROVED',
       createdAt: '2026-03-18T08:00:00',
       deviceApprovedAt: '2026-03-18T08:10:00',
       deviceApprovalRemark: '设备管理员通过',

@@ -27,6 +27,14 @@ const overdueRecordId = computed(() => String(route.params.id ?? ''))
 const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
 const currentRecord = computed(() => overdueStore.currentRecord)
 
+/**
+ * 详情页同样遵循“优先展示真实名称、缺失时回退 ID”的联调原则，
+ * 保证后端字段尚未补全的环境里页面仍可稳定工作。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
+
 function handleBack() {
   void router.push('/overdue')
 }
@@ -99,12 +107,12 @@ onBeforeUnmount(() => {
                 <dd>{{ currentRecord.borrowRecordId }}</dd>
               </div>
               <div>
-                <dt>设备 ID</dt>
-                <dd>{{ currentRecord.deviceId }}</dd>
+                <dt>设备</dt>
+                <dd>{{ displayIdentityName(currentRecord.deviceName, currentRecord.deviceId) }}</dd>
               </div>
               <div>
-                <dt>用户 ID</dt>
-                <dd>{{ currentRecord.userId }}</dd>
+                <dt>用户</dt>
+                <dd>{{ displayIdentityName(currentRecord.userName, currentRecord.userId) }}</dd>
               </div>
             </dl>
           </article>

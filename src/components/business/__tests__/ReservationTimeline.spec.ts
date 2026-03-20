@@ -91,4 +91,128 @@ describe('ReservationTimeline', () => {
     expect(wrapper.text()).toContain('完成签到')
     expect(wrapper.text()).toContain('设备通过')
   })
+
+  it('设备侧拒绝时显示设备审批拒绝节点文案', async () => {
+    const { module, error } = await loadComponent('ReservationTimeline')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        reservation: {
+          id: 'reservation-rejected-device',
+          batchId: null,
+          userId: 'user-1',
+          userName: 'demo-user',
+          createdBy: 'user-1',
+          createdByName: 'demo-user',
+          reservationMode: 'SELF',
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+          deviceStatus: 'AVAILABLE',
+          startTime: '2026-03-18T09:00:00',
+          endTime: '2026-03-18T10:00:00',
+          purpose: '课程实验',
+          remark: '请提前准备',
+          status: 'REJECTED',
+          signStatus: 'NOT_CHECKED_IN',
+          approvalModeSnapshot: 'DEVICE_ONLY',
+          deviceApproverId: 'device-admin-1',
+          deviceApproverName: '设备管理员',
+          deviceApprovedAt: '2026-03-18T08:20:00',
+          deviceApprovalRemark: '设备侧拒绝',
+          systemApproverId: null,
+          systemApproverName: null,
+          systemApprovedAt: null,
+          systemApprovalRemark: null,
+          cancelReason: null,
+          cancelTime: null,
+          checkedInAt: null,
+          createdAt: '2026-03-18T08:00:00',
+          updatedAt: '2026-03-18T08:20:00',
+        },
+      },
+      global: {
+        stubs: {
+          ElTimeline: { template: '<div><slot /></div>' },
+          ElTimelineItem: {
+            props: ['timestamp'],
+            template: '<section><span>{{ timestamp }}</span><slot /></section>',
+          },
+          EmptyState: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('设备审批拒绝')
+    expect(wrapper.text()).not.toContain('设备审批通过')
+  })
+
+  it('系统侧拒绝时显示系统审批拒绝节点文案', async () => {
+    const { module, error } = await loadComponent('ReservationTimeline')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        reservation: {
+          id: 'reservation-rejected-system',
+          batchId: null,
+          userId: 'user-1',
+          userName: 'demo-user',
+          createdBy: 'user-1',
+          createdByName: 'demo-user',
+          reservationMode: 'SELF',
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+          deviceStatus: 'AVAILABLE',
+          startTime: '2026-03-18T09:00:00',
+          endTime: '2026-03-18T10:00:00',
+          purpose: '课程实验',
+          remark: '请提前准备',
+          status: 'REJECTED',
+          signStatus: 'NOT_CHECKED_IN',
+          approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+          deviceApproverId: 'device-admin-1',
+          deviceApproverName: '设备管理员',
+          deviceApprovedAt: '2026-03-18T08:20:00',
+          deviceApprovalRemark: '设备侧通过',
+          systemApproverId: 'system-admin-1',
+          systemApproverName: '系统管理员',
+          systemApprovedAt: '2026-03-18T08:40:00',
+          systemApprovalRemark: '系统侧拒绝',
+          cancelReason: null,
+          cancelTime: null,
+          checkedInAt: null,
+          createdAt: '2026-03-18T08:00:00',
+          updatedAt: '2026-03-18T08:40:00',
+        },
+      },
+      global: {
+        stubs: {
+          ElTimeline: { template: '<div><slot /></div>' },
+          ElTimelineItem: {
+            props: ['timestamp'],
+            template: '<section><span>{{ timestamp }}</span><slot /></section>',
+          },
+          EmptyState: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('系统审批拒绝')
+    expect(wrapper.text()).not.toContain('系统审批通过')
+  })
 })

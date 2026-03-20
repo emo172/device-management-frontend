@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
-import type { ReservationDetailResponse } from '@/api/reservations'
+import type { ReservationDetailResponse, ReservationResponse } from '@/api/reservations'
 import { UserRole } from '@/enums'
 import { createAppPinia } from '@/stores'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -102,6 +102,15 @@ function createReservationDetail(): ReservationDetailResponse {
   }
 }
 
+function createReservationActionResponse(
+  overrides?: Partial<ReservationResponse>,
+): ReservationResponse {
+  return {
+    ...createReservationDetail(),
+    ...overrides,
+  }
+}
+
 describe('reservation check-in view', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -140,19 +149,11 @@ describe('reservation check-in view', () => {
     vi.spyOn(reservationStore, 'fetchReservationDetail').mockResolvedValue(detail)
     const checkInReservationSpy = vi
       .spyOn(reservationStore, 'checkInReservation')
-      .mockResolvedValue({
-        id: detail.id,
-        batchId: detail.batchId,
-        userId: detail.userId,
-        createdBy: detail.createdBy,
-        reservationMode: detail.reservationMode,
-        deviceId: detail.deviceId,
-        signStatus: 'CHECKED_IN_TIMEOUT',
-        status: detail.status,
-        approvalModeSnapshot: detail.approvalModeSnapshot,
-        deviceApproverId: detail.deviceApproverId,
-        systemApproverId: detail.systemApproverId,
-      })
+      .mockResolvedValue(
+        createReservationActionResponse({
+          signStatus: 'CHECKED_IN_TIMEOUT',
+        }),
+      )
 
     const wrapper = mount(module.default, {
       global: {

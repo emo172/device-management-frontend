@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  authStoreMock,
   appMock,
+  clearAuthStateMock,
   createAppMock,
+  fetchCurrentUserMock,
   initializeAuthMock,
   installElementPlusMock,
   piniaMock,
@@ -15,6 +18,8 @@ const {
   registerUnauthorizedHandlerMock,
   resetAppStateMock,
   resetNotificationStateMock,
+  routerInstallEffectRef,
+  routerInstallMock,
   runFatalErrorHandlerMock,
   setFatalErrorMock,
   routerMock,
@@ -26,12 +31,29 @@ const {
     mount: vi.fn(),
   }
 
-  app.use.mockReturnValue(app)
+  app.use.mockImplementation((dependency: { id?: string; install?: () => void | Promise<void> }) => {
+    void dependency?.install?.()
+    return app
+  })
+
+  const clearAuthState = vi.fn()
+  const fetchCurrentUser = vi.fn()
+  const initializeAuth = vi.fn()
+  const authStore = {
+    clearAuthState,
+    currentUser: null as null | Record<string, unknown>,
+    fetchCurrentUser,
+    initializeAuth,
+    initialized: false,
+  }
 
   return {
+    authStoreMock: authStore,
     appMock: app,
+    clearAuthStateMock: clearAuthState,
     createAppMock: vi.fn(() => app),
-    initializeAuthMock: vi.fn(),
+    fetchCurrentUserMock: fetchCurrentUser,
+    initializeAuthMock: initializeAuth,
     installElementPlusMock: vi.fn(),
     piniaMock: { id: 'pinia' },
     registeredFatalErrorHandlerRef: { current: null as null | ((error: unknown) => Promise<void>) },
@@ -45,6 +67,8 @@ const {
     registerUnauthorizedHandlerMock: vi.fn(),
     resetAppStateMock: vi.fn(),
     resetNotificationStateMock: vi.fn(),
+    routerInstallEffectRef: { current: null as null | (() => void | Promise<void>) },
+    routerInstallMock: vi.fn(),
     runFatalErrorHandlerMock: vi.fn(),
     setFatalErrorMock: vi.fn(),
     routerMock: { id: 'router' },
@@ -74,6 +98,12 @@ vi.mock('../App.vue', () => ({
 vi.mock('../router', () => ({
   default: {
     ...routerMock,
+    install: routerInstallMock,
+    options: {
+      history: {
+        base: '/base/',
+      },
+    },
     currentRoute: {
       value: {
         fullPath: '/devices/device-1',
@@ -81,9 +111,13 @@ vi.mock('../router', () => ({
       },
     },
     resolve: vi.fn((to: string | { path?: string }) => {
-      const path = typeof to === 'string' ? (to.split('?')[0] ?? to) : (to.path ?? '/')
+      const raw = typeof to === 'string' ? to : (to.path ?? '/')
+      const [rawPathWithQuery = '/', hash = ''] = raw.split('#')
+      const [rawPathname = '/', query = ''] = rawPathWithQuery.split('?')
+      const pathname = rawPathname || '/'
+      const fullPath = `${pathname}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`
 
-      return { path }
+      return { path: pathname, fullPath }
     }),
     push: routerPushMock,
   },
@@ -94,10 +128,7 @@ vi.mock('../stores/pinia', () => ({
 }))
 
 vi.mock('../stores/modules/auth', () => ({
-  useAuthStore: vi.fn(() => ({
-    clearAuthState: vi.fn(),
-    initializeAuth: initializeAuthMock,
-  })),
+  useAuthStore: vi.fn(() => authStoreMock),
 }))
 
 vi.mock('../stores/modules/app', () => ({
@@ -137,7 +168,11 @@ describe('main bootstrap', () => {
     appMock.config = {}
     appMock.use.mockClear()
     appMock.mount.mockClear()
+    authStoreMock.currentUser = null
+    authStoreMock.initialized = false
+    clearAuthStateMock.mockReset()
     createAppMock.mockClear()
+    fetchCurrentUserMock.mockReset()
     initializeAuthMock.mockReset()
     installElementPlusMock.mockReset()
     registerFatalErrorHandlerMock.mockReset()
@@ -148,6 +183,9 @@ describe('main bootstrap', () => {
     registeredUnauthorizedHandlerRef.current = null
     resetAppStateMock.mockReset()
     resetNotificationStateMock.mockReset()
+    routerInstallEffectRef.current = null
+    routerInstallMock.mockImplementation(() => routerInstallEffectRef.current?.())
+    routerInstallMock.mockClear()
     routerPushMock.mockReset()
     runFatalErrorHandlerMock.mockReset()
     setFatalErrorMock.mockReset()
@@ -167,9 +205,8 @@ describe('main bootstrap', () => {
 
     expect(createAppMock).toHaveBeenCalledTimes(1)
     expect(initializeAuthMock).toHaveBeenCalledTimes(1)
-    expect(installElementPlusMock).toHaveBeenCalledTimes(1)
-    expect(registerDirectivesMock).toHaveBeenCalledTimes(1)
-    expect(registerDirectivesMock).toHaveBeenCalledWith(appMock)
+    expect(installElementPlusMock).not.toHaveBeenCalled()
+    expect(registerDirectivesMock).not.toHaveBeenCalled()
     expect(registerSessionResetHandlerMock).toHaveBeenCalledTimes(1)
     expect(registerUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
     expect(registerFatalErrorHandlerMock).toHaveBeenCalledTimes(1)
@@ -179,6 +216,9 @@ describe('main bootstrap', () => {
     await Promise.resolve()
     await Promise.resolve()
 
+    expect(installElementPlusMock).toHaveBeenCalledTimes(1)
+    expect(registerDirectivesMock).toHaveBeenCalledTimes(1)
+    expect(registerDirectivesMock).toHaveBeenCalledWith(appMock)
     expect(appMock.mount).toHaveBeenCalledWith('#app')
   })
 
@@ -204,6 +244,58 @@ describe('main bootstrap', () => {
     )
   })
 
+  it('首屏带 token 和缓存用户时，只会完成一次当前用户远端校验', async () => {
+    authStoreMock.currentUser = {
+      userId: 'user-1',
+      username: 'cached-user',
+    }
+
+    routerInstallEffectRef.current = async () => {
+      if (!authStoreMock.initialized && authStoreMock.currentUser) {
+        await fetchCurrentUserMock({ skipUnauthorizedHandler: true })
+      }
+    }
+
+    initializeAuthMock.mockImplementation(async () => {
+      await fetchCurrentUserMock({ skipUnauthorizedHandler: true })
+      authStoreMock.initialized = true
+    })
+
+    await import('../main')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(fetchCurrentUserMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('首屏 401 时，只会触发一次未授权登录导航', async () => {
+    authStoreMock.currentUser = {
+      userId: 'user-1',
+      username: 'cached-user',
+    }
+
+    routerInstallEffectRef.current = async () => {
+      if (!authStoreMock.initialized && authStoreMock.currentUser) {
+        await registeredUnauthorizedHandlerRef.current?.({ redirect: '/statistics' })
+      }
+    }
+
+    initializeAuthMock.mockImplementation(async () => {
+      await registeredUnauthorizedHandlerRef.current?.({ redirect: '/statistics' })
+      authStoreMock.initialized = true
+    })
+
+    await import('../main')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(routerPushMock).toHaveBeenCalledTimes(1)
+    expect(routerPushMock).toHaveBeenCalledWith({
+      path: '/login',
+      query: { redirect: '/statistics' },
+    })
+  })
+
   it('normalizes redirect in unauthorized handler and resets stores through the registered bridge', async () => {
     await import('../main')
 
@@ -217,6 +309,48 @@ describe('main bootstrap', () => {
 
     expect(routerPushMock).toHaveBeenNthCalledWith(1, { path: '/login' })
     expect(routerPushMock).toHaveBeenNthCalledWith(2, {
+      path: '/login',
+      query: { redirect: '/statistics?tab=usage' },
+    })
+  })
+
+  /**
+   * 首屏 401 若发生在 router 安装之前，仍应保留浏览器真实地址作为 redirect。
+   * 该断言用于防止 bootstrap 阶段把目标页错误回退成 `/`。
+   */
+  it('preserves browser location as redirect when bootstrap 401 happens before router install', async () => {
+    window.history.replaceState({}, '', '/statistics?tab=usage')
+    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+      fullPath: '/',
+      path: '/',
+    }
+
+    await import('../main')
+
+    await registeredUnauthorizedHandlerRef.current?.({})
+
+    expect(routerPushMock).toHaveBeenCalledWith({
+      path: '/login',
+      query: { redirect: '/statistics?tab=usage' },
+    })
+  })
+
+  /**
+   * 部署在子路径时，浏览器地址会带上 BASE_URL；
+   * 登录 redirect 必须归一化回路由内部路径，不能把基路径重复塞进后续导航。
+   */
+  it('normalizes base-prefixed browser location before using it as bootstrap redirect', async () => {
+    window.history.replaceState({}, '', '/base/statistics?tab=usage')
+    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+      fullPath: '/',
+      path: '/',
+    }
+
+    await import('../main')
+
+    await registeredUnauthorizedHandlerRef.current?.({})
+
+    expect(routerPushMock).toHaveBeenCalledWith({
       path: '/login',
       query: { redirect: '/statistics?tab=usage' },
     })

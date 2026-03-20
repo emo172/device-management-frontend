@@ -4,14 +4,6 @@ import * as notificationApi from '@/api/notifications'
 
 const POLLING_INTERVAL = 30000
 
-/**
- * 头部角标只代表站内信未读数。
- * 邮件和短信没有“已读”业务语义，不能混入角标统计，否则会与后端 unread-count 口径不一致。
- */
-function countInAppUnread(notifications: notificationApi.NotificationResponse[]) {
-  return notifications.filter((item) => item.channel === 'IN_APP' && item.readFlag === 0).length
-}
-
 interface NotificationState {
   notifications: notificationApi.NotificationResponse[]
   unreadCount: number
@@ -67,12 +59,12 @@ export const useNotificationStore = defineStore('notification', {
       const result = await notificationApi.markNotificationRead(notificationId)
 
       this.notifications = this.notifications.map((item) =>
-        item.id === result.notificationId ? { ...item, readFlag: result.readFlag } : item,
+        item.id === result.notificationId
+          ? { ...item, readFlag: result.readFlag, readAt: result.readAt }
+          : item,
       )
 
-      if (result.readFlag === 1) {
-        this.unreadCount = countInAppUnread(this.notifications)
-      }
+      this.unreadCount = result.unreadCount
 
       return result
     },
@@ -84,9 +76,11 @@ export const useNotificationStore = defineStore('notification', {
     async markAllAsRead() {
       const result = await notificationApi.markAllNotificationsRead()
       this.notifications = this.notifications.map((item) =>
-        item.channel === 'IN_APP' ? { ...item, readFlag: 1 } : item,
+        item.channel === 'IN_APP' && item.readFlag === 0
+          ? { ...item, readFlag: 1, readAt: result.readAt }
+          : item,
       )
-      this.unreadCount = countInAppUnread(this.notifications)
+      this.unreadCount = result.unreadCount
       return result
     },
 

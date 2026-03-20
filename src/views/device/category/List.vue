@@ -99,7 +99,7 @@ onMounted(() => {
 
     <Manage
       v-model="manageVisible"
-      :category-options="categoryStore.options"
+      :category-options="categoryStore.parentOptions"
       :submitting="categoryStore.submitting"
       @submit="handleCreateCategory"
     />

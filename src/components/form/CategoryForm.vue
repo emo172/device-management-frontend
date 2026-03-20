@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 
 import type { ApprovalMode as CategoryApprovalMode } from '@/api/categories'
 import { ApprovalMode, ApprovalModeLabel } from '@/enums'
@@ -34,6 +34,13 @@ const formState = reactive<CategoryFormValue>({
   defaultApprovalMode: ApprovalMode.DEVICE_ONLY as CategoryApprovalMode,
 })
 
+const parentCategoryOptions = computed(() =>
+  props.categoryOptions.map((item) => ({
+    label: item.label,
+    value: item.value,
+  })),
+)
+
 watch(
   () => props.initialValue,
   (value) => {
@@ -63,10 +70,11 @@ function handleSubmit() {
       </el-form-item>
 
       <el-form-item label="父级分类">
+        <!-- 后端当前只支持用根分类名称关联父级，因此这里主动裁掉子节点，避免用户选到服务端无法识别的非根分类。 -->
         <el-tree-select
           v-model="formState.parentName"
           class="category-form__parent"
-          :data="categoryOptions"
+          :data="parentCategoryOptions"
           node-key="value"
           check-strictly
           default-expand-all

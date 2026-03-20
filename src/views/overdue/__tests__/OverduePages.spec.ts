@@ -71,7 +71,10 @@ const pendingRecord = {
   id: 'overdue-1',
   borrowRecordId: 'borrow-1',
   userId: 'user-1',
+  userName: '张三',
   deviceId: 'device-1',
+  deviceName: '热成像仪',
+  deviceNumber: 'DEV-001',
   overdueHours: 11,
   overdueDays: 1,
   processingStatus: OverdueProcessingStatus.PENDING,
@@ -194,6 +197,8 @@ describe('overdue pages', () => {
     expect(wrapper.find('.console-page-hero').exists()).toBe(true)
     expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(wrapper.text()).toContain(pendingRecord.deviceName)
+    expect(wrapper.text()).toContain(pendingRecord.userName)
     expect(wrapper.text()).toContain('处理逾期')
   })
 
@@ -305,6 +310,8 @@ describe('overdue pages', () => {
     expect(fetchOverdueDetailSpy).toHaveBeenCalledWith(pendingRecord.id)
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
+    expect(wrapper.text()).toContain(pendingRecord.deviceName)
+    expect(wrapper.text()).toContain(pendingRecord.userName)
 
     await wrapper.get('textarea').setValue('已确认损坏')
     await wrapper.get('input[type="number"]').setValue('120')
@@ -352,6 +359,8 @@ describe('overdue pages', () => {
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('待处理')
+    expect(wrapper.text()).toContain(pendingRecord.deviceName)
+    expect(wrapper.text()).toContain(pendingRecord.userName)
     expect(wrapper.text()).toContain(pendingRecord.borrowRecordId)
   })
 })

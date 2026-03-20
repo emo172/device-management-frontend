@@ -49,6 +49,7 @@ const deviceRecord = {
   deviceNumber: 'DEV-001',
   categoryId: 'cat-1',
   categoryName: '测试设备',
+  imageUrl: '/files/devices/device-1.png',
   status: 'AVAILABLE',
   description: '实验室公共设备',
   location: 'A-201',
@@ -95,7 +96,7 @@ describe('device list view', () => {
           DeviceCard: {
             props: ['device', 'showAdminActions'],
             template:
-              '<article class="device-card-stub">{{ device.name }}-{{ showAdminActions ? \"admin\" : \"readonly\" }}</article>',
+              '<article class="device-card-stub">{{ device.name }}-{{ showAdminActions ? \"admin\" : \"readonly\" }}-{{ device.imageUrl }}</article>',
           },
           DeviceStatusTag: {
             props: ['status'],
@@ -127,6 +128,7 @@ describe('device list view', () => {
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('新增设备')
     expect(wrapper.text()).toContain('高精度示波器-admin')
+    expect(wrapper.text()).toContain('/files/devices/device-1.png')
   })
 
   it('普通用户访问时不显示新增入口，并以只读模式渲染设备卡片', async () => {
@@ -164,7 +166,7 @@ describe('device list view', () => {
           DeviceCard: {
             props: ['device', 'showAdminActions'],
             template:
-              '<article class="device-card-stub">{{ device.name }}-{{ showAdminActions ? \"admin\" : \"readonly\" }}</article>',
+              '<article class="device-card-stub">{{ device.name }}-{{ showAdminActions ? \"admin\" : \"readonly\" }}-{{ device.imageUrl }}</article>',
           },
           DeviceStatusTag: {
             props: ['status'],
@@ -195,5 +197,6 @@ describe('device list view', () => {
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('新增设备')
     expect(wrapper.text()).toContain('高精度示波器-readonly')
+    expect(wrapper.text()).toContain('/files/devices/device-1.png')
   })
 })

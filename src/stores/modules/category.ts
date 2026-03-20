@@ -30,6 +30,13 @@ function mapCategoryTreeToOptions(tree: categoryApi.CategoryTreeResponse[]): Cat
   }))
 }
 
+function mapRootCategoryToOptions(tree: categoryApi.CategoryTreeResponse[]): CategoryOption[] {
+  return tree.map((item) => ({
+    label: item.name,
+    value: item.name,
+  }))
+}
+
 /**
  * 设备分类域状态。
  * 设备表单、分类管理页都依赖同一份分类树与树形选项，统一放进 Store 可以避免页面各自重复拉取并手工转换树数据。
@@ -42,6 +49,12 @@ export const useCategoryStore = defineStore('category', {
      * 设备表单需要用分类名称作为提交值，因此树形选择器的 value 统一映射为分类名称，而不是分类 ID。
      */
     options: (state): CategoryOption[] => mapCategoryTreeToOptions(state.tree),
+
+    /**
+     * 分类新增接口当前只接受根分类名称作为 `parentName`，
+     * 因此前级分类选择必须收敛到顶级节点，避免前端放出后端不支持的非根父级。
+     */
+    parentOptions: (state): CategoryOption[] => mapRootCategoryToOptions(state.tree),
   },
 
   actions: {
@@ -78,26 +91,20 @@ export const useCategoryStore = defineStore('category', {
         return
       }
 
-      const appendNode = (
-        nodes: categoryApi.CategoryTreeResponse[],
-      ): categoryApi.CategoryTreeResponse[] =>
-        nodes.map((node) => {
-          if (node.name === parentName) {
-            return {
-              ...node,
-              children: [...node.children, category].sort(
-                (left, right) => left.sortOrder - right.sortOrder,
-              ),
-            }
-          }
+      /*
+       * 后端当前只接受“根分类名称”作为 `parentName`，
+       * 因此前端本地树回显也必须只在顶级节点里匹配，避免把非根分类名误当成受支持契约后出现假成功 UI。
+       */
+      this.tree = this.tree.map((node) => {
+        if (node.name !== parentName) {
+          return node
+        }
 
-          return {
-            ...node,
-            children: appendNode(node.children),
-          }
-        })
-
-      this.tree = appendNode(this.tree)
+        return {
+          ...node,
+          children: [...node.children, category].sort((left, right) => left.sortOrder - right.sortOrder),
+        }
+      })
     },
 
     resetState() {
