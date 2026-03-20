@@ -20,23 +20,66 @@ import '@/assets/styles/index.scss'
 const authEntryPaths = new Set(['/login', '/register', '/forgot-password', '/reset-password'])
 
 /**
+ * 在 router 尚未完成安装前，首屏 401 仍然可能先于首个受保护路由导航发生。
+ * 这里直接读取浏览器地址栏的真实路径，确保 bootstrap 阶段也能拿到用户刚刚刷新的目标页。
+ */
+function resolveBrowserFullPath() {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+/**
+ * 登录回跳只需要应用内部路由，不应把部署基路径重复写进 redirect。
+ * 这里基于 `BASE_URL` 显式裁掉浏览器地址中的部署前缀，避免子路径部署时出现 `/base/base/...` 双前缀跳转。
+ */
+function stripBaseUrl(path: string) {
+  const baseUrl =
+    ((router as { options?: { history?: { base?: string } } }).options?.history?.base as
+      | string
+      | undefined) || import.meta.env.BASE_URL || '/'
+  const normalizedBasePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '')
+
+  if (!normalizedBasePath) {
+    return path
+  }
+
+  if (path === normalizedBasePath) {
+    return '/'
+  }
+
+  if (path.startsWith(`${normalizedBasePath}/`)) {
+    return path.slice(normalizedBasePath.length)
+  }
+
+  return path
+}
+
+/**
  * 登录 redirect 默认回到当前路由，但公开认证页与 500 页本身不能再作为 redirect，
  * 否则登录成功后会回到无意义入口甚至形成“登录页 -> 登录页”的回环。
+ * 若浏览器当前运行在子路径下，这里还要通过 `router.resolve()` 折算回路由内部使用的相对 fullPath，
+ * 避免把部署基路径重复拼进 redirect，导致登录成功后出现双前缀跳转。
  */
 function resolveLoginRedirect(explicitRedirect?: string) {
-  const redirect = explicitRedirect ?? router.currentRoute.value.fullPath
+  const redirect = stripBaseUrl(
+    explicitRedirect ?? resolveBrowserFullPath() ?? router.currentRoute.value.fullPath,
+  )
 
   if (!redirect) {
     return undefined
   }
 
-  const resolvedPath = router.resolve(redirect).path
+  const resolvedLocation = router.resolve(redirect)
+  const resolvedPath = resolvedLocation.path
 
   if (authEntryPaths.has(resolvedPath) || resolvedPath === '/500') {
     return undefined
   }
 
-  return redirect
+  return resolvedLocation.fullPath || redirect
 }
 
 /**

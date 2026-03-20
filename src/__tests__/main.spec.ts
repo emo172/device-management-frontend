@@ -99,6 +99,11 @@ vi.mock('../router', () => ({
   default: {
     ...routerMock,
     install: routerInstallMock,
+    options: {
+      history: {
+        base: '/base/',
+      },
+    },
     currentRoute: {
       value: {
         fullPath: '/devices/device-1',
@@ -106,9 +111,13 @@ vi.mock('../router', () => ({
       },
     },
     resolve: vi.fn((to: string | { path?: string }) => {
-      const path = typeof to === 'string' ? (to.split('?')[0] ?? to) : (to.path ?? '/')
+      const raw = typeof to === 'string' ? to : (to.path ?? '/')
+      const [rawPathWithQuery = '/', hash = ''] = raw.split('#')
+      const [rawPathname = '/', query = ''] = rawPathWithQuery.split('?')
+      const pathname = rawPathname || '/'
+      const fullPath = `${pathname}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`
 
-      return { path }
+      return { path: pathname, fullPath }
     }),
     push: routerPushMock,
   },
@@ -300,6 +309,48 @@ describe('main bootstrap', () => {
 
     expect(routerPushMock).toHaveBeenNthCalledWith(1, { path: '/login' })
     expect(routerPushMock).toHaveBeenNthCalledWith(2, {
+      path: '/login',
+      query: { redirect: '/statistics?tab=usage' },
+    })
+  })
+
+  /**
+   * 首屏 401 若发生在 router 安装之前，仍应保留浏览器真实地址作为 redirect。
+   * 该断言用于防止 bootstrap 阶段把目标页错误回退成 `/`。
+   */
+  it('preserves browser location as redirect when bootstrap 401 happens before router install', async () => {
+    window.history.replaceState({}, '', '/statistics?tab=usage')
+    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+      fullPath: '/',
+      path: '/',
+    }
+
+    await import('../main')
+
+    await registeredUnauthorizedHandlerRef.current?.({})
+
+    expect(routerPushMock).toHaveBeenCalledWith({
+      path: '/login',
+      query: { redirect: '/statistics?tab=usage' },
+    })
+  })
+
+  /**
+   * 部署在子路径时，浏览器地址会带上 BASE_URL；
+   * 登录 redirect 必须归一化回路由内部路径，不能把基路径重复塞进后续导航。
+   */
+  it('normalizes base-prefixed browser location before using it as bootstrap redirect', async () => {
+    window.history.replaceState({}, '', '/base/statistics?tab=usage')
+    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+      fullPath: '/',
+      path: '/',
+    }
+
+    await import('../main')
+
+    await registeredUnauthorizedHandlerRef.current?.({})
+
+    expect(routerPushMock).toHaveBeenCalledWith({
       path: '/login',
       query: { redirect: '/statistics?tab=usage' },
     })

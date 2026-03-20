@@ -395,7 +395,7 @@ describe('borrow pages', () => {
     expect(wrapper.text()).not.toContain('undefined')
   })
 
-  it('归还确认页只拉取借用中记录，并可对预选记录执行归还确认', async () => {
+  it('归还确认页会拉取当前分页可见记录，并可对预选记录执行归还确认', async () => {
     const { module, error } = await loadBorrowView('Return')
 
     expect(error).toBeNull()
@@ -432,7 +432,6 @@ describe('borrow pages', () => {
     expect(fetchBorrowListSpy).toHaveBeenCalledWith({
       page: 1,
       size: 10,
-      status: BorrowStatus.BORROWED,
     })
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
@@ -487,7 +486,7 @@ describe('borrow pages', () => {
     expect(pushMock).toHaveBeenCalledWith(`/borrows/return?recordId=${overdueRecord.id}`)
   })
 
-  it('归还确认页切换分页时会继续以借用中条件拉取新页数据', async () => {
+  it('归还确认页切换分页时会继续保留无状态筛选的新页查询', async () => {
     const { module, error } = await loadBorrowView('Return')
 
     expect(error).toBeNull()
@@ -534,7 +533,65 @@ describe('borrow pages', () => {
     expect(fetchBorrowListSpy).toHaveBeenLastCalledWith({
       page: 2,
       size: 10,
-      status: BorrowStatus.BORROWED,
+    })
+  })
+
+  /**
+   * 通用归还确认入口改成无状态分页后，当前页可能只有已归还记录；
+   * 这里验证页面会保留分页入口，而不是直接整页空状态把管理员锁死在第一页。
+   */
+  it('归还确认页当前页没有可归还记录时仍保留分页能力', async () => {
+    const { module, error } = await loadBorrowView('Return')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/borrows/return'
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const borrowStore = useBorrowStore()
+    borrowStore.list = [returnedRecord]
+    borrowStore.total = 20
+    const fetchBorrowListSpy = vi
+      .spyOn(borrowStore, 'fetchBorrowList')
+      .mockResolvedValue({ total: 20, records: [returnedRecord] })
+
+    const wrapper = mount(module.default, {
+      global: {
+        ...commonGlobal,
+        stubs: {
+          ...commonGlobal.stubs,
+          Pagination: {
+            emits: ['change'],
+            template:
+              '<button class="pagination-next" @click="$emit(\'change\', { currentPage: 2, pageSize: 10 })">next</button>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
+    expect(wrapper.findAll('.empty-state-stub').length).toBeGreaterThan(0)
+    expect(wrapper.find('.pagination-next').exists()).toBe(true)
+
+    await wrapper.get('.pagination-next').trigger('click')
+
+    expect(fetchBorrowListSpy).toHaveBeenLastCalledWith({
+      page: 2,
+      size: 10,
     })
   })
 
