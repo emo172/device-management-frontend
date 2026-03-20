@@ -22,6 +22,19 @@ function isUnauthorizedError(error: unknown): boolean {
 }
 
 /**
+ * 只有在会话初始化完成且当前用户资料已存在时，守卫才可以信任本地身份。
+ * 只要应用仍处于初始化阶段，就必须重新校验 `/auth/me`，避免拿旧缓存直接放行或拦截目标路由。
+ */
+async function hydrateCurrentUserIfNeeded(authStore: ReturnType<typeof useAuthStore>) {
+  if (authStore.initialized && authStore.currentUser) {
+    return
+  }
+
+  await authStore.fetchCurrentUser({ skipUnauthorizedHandler: true })
+  authStore.initialized = true
+}
+
+/**
  * 装配全局路由守卫。
  * 守卫统一负责标题更新、会话恢复兜底和角色权限校验，避免每个页面各自判断登录状态后出现跳转口径不一致。
  */
@@ -36,17 +49,18 @@ export function setupRouterGuards(router: Router) {
 
     if (!requiresAuth) {
       if (hasToken() && authEntryPaths.has(to.path)) {
-        if (authStore.currentUser) {
-          return { path: '/dashboard' }
-        }
-
         try {
           /**
-           * 认证公开页不能只凭本地 token 就一律跳仪表盘。
-           * 当刷新后 Store 尚未恢复用户资料时，这里先补拉一次当前用户；只有确认会话有效后，才拦截登录页回到仪表盘。
+           * 认证公开页不能只凭 token 或缓存用户资料就一律跳仪表盘。
+           * 只要应用还没完成初始化，都必须先补拉一次当前用户，确认远端会话仍有效后才能拦截登录入口。
            */
-          await authStore.fetchCurrentUser({ skipUnauthorizedHandler: true })
-          return { path: '/dashboard' }
+          await hydrateCurrentUserIfNeeded(authStore)
+
+          if (authStore.currentUser) {
+            return { path: '/dashboard' }
+          }
+
+          return true
         } catch (error) {
           /**
            * 对认证页而言，非 401 的补拉失败更适合放行到登录页，避免用户被卡在“有 token 但无法进入认证页”的死循环里。
@@ -69,9 +83,9 @@ export function setupRouterGuards(router: Router) {
       }
     }
 
-    if (!authStore.currentUser) {
+    if (!authStore.initialized || !authStore.currentUser) {
       try {
-        await authStore.fetchCurrentUser({ skipUnauthorizedHandler: true })
+        await hydrateCurrentUserIfNeeded(authStore)
       } catch (error) {
         /**
          * 受保护路由在进入前必须确认远端身份。

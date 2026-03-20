@@ -106,10 +106,6 @@ async function bootstrapApp() {
     await router.push('/500')
   })
 
-  app.use(router)
-  installElementPlus(app)
-  registerDirectives(app)
-
   app.config.errorHandler = (error, _instance, info) => {
     void runFatalErrorHandler(
       createMainFatalErrorSnapshot(
@@ -131,7 +127,16 @@ async function bootstrapApp() {
     void runFatalErrorHandler(createMainFatalErrorSnapshot(`异步任务执行失败：${reason}`))
   })
 
+  /**
+   * 首屏认证恢复必须发生在 router 安装之前。
+   * 因为 `app.use(router)` 会立刻触发首屏导航守卫；若此时仍是 `initialized = false`，
+   * 守卫会为了兜底再次补拉 `/auth/me`，从而与 `initializeAuth()` 自身形成重复校验甚至重复登录导航。
+   */
   await authStore.initializeAuth()
+
+  app.use(router)
+  installElementPlus(app)
+  registerDirectives(app)
 
   // 图标库依赖已经接入，但基础设施阶段不做全量注册，
   // 避免入口包体被一次性放大；后续业务组件按需引入即可。
