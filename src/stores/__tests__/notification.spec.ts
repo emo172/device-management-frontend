@@ -65,7 +65,12 @@ describe('notification store', () => {
   })
 
   it('marks one notification as read and keeps unread count in sync', async () => {
-    markNotificationReadMock.mockResolvedValue({ notificationId: 'notice-1', readFlag: 1 })
+    markNotificationReadMock.mockResolvedValue({
+      notificationId: 'notice-1',
+      readFlag: 1,
+      readAt: '2026-03-16T08:30:00',
+      unreadCount: 0,
+    })
 
     const store = useNotificationStore()
     store.notifications = [
@@ -92,11 +97,17 @@ describe('notification store', () => {
 
     expect(markNotificationReadMock).toHaveBeenCalledWith('notice-1')
     expect(store.notifications[0]?.readFlag).toBe(1)
+    expect(store.notifications[0]?.readAt).toBe('2026-03-16T08:30:00')
     expect(store.unreadCount).toBe(0)
   })
 
   it('counts only in-app unread notifications after marking one as read in mixed channels', async () => {
-    markNotificationReadMock.mockResolvedValue({ notificationId: 'notice-1', readFlag: 1 })
+    markNotificationReadMock.mockResolvedValue({
+      notificationId: 'notice-1',
+      readFlag: 1,
+      readAt: '2026-03-16T08:30:00',
+      unreadCount: 1,
+    })
 
     const store = useNotificationStore()
     store.notifications = [
@@ -154,10 +165,15 @@ describe('notification store', () => {
     await store.markAsRead('notice-1')
 
     expect(store.unreadCount).toBe(1)
+    expect(store.notifications[0]?.readAt).toBe('2026-03-16T08:30:00')
   })
 
   it('marks only in-app notifications as read when bulk action succeeds', async () => {
-    markAllNotificationsReadMock.mockResolvedValue({ updatedCount: 1 })
+    markAllNotificationsReadMock.mockResolvedValue({
+      updatedCount: 1,
+      readAt: '2026-03-16T09:00:00',
+      unreadCount: 0,
+    })
 
     const store = useNotificationStore()
     store.notifications = [
@@ -200,7 +216,9 @@ describe('notification store', () => {
 
     expect(store.unreadCount).toBe(0)
     expect(store.notifications[0]?.readFlag).toBe(1)
+    expect(store.notifications[0]?.readAt).toBe('2026-03-16T09:00:00')
     expect(store.notifications[1]?.readFlag).toBe(0)
+    expect(store.notifications[1]?.readAt).toBeNull()
   })
 
   it('starts and stops unread count polling without duplicate timers', async () => {

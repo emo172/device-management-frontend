@@ -1,5 +1,5 @@
 import { setActivePinia } from 'pinia'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BorrowStatus, BorrowStatusLabel, UserRole } from '@/enums'
@@ -90,11 +90,22 @@ const reservationNonCandidate = {
   signStatus: 'NOT_CHECKED_IN',
 } as const
 
+const reservationCandidateWithOnlyIds = {
+  ...reservationCandidate,
+  id: 'reservation-3',
+  userName: '',
+  deviceName: '',
+  deviceNumber: '',
+} as const
+
 const borrowedRecord = {
   id: 'borrow-1',
   reservationId: 'reservation-1',
   deviceId: 'device-1',
+  deviceName: '热成像仪',
+  deviceNumber: 'DEV-001',
   userId: 'user-1',
+  userName: '张三',
   borrowTime: '2024-01-02T09:05:00',
   returnTime: null,
   expectedReturnTime: '2024-01-02T10:00:00',
@@ -111,6 +122,12 @@ const returnedRecord = {
   id: 'borrow-2',
   status: BorrowStatus.RETURNED,
   returnTime: '2024-01-02T10:05:00',
+} as const
+
+const overdueRecord = {
+  ...borrowedRecord,
+  id: 'borrow-3',
+  status: BorrowStatus.OVERDUE,
 } as const
 
 const commonGlobal = {
@@ -210,6 +227,8 @@ describe('borrow pages', () => {
     expect(wrapper.find('.console-summary-grid').exists()).toBe(true)
     expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(wrapper.text()).toContain(borrowedRecord.deviceName)
+    expect(wrapper.text()).toContain(borrowedRecord.userName)
     expect(wrapper.text()).toContain('借用确认')
     expect(wrapper.text()).toContain('归还确认')
   })
@@ -339,6 +358,43 @@ describe('borrow pages', () => {
     expect(fetchReservationListSpy).toHaveBeenLastCalledWith({ page: 2, size: 10 })
   })
 
+  it('借用确认页在缺少设备名和借用人姓名时会回退展示真实 ID', async () => {
+    const { module, error } = await loadBorrowView('Confirm')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/borrows/confirm'
+    routeState.query = { reservationId: reservationCandidateWithOnlyIds.id }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const reservationStore = useReservationStore()
+    reservationStore.list = [reservationCandidateWithOnlyIds]
+    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({
+      total: 1,
+      records: [reservationCandidateWithOnlyIds],
+    })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(wrapper.text()).toContain(reservationCandidateWithOnlyIds.deviceId)
+    expect(wrapper.text()).toContain(reservationCandidateWithOnlyIds.userId)
+    expect(wrapper.text()).not.toContain('undefined')
+  })
+
   it('归还确认页只拉取借用中记录，并可对预选记录执行归还确认', async () => {
     const { module, error } = await loadBorrowView('Return')
 
@@ -380,10 +436,55 @@ describe('borrow pages', () => {
     })
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
+    expect(wrapper.text()).toContain(borrowedRecord.deviceName)
+    expect(wrapper.text()).toContain(borrowedRecord.userName)
 
     await wrapper.get('.borrow-return-view__submit').trigger('click')
 
     expect(confirmReturnSpy).toHaveBeenCalledWith(borrowedRecord.id, undefined)
+  })
+
+  it('借还列表页会为已逾期记录继续开放归还确认入口', async () => {
+    const { module, error } = await loadBorrowView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const borrowStore = useBorrowStore()
+    borrowStore.list = [overdueRecord]
+    borrowStore.total = 1
+    vi.spyOn(borrowStore, 'fetchBorrowList').mockResolvedValue({
+      total: 1,
+      records: [overdueRecord],
+    })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    expect(wrapper.text()).toContain('去归还确认')
+
+    const returnAction = wrapper
+      .findAll('button')
+      .find((node) => node.text().includes('去归还确认'))
+
+    expect(returnAction).toBeTruthy()
+
+    await returnAction?.trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith(`/borrows/return?recordId=${overdueRecord.id}`)
   })
 
   it('归还确认页切换分页时会继续以借用中条件拉取新页数据', async () => {
@@ -437,6 +538,48 @@ describe('borrow pages', () => {
     })
   })
 
+  it('归还确认页会补拉预选的逾期记录并允许继续完成归还闭环', async () => {
+    const { module, error } = await loadBorrowView('Return')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/borrows/return'
+    routeState.query = { recordId: overdueRecord.id }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const borrowStore = useBorrowStore()
+    borrowStore.list = []
+    vi.spyOn(borrowStore, 'fetchBorrowList').mockResolvedValue({ total: 0, records: [] })
+    const fetchBorrowDetailSpy = vi.spyOn(borrowStore, 'fetchBorrowDetail').mockResolvedValue(overdueRecord)
+    const confirmReturnSpy = vi.spyOn(borrowStore, 'confirmReturn').mockResolvedValue(returnedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await flushPromises()
+
+    expect(fetchBorrowDetailSpy).toHaveBeenCalledWith(overdueRecord.id)
+    expect(wrapper.text()).toContain(overdueRecord.deviceName)
+    expect(wrapper.text()).toContain(overdueRecord.userName)
+
+    await wrapper.get('.borrow-return-view__submit').trigger('click')
+
+    expect(confirmReturnSpy).toHaveBeenCalledWith(overdueRecord.id, undefined)
+  })
+
   it('借还详情页会按路由主键拉取详情并展示状态', async () => {
     const { module, error } = await loadBorrowView('Detail')
 
@@ -472,6 +615,8 @@ describe('borrow pages', () => {
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('借用中')
-    expect(wrapper.text()).toContain(borrowedRecord.deviceId)
+    expect(wrapper.text()).toContain(borrowedRecord.deviceName)
+    expect(wrapper.text()).toContain(borrowedRecord.userName)
+    expect(wrapper.text()).toContain(borrowedRecord.deviceNumber)
   })
 })

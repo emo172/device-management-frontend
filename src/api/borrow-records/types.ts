@@ -36,7 +36,10 @@ export interface BorrowRecordResponse {
   id: string
   reservationId: string
   deviceId: string
+  deviceName?: string | null
+  deviceNumber?: string | null
   userId: string
+  userName?: string | null
   borrowTime: string | null
   returnTime: string | null
   expectedReturnTime: string | null

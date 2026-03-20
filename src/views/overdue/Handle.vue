@@ -46,6 +46,14 @@ const submitting = ref(false)
 const currentRecord = computed(() => overdueStore.currentRecord)
 const needsCompensation = computed(() => selectedMethod.value === OverdueHandleType.COMPENSATION)
 
+/**
+ * 处理页优先展示后端已回传的真实名称；若当前环境仍只有 ID，则继续展示 ID，
+ * 避免管理员在联调阶段因为字段缺失直接失去定位单据的能力。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
+
 async function loadRecord() {
   if (!overdueRecordId.value) {
     return
@@ -153,6 +161,14 @@ onBeforeUnmount(() => {
               <div>
                 <dt>借还记录 ID</dt>
                 <dd>{{ currentRecord.borrowRecordId }}</dd>
+              </div>
+              <div>
+                <dt>设备</dt>
+                <dd>{{ displayIdentityName(currentRecord.deviceName, currentRecord.deviceId) }}</dd>
+              </div>
+              <div>
+                <dt>用户</dt>
+                <dd>{{ displayIdentityName(currentRecord.userName, currentRecord.userId) }}</dd>
               </div>
               <div>
                 <dt>逾期时长</dt>

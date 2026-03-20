@@ -49,6 +49,14 @@ const filters = reactive({
 const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
 const tableData = computed(() => overdueStore.list)
 
+/**
+ * 逾期列表优先展示后端已回传的真实名称；
+ * 若当前环境仍只返回 ID，则回退到 ID 文本，不在前端虚构不存在的展示字段。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
+
 const pendingCount = computed(() => {
   return overdueStore.list.filter(
     (item) => item.processingStatus === OverdueProcessingStatus.PENDING,
@@ -198,8 +206,8 @@ onMounted(() => {
               <tr>
                 <th>逾期记录 ID</th>
                 <th>借还记录 ID</th>
-                <th>设备 ID</th>
-                <th>用户 ID</th>
+                <th>设备</th>
+                <th>用户</th>
                 <th>逾期时长</th>
                 <th>处理状态</th>
                 <th>处理方式</th>
@@ -218,8 +226,8 @@ onMounted(() => {
                   </button>
                 </td>
                 <td>{{ record.borrowRecordId }}</td>
-                <td>{{ record.deviceId }}</td>
-                <td>{{ record.userId }}</td>
+                <td>{{ displayIdentityName(record.deviceName, record.deviceId) }}</td>
+                <td>{{ displayIdentityName(record.userName, record.userId) }}</td>
                 <td>{{ record.overdueHours }} 小时 / {{ record.overdueDays }} 天</td>
                 <td>
                   <OverdueProcessingStatusTag :status="record.processingStatus" />

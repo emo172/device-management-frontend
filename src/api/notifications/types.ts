@@ -35,6 +35,8 @@ export interface UnreadCountResponse {
 export interface MarkReadResponse {
   notificationId: string
   readFlag: number
+  readAt: string | null
+  unreadCount: number
 }
 
 /**
@@ -43,4 +45,6 @@ export interface MarkReadResponse {
  */
 export interface MarkAllReadResponse {
   updatedCount: number
+  readAt: string | null
+  unreadCount: number
 }

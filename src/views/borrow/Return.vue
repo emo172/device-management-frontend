@@ -35,13 +35,29 @@ const remark = ref('')
 const submitting = ref(false)
 const pagination = ref({ page: 1, size: 10 })
 
+/**
+ * 正式归还接口允许借用中和已逾期两类记录继续闭环。
+ * 页面默认仍以借用中分页作为主候选池，但如果用户从逾期记录带着 `recordId` 进入，也要把该条记录补拉进来并允许提交归还。
+ */
+function isReturnEligibleStatus(status: string) {
+  return status === BorrowStatus.BORROWED || status === BorrowStatus.OVERDUE
+}
+
 const borrowedCandidates = computed(() => {
-  return borrowStore.list.filter((item) => item.status === BorrowStatus.BORROWED)
+  return borrowStore.list.filter((item) => isReturnEligibleStatus(item.status))
 })
 
 const selectedRecord = computed(() => {
   return borrowedCandidates.value.find((item) => item.id === selectedRecordId.value) ?? null
 })
+
+/**
+ * 归还确认页优先展示后端已回传的真实名称；
+ * 若当前环境仍缺少名称字段，则继续回退到 ID，保证管理员在联调环境里仍能定位记录。
+ */
+function displayIdentityName(name: string | null | undefined, fallbackId: string) {
+  return name?.trim() || fallbackId
+}
 
 async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
   pagination.value = {
@@ -61,7 +77,7 @@ async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
   ) {
     const record = await borrowStore.fetchBorrowDetail(selectedRecordId.value).catch(() => null)
 
-    if (record?.status === BorrowStatus.BORROWED) {
+    if (record && isReturnEligibleStatus(record.status)) {
       borrowStore.replaceRecordInList(record)
     }
   }
@@ -111,7 +127,7 @@ onMounted(() => {
     <ConsolePageHero
       eyebrow="Confirm Return"
       title="归还确认"
-      description="统一处理仍处于借用中的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
+      description="统一处理仍处于借用中或已逾期的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
       class="borrow-return-view__hero"
     >
       <template #actions>
@@ -132,11 +148,11 @@ onMounted(() => {
 
     <EmptyState
       v-if="!borrowedCandidates.length && !borrowStore.loading"
-      title="当前没有待归还记录"
-      description="所有正式借还记录都已归还，或者后端当前分页结果里没有处于借用中的记录。"
-      action-text="重新加载"
-      @action="loadBorrowedRecords"
-    />
+        title="当前没有待归还记录"
+        description="所有正式借还记录都已归还，或者后端当前分页结果里没有处于借用中 / 已逾期的可归还记录。"
+        action-text="重新加载"
+        @action="loadBorrowedRecords"
+      />
 
     <template v-else>
       <ConsoleDetailLayout class="borrow-return-view__layout">
@@ -144,7 +160,7 @@ onMounted(() => {
           <article class="borrow-return-view__candidate-panel">
             <div class="borrow-return-view__panel-header">
               <p class="borrow-return-view__eyebrow">Borrowed</p>
-              <h2>待归还记录</h2>
+              <h2>可归还闭环记录</h2>
             </div>
 
             <div class="borrow-return-view__candidate-list">
@@ -159,11 +175,11 @@ onMounted(() => {
                 @click="handleSelectRecord(item.id)"
               >
                 <div class="borrow-return-view__candidate-title">
-                  <strong>{{ item.deviceId }}</strong>
+                  <strong>{{ displayIdentityName(item.deviceName, item.deviceId) }}</strong>
                   <BorrowStatusTag :status="item.status" />
                 </div>
                 <span>借还记录：{{ item.id }}</span>
-                <span>借用人：{{ item.userId }}</span>
+                <span>借用人：{{ displayIdentityName(item.userName, item.userId) }}</span>
                 <span>预计归还：{{ formatDateTime(item.expectedReturnTime) }}</span>
               </button>
             </div>
@@ -197,6 +213,14 @@ onMounted(() => {
                 <div>
                   <dt>预约 ID</dt>
                   <dd>{{ selectedRecord.reservationId }}</dd>
+                </div>
+                <div>
+                  <dt>设备</dt>
+                  <dd>{{ displayIdentityName(selectedRecord.deviceName, selectedRecord.deviceId) }}</dd>
+                </div>
+                <div>
+                  <dt>借用人</dt>
+                  <dd>{{ displayIdentityName(selectedRecord.userName, selectedRecord.userId) }}</dd>
                 </div>
                 <div>
                   <dt>借用时间</dt>
