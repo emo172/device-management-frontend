@@ -2,6 +2,7 @@ import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { ReservationResponse } from '@/api/reservations'
 import { FreezeStatus, UserRole } from '@/enums'
 import { createAppPinia } from '@/stores'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -56,6 +57,45 @@ async function loadCreateView() {
       module: null,
       error,
     }
+  }
+}
+
+function createReservationActionResponse(
+  overrides?: Partial<ReservationResponse>,
+): ReservationResponse {
+  return {
+    id: 'reservation-1',
+    batchId: null,
+    userId: 'user-1',
+    userName: 'demo-user',
+    createdBy: 'user-1',
+    createdByName: 'demo-user',
+    reservationMode: 'SELF',
+    deviceId: 'device-1',
+    deviceName: '示波器',
+    deviceNumber: 'DEV-001',
+    deviceStatus: 'AVAILABLE',
+    startTime: '2026-03-18T09:00:00',
+    endTime: '2026-03-18T10:00:00',
+    purpose: '课程实验',
+    remark: '',
+    status: 'PENDING_DEVICE_APPROVAL',
+    signStatus: 'NOT_CHECKED_IN',
+    approvalModeSnapshot: 'DEVICE_ONLY',
+    deviceApproverId: null,
+    deviceApproverName: null,
+    deviceApprovedAt: null,
+    deviceApprovalRemark: null,
+    systemApproverId: null,
+    systemApproverName: null,
+    systemApprovedAt: null,
+    systemApprovalRemark: null,
+    cancelReason: null,
+    cancelTime: null,
+    checkedInAt: null,
+    createdAt: '2026-03-16T08:00:00',
+    updatedAt: '2026-03-16T08:00:00',
+    ...overrides,
   }
 }
 
@@ -115,19 +155,7 @@ describe('reservation create view', () => {
         },
       ],
     })
-    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue({
-      id: 'reservation-1',
-      batchId: null,
-      userId: 'user-1',
-      createdBy: 'user-1',
-      reservationMode: 'SELF',
-      deviceId: 'device-1',
-      status: 'PENDING_DEVICE_APPROVAL',
-      signStatus: 'NOT_CHECKED_IN',
-      approvalModeSnapshot: 'DEVICE_ONLY',
-      deviceApproverId: null,
-      systemApproverId: null,
-    })
+    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue(createReservationActionResponse())
 
     const wrapper = mount(module.default, {
       global: {
@@ -243,19 +271,16 @@ describe('reservation create view', () => {
         roleName: UserRole.USER,
       },
     ])
-    vi.spyOn(reservationStore, 'createProxyReservation').mockResolvedValue({
-      id: 'reservation-2',
-      batchId: null,
-      userId: 'user-1',
-      createdBy: 'admin-1',
-      reservationMode: 'ON_BEHALF',
-      deviceId: 'device-1',
-      status: 'PENDING_SYSTEM_APPROVAL',
-      signStatus: 'NOT_CHECKED_IN',
-      approvalModeSnapshot: 'DEVICE_ONLY',
-      deviceApproverId: null,
-      systemApproverId: null,
-    })
+    vi.spyOn(reservationStore, 'createProxyReservation').mockResolvedValue(
+      createReservationActionResponse({
+        id: 'reservation-2',
+        userName: '普通用户',
+        createdBy: 'admin-1',
+        createdByName: 'admin',
+        reservationMode: 'ON_BEHALF',
+        status: 'PENDING_SYSTEM_APPROVAL',
+      }),
+    )
 
     const wrapper = mount(module.default, {
       global: {
@@ -369,19 +394,16 @@ describe('reservation create view', () => {
     vi.spyOn(userStore, 'fetchReservationTargetUsers').mockResolvedValue([])
     const createProxyReservationSpy = vi
       .spyOn(reservationStore, 'createProxyReservation')
-      .mockResolvedValue({
-        id: 'reservation-2',
-        batchId: null,
-        userId: 'user-1',
-        createdBy: 'admin-1',
-        reservationMode: 'ON_BEHALF',
-        deviceId: 'device-1',
-        status: 'PENDING_SYSTEM_APPROVAL',
-        signStatus: 'NOT_CHECKED_IN',
-        approvalModeSnapshot: 'DEVICE_ONLY',
-        deviceApproverId: null,
-        systemApproverId: null,
-      })
+      .mockResolvedValue(
+        createReservationActionResponse({
+          id: 'reservation-2',
+          userName: '普通用户',
+          createdBy: 'admin-1',
+          createdByName: 'admin',
+          reservationMode: 'ON_BEHALF',
+          status: 'PENDING_SYSTEM_APPROVAL',
+        }),
+      )
 
     const wrapper = mount(module.default, {
       global: {

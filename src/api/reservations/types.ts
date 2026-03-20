@@ -2,30 +2,21 @@ import type { PageParams } from '@/types/api'
 
 /**
  * 审批模式。
- * 当前以后端真实值为准：`DEVICE_ONLY | DEVICE_THEN_SYSTEM`；
- * 同时兼容旧差异表中曾出现过的 `DEVICE_AND_SYSTEM`，避免联调环境口径尚未统一时直接触发类型报错。
+ * 前端主口径统一收敛到后端当前真实值，旧别名只允许在工具层做兼容解析，不继续向页面和 Store 扩散。
  */
-export type ApprovalMode = 'DEVICE_ONLY' | 'DEVICE_THEN_SYSTEM' | 'DEVICE_AND_SYSTEM'
+export type ApprovalMode = 'DEVICE_ONLY' | 'DEVICE_THEN_SYSTEM'
 
 /**
  * 预约模式。
- * 当前以后端真实值为准：`SELF | ON_BEHALF`；
- * 同时兼容历史差异记录中的 `PROXY`，避免详情页和列表页在联调环境回包未统一时退化为裸状态码。
+ * 前端主口径统一使用 `SELF | ON_BEHALF`，旧别名由归一化工具兜底处理。
  */
-export type ReservationMode = 'SELF' | 'ON_BEHALF' | 'PROXY'
+export type ReservationMode = 'SELF' | 'ON_BEHALF'
 
 /**
  * 签到状态。
- * 当前以后端真实值为准，同时兼容旧差异表中的 `NOT_SIGNED / SIGNED_IN / TIMEOUT`，
- * 避免前后端在联调切换期因为别名问题让签到按钮与标签展示失真。
+ * 前端主口径统一使用标准签到状态，旧别名只在 API/Store/组件适配层内做兼容解析。
  */
-export type CheckInStatus =
-  | 'NOT_CHECKED_IN'
-  | 'CHECKED_IN'
-  | 'CHECKED_IN_TIMEOUT'
-  | 'NOT_SIGNED'
-  | 'SIGNED_IN'
-  | 'TIMEOUT'
+export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'CHECKED_IN_TIMEOUT'
 
 /**
  * 单条预约创建请求。
@@ -79,24 +70,6 @@ export interface CancelReservationRequest {
 export interface ManualProcessRequest {
   approved: boolean
   remark: string
-}
-
-/**
- * 预约响应。
- * 对应后端 `ReservationResponse`，保留审批快照与签到状态字段供详情/列表统一消费。
- */
-export interface ReservationResponse {
-  id: string
-  batchId: string | null
-  userId: string
-  createdBy: string
-  reservationMode: ReservationMode
-  deviceId: string
-  status: string
-  signStatus: CheckInStatus
-  approvalModeSnapshot: ApprovalMode
-  deviceApproverId: string | null
-  systemApproverId: string | null
 }
 
 /**
@@ -185,6 +158,13 @@ export interface ReservationDetailResponse extends ReservationListItemResponse {
   createdAt: string | null
   updatedAt: string | null
 }
+
+/**
+ * 预约动作响应。
+ * 对应后端 `ReservationResponse`；当前后端已经把创建、审批、签到动作回包扩展为可直接继续渲染页面的完整上下文，
+ * 因此前端类型直接与详情口径对齐，避免 Store 和页面再维护一套更轻的旧结构。
+ */
+export interface ReservationResponse extends ReservationDetailResponse {}
 
 /**
  * 预约分页响应。

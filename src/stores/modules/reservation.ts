@@ -5,8 +5,16 @@ import { UserRole } from '@/enums'
 
 let reservationDetailRequestToken = 0
 const ADMIN_MANAGED_FETCH_SIZE = 50
-const ADMIN_MANAGED_FETCH_MAX_PAGES = 20
+/**
+ * 管理端历史页使用本地终态集合做二次分组。
+ * 这些状态都是后端已明确进入终态的预约，前端不再把待审批记录混进历史视图。
+ */
 const RESERVATION_HISTORY_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'EXPIRED'] as const
+
+/**
+ * 管理端待处理页按角色拆分待办状态。
+ * 设备管理员只看一审与人工处理，系统管理员只看二审，避免页面层再手工拼状态条件。
+ */
 const RESERVATION_PENDING_STATUS_BY_ROLE: Record<
   UserRole.DEVICE_ADMIN | UserRole.SYSTEM_ADMIN,
   string[]
@@ -16,14 +24,20 @@ const RESERVATION_PENDING_STATUS_BY_ROLE: Record<
 }
 
 interface ReservationState {
+  /** 当前列表页展示的数据片段。 */
   list: reservationApi.ReservationListItemResponse[]
+  /** 当前视图对应的记录总数。 */
   total: number
+  /** 最近一次列表查询参数。 */
   query: reservationApi.ReservationListQuery
+  /** 当前正在查看或刚执行动作的预约详情/动作结果。 */
   currentReservation:
     | reservationApi.ReservationResponse
     | reservationApi.ReservationDetailResponse
     | null
+  /** 最近一次批量预约结果。 */
   currentBatch: reservationApi.ReservationBatchResponse | null
+  /** 通用加载态，供列表与管理页复用。 */
   loading: boolean
 }
 
@@ -79,16 +93,18 @@ function mergeCurrentReservationResult(
   }
 
   /**
-   * 签到接口返回的是轻量 `ReservationResponse`，但签到页仍需要保留设备名称、审批人和时间线字段继续渲染结果反馈。
-   * 因此当当前上下文已持有详情对象时，要在前端做最小合并，避免按钮点击后页面退化成只剩基础状态码。
+   * 理想情况下后端审批/签到响应已经足够支撑页面继续渲染；
+   * 这里仍保留最小合并，是为了兼容测试桩或旧联调环境仍只返回轻量字段时，不让签到页立刻退化成只剩状态码。
    */
   return {
     ...currentReservation,
     ...nextReservation,
     checkedInAt:
-      nextReservation.signStatus === 'CHECKED_IN' ||
-      nextReservation.signStatus === 'CHECKED_IN_TIMEOUT'
-        ? checkInTime || currentReservation.checkedInAt
+      'checkedInAt' in nextReservation && nextReservation.checkedInAt
+        ? nextReservation.checkedInAt
+        : nextReservation.signStatus === 'CHECKED_IN' ||
+            nextReservation.signStatus === 'CHECKED_IN_TIMEOUT'
+          ? checkInTime || currentReservation.checkedInAt
         : currentReservation.checkedInAt,
   }
 }
@@ -122,7 +138,8 @@ export const useReservationStore = defineStore('reservation', {
   actions: {
     /**
      * 预约列表接口当前只支持 `page` 与 `size`。
-     * 仪表盘与列表页都依赖这份最小读取能力，因此在 Store 里保留查询参数和分页结果，避免各页面自行维护口径。
+     * 仪表盘与列表页都依赖这份最小读取能力，因此在 Store 里保留查询参数和分页结果。
+     * 枚举别名归一化已经在 API 层完成，这里只缓存 API 真正返回的标准化结果，避免重复包一层对象。
      */
     async fetchReservationList(query: reservationApi.ReservationListQuery = createDefaultQuery()) {
       this.loading = true
@@ -158,7 +175,7 @@ export const useReservationStore = defineStore('reservation', {
 
     /**
      * 列表页详情跳转当前只预留数据承接，不提前展开完整详情页状态。
-     * 先把详情结果缓存到 `currentReservation`，后续详情页接入时即可直接复用这份真实契约。
+     * 先把 API 已标准化的详情结果直接缓存到 `currentReservation`，后续详情页接入时即可复用同一份真实契约。
      */
     async fetchReservationDetail(reservationId: string) {
       const currentRequestToken = ++reservationDetailRequestToken
@@ -273,8 +290,6 @@ export const useReservationStore = defineStore('reservation', {
         const recordIds = new Set<string>()
         let currentPage = 1
         let total = 0
-        let fetchedPages = 0
-
         do {
           const result = await reservationApi.getReservationList({
             page: currentPage,
@@ -302,9 +317,16 @@ export const useReservationStore = defineStore('reservation', {
             break
           }
 
+          /**
+           * 一旦已经拿齐后端声明的总量，就不再继续翻页。
+           * 这里刻意去掉“最多 20 页”的静态上限，避免待审批/历史页在记录超过 1000 条时被静默截断。
+           */
+          if (records.length >= total) {
+            break
+          }
+
           currentPage += 1
-          fetchedPages += 1
-        } while (records.length < total && fetchedPages < ADMIN_MANAGED_FETCH_MAX_PAGES)
+        } while (true)
 
         const filteredRecords = records.filter((reservation) =>
           isManagedReservationMatched(reservation, adminRole, payload.view),

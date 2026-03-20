@@ -177,6 +177,34 @@ describe('status tags', () => {
     expect(wrapper.get('.checkin-status').attributes('data-type')).toBe('danger')
   })
 
+  it('CheckInStatusTag 兼容旧签到别名并按标准口径展示', async () => {
+    const { module, error } = await loadComponent('CheckInStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: 'NOT_SIGNED',
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="legacy-checkin-status" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('未签到')
+    expect(wrapper.get('.legacy-checkin-status').attributes('data-type')).toBe('warning')
+  })
+
   it('OverdueProcessingStatusTag 渲染逾期处理状态中文与标签类型', async () => {
     const { module, error } = await loadComponent('OverdueProcessingStatusTag')
 

@@ -142,4 +142,75 @@ describe('ReservationCard', () => {
     expect(wrapper.text()).toContain('24 小时内请联系管理员处理')
     expect(wrapper.find('.reservation-card__cancel').exists()).toBe(false)
   })
+
+  it('待审批与待人工处理预约在活动取消窗口内仍显示取消动作与联系管理员提示', async () => {
+    const { module, error } = await loadComponent('ReservationCard')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const activeCancelableStatuses = [
+      'PENDING_DEVICE_APPROVAL',
+      'PENDING_SYSTEM_APPROVAL',
+      'PENDING_MANUAL',
+    ]
+
+    vi.setSystemTime(new Date('2026-03-16T08:00:00'))
+
+    const wrapper = mount(module.default, {
+      props: {
+        reservation: createReservationRecord({
+          status: activeCancelableStatuses[0],
+          startTime: '2026-03-18T09:00:00',
+        }),
+        allowUserActions: true,
+      },
+      global: {
+        stubs: {
+          CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+      },
+    })
+    const setReservationCardProps = async (props: Record<string, unknown>) =>
+      await (
+        wrapper as InstanceType<typeof Object> & {
+          setProps: (nextProps: Record<string, unknown>) => Promise<void>
+        }
+      ).setProps(props)
+
+    for (const status of activeCancelableStatuses) {
+      await setReservationCardProps({
+        reservation: createReservationRecord({
+          status,
+          startTime: '2026-03-18T09:00:00',
+        }),
+      })
+
+      expect(wrapper.find('.reservation-card__cancel').exists()).toBe(true)
+      expect(wrapper.text()).not.toContain('24 小时内请联系管理员处理')
+
+      vi.setSystemTime(new Date('2026-03-17T12:00:00'))
+      await setReservationCardProps({
+        reservation: createReservationRecord({
+          status,
+          startTime: '2026-03-18T09:00:00',
+        }),
+      })
+
+      expect(wrapper.find('.reservation-card__cancel').exists()).toBe(false)
+      expect(wrapper.text()).toContain('24 小时内请联系管理员处理')
+
+      vi.setSystemTime(new Date('2026-03-16T08:00:00'))
+    }
+  })
 })
