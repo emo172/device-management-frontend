@@ -197,6 +197,7 @@ onBeforeUnmount(() => {
           <el-button
             data-testid="send-code-button"
             type="default"
+            size="large"
             :disabled="countdown > 0 || sendingCode"
             @click="handleSendCode"
           >

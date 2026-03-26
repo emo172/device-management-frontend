@@ -43,6 +43,10 @@ const elementStubs = {
     props: {
       disabled: Boolean,
       loading: Boolean,
+      size: {
+        type: String,
+        default: '',
+      },
       nativeType: {
         type: String,
         default: 'button',
@@ -50,7 +54,7 @@ const elementStubs = {
     },
     emits: ['click'],
     template:
-      '<button :disabled="disabled || loading" :data-loading="loading ? \'true\' : \'false\'" :type="nativeType" @click="$emit(\'click\')"><slot /></button>',
+      '<button :disabled="disabled || loading" :data-loading="loading ? \'true\' : \'false\'" :data-size="size" :type="nativeType" @click="$emit(\'click\')"><slot /></button>',
   }),
   ElCard: defineComponent({
     name: 'ElCardStub',
@@ -298,6 +302,7 @@ describe('auth public pages', () => {
     expect(wrapper.text()).toContain('重置登录密码')
     expect(wrapper.text()).toContain('返回登录')
     expect(wrapper.text()).not.toContain('注册新账号')
+    expect(wrapper.get('[data-testid="send-code-button"]').attributes('data-size')).toBe('large')
     const forgotFooterLinks = wrapper.findAll('.auth-panel__actions .auth-panel__link')
     expect(forgotFooterLinks).toHaveLength(1)
     expect(forgotFooterLinks[0]?.attributes('data-to')).toBe('/login')
