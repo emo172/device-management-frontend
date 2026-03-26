@@ -10,8 +10,8 @@ import PasswordResetPanel from './components/PasswordResetPanel.vue'
 <template>
   <PasswordResetPanel
     eyebrow="Auth / Reset Password"
-    title="重新设置登录密码"
-    description="如果你已经拿到验证码，也可以直接在这里完成密码重置并回到登录页。"
-    helper-text="重置密码不会自动登录，新密码生效后请使用新凭据重新进入系统。"
+    title="重置登录密码"
+    description="如果你已经拿到验证码，可以直接完成密码重置，再返回登录页继续访问系统。"
+    helper-text="新密码提交成功后不会自动登录，请使用新密码重新进入系统。"
   />
 </template>

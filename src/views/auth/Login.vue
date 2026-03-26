@@ -81,9 +81,9 @@ async function handleSubmit() {
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
       <p class="auth-panel__eyebrow">Auth / Login</p>
-      <h1 class="auth-panel__title">欢迎回来</h1>
+      <h1 class="auth-panel__title">进入设备管理工作台</h1>
       <p class="auth-panel__description">
-        使用账号或邮箱登录系统，登录后会继续返回你刚才想访问的页面。
+        使用账号或注册邮箱登录，继续处理你的设备查询、预约与审批相关工作。
       </p>
     </div>
 
@@ -122,7 +122,7 @@ async function handleSubmit() {
         :disabled="submitButtonLoading"
         :loading="submitButtonLoading"
       >
-        登录
+        登录并继续
       </el-button>
     </form>
 

@@ -94,9 +94,9 @@ async function handleSubmit() {
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
       <p class="auth-panel__eyebrow">Auth / Register</p>
-      <h1 class="auth-panel__title">创建你的设备账号</h1>
+      <h1 class="auth-panel__title">注册系统账号</h1>
       <p class="auth-panel__description">
-        完成基础资料后即可直接进入系统，后续预约、签到与通知都会基于该账号身份展开。
+        填写基础资料后即可完成注册，进入系统继续进行设备预约与个人操作。
       </p>
     </div>
 
@@ -193,14 +193,19 @@ async function handleSubmit() {
 
 @include authPages.auth-panel-base;
 
+// 注册页字段更多，右栏适度放宽后才能在桌面端保留双列表单节奏，而不会把每个输入框压缩得过窄。
+.auth-panel__surface {
+  max-width: 480px;
+}
+
 .auth-form {
-  gap: 20px;
+  gap: 16px;
 }
 
 .auth-form__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 16px;
+  gap: 14px 12px;
 }
 
 .auth-panel__footer {
@@ -208,8 +213,23 @@ async function handleSubmit() {
 }
 
 @media (max-width: 720px) {
+  // 视口收窄时主动退回单列，避免双列字段在认证母版右栏里形成过密的竖向噪音。
   .auth-form__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 820px) {
+  .auth-panel__surface {
+    max-width: 460px;
+  }
+
+  .auth-form {
+    gap: 14px;
+  }
+
+  .auth-form__grid {
+    gap: 12px 10px;
   }
 }
 </style>

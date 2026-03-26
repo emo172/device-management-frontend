@@ -43,6 +43,10 @@ const elementStubs = {
     props: {
       disabled: Boolean,
       loading: Boolean,
+      size: {
+        type: String,
+        default: '',
+      },
       nativeType: {
         type: String,
         default: 'button',
@@ -50,7 +54,7 @@ const elementStubs = {
     },
     emits: ['click'],
     template:
-      '<button :disabled="disabled || loading" :data-loading="loading ? \'true\' : \'false\'" :type="nativeType" @click="$emit(\'click\')"><slot /></button>',
+      '<button :disabled="disabled || loading" :data-loading="loading ? \'true\' : \'false\'" :data-size="size" :type="nativeType" @click="$emit(\'click\')"><slot /></button>',
   }),
   ElCard: defineComponent({
     name: 'ElCardStub',
@@ -131,6 +135,13 @@ describe('auth public pages', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
+    expect(wrapper.text()).toContain('进入设备管理工作台')
+    expect(wrapper.text()).toContain(
+      '使用账号或注册邮箱登录，继续处理你的设备查询、预约与审批相关工作。',
+    )
+    expect(wrapper.text()).toContain('登录并继续')
+    expect(wrapper.text()).toContain('没有账号？去注册')
+    expect(wrapper.text()).toContain('忘记密码？')
     expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
     expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(loginMock).toHaveBeenCalledWith({ account: 'demo', password: 'Password123' })
@@ -201,6 +212,12 @@ describe('auth public pages', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
+    expect(wrapper.text()).toContain('注册系统账号')
+    expect(wrapper.text()).toContain(
+      '填写基础资料后即可完成注册，进入系统继续进行设备预约与个人操作。',
+    )
+    expect(wrapper.text()).toContain('注册并进入系统')
+    expect(wrapper.text()).toContain('已有账号？去登录')
     expect(wrapper.find('.auth-panel__surface').exists()).toBe(true)
     expect(wrapper.find('.auth-panel__actions').exists()).toBe(true)
     expect(registerMock).not.toHaveBeenCalled()
@@ -282,6 +299,14 @@ describe('auth public pages', () => {
     const ForgotPassword = (await import('../ForgotPassword.vue')).default
     const wrapper = mountPage(ForgotPassword)
 
+    expect(wrapper.text()).toContain('重置登录密码')
+    expect(wrapper.text()).toContain('返回登录')
+    expect(wrapper.text()).not.toContain('注册新账号')
+    expect(wrapper.get('[data-testid="send-code-button"]').attributes('data-size')).toBe('large')
+    const forgotFooterLinks = wrapper.findAll('.auth-panel__actions .auth-panel__link')
+    expect(forgotFooterLinks).toHaveLength(1)
+    expect(forgotFooterLinks[0]?.attributes('data-to')).toBe('/login')
+
     await wrapper.get('input[name="email"]').setValue('demo@example.com')
     await wrapper.get('[data-testid="send-code-button"]').trigger('click')
     await flushPromises()
@@ -310,6 +335,13 @@ describe('auth public pages', () => {
 
     const ResetPassword = (await import('../ResetPassword.vue')).default
     const wrapper = mountPage(ResetPassword)
+
+    expect(wrapper.text()).toContain('重置登录密码')
+    expect(wrapper.text()).toContain('返回登录')
+    expect(wrapper.text()).not.toContain('注册新账号')
+    const resetFooterLinks = wrapper.findAll('.auth-panel__actions .auth-panel__link')
+    expect(resetFooterLinks).toHaveLength(1)
+    expect(resetFooterLinks[0]?.attributes('data-to')).toBe('/login')
 
     await wrapper.get('input[name="email"]').setValue('demo@example.com')
     await wrapper.get('input[name="verificationCode"]').setValue('123456')

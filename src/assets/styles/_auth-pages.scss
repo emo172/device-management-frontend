@@ -1,19 +1,22 @@
 @mixin auth-panel-base {
-  // 认证页沿用整站语言，但内层表单更偏实体，避免登录输入区因为玻璃感过强而降低可读性。
+  // 认证右栏已经回到共享母版画布内，这里只负责组织标题、表单和辅助动作的纵向节奏，不再额外制造悬浮卡片壳层。
   .auth-panel {
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 18px;
   }
 
   .auth-panel__surface {
+    width: 100%;
+    max-width: 400px;
     min-height: 100%;
+    margin: 0 auto;
   }
 
   .auth-panel__intro {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .auth-panel__eyebrow {
@@ -27,36 +30,38 @@
 
   .auth-panel__title {
     margin: 0;
-    font-size: clamp(28px, 4vw, 36px);
-    line-height: 1.15;
+    font-size: clamp(24px, 2.8vw, 30px);
+    line-height: 1.12;
     color: var(--app-ink-950);
   }
 
   .auth-panel__description {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--app-text-secondary);
   }
 
   .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
   }
 
-  .auth-form :is(.el-input__wrapper, .el-select__wrapper, .el-textarea__inner) {
+  // 浅色控制台背景下仍保留输入框的实体浅底，用户才能更快识别可编辑区域，避免右栏去卡片化后输入边界变得发虚。
+  .auth-form :is(.el-input__wrapper, .el-select__wrapper) {
     background: rgba(255, 255, 255, 0.92);
+    border-radius: var(--app-radius-sm);
   }
 
   .auth-form__field {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .auth-form__label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--app-ink-950);
   }
@@ -68,11 +73,11 @@
   }
 
   .auth-form__submit {
-    margin-top: 6px;
+    margin-top: 2px;
   }
 
   .auth-form__submit :is(.el-button, button) {
-    min-height: 44px;
+    min-height: 40px;
     border-radius: var(--app-radius-sm);
   }
 
@@ -80,15 +85,16 @@
     display: flex;
   }
 
-  // 认证页把辅助链接、提示语和提交后续动作集中到 actions 区，方便双面板母版统一控制底部层级。
+  // 辅助链接与补充提示继续收口到 actions 区底部，保证右栏先呈现主任务表单，再统一承接次级跳转动作。
   .auth-panel__actions {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
+    margin-top: auto;
   }
 
   .auth-panel__link {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--app-accent-teal);
     text-decoration: none;
@@ -96,5 +102,23 @@
 
   .auth-panel__link:hover {
     color: #115e59;
+  }
+
+  @media (max-height: 820px) {
+    .auth-panel {
+      gap: 14px;
+    }
+
+    .auth-panel__title {
+      font-size: clamp(22px, 2.4vw, 28px);
+    }
+
+    .auth-form {
+      gap: 12px;
+    }
+
+    .auth-form__submit :is(.el-button, button) {
+      min-height: 38px;
+    }
   }
 }
