@@ -39,7 +39,8 @@ const props = defineProps<PasswordResetPanelProps>()
 
 /**
  * 密码重置表单。
- * 忘记密码页与重置密码页复用同一套接口和校验逻辑，保证验证码发送、倒计时和重置提交口径一致。
+ * 忘记密码页与重置密码页虽然来自不同公开入口，但两条链路最终都要完成邮箱校验、验证码冷却和重置成功后返回登录，
+ * 因此继续共用同一套表单与交互契约，避免两个公开页面在校验口径或提交结果上出现分叉。
  */
 const authStore = useAuthStore()
 const router = useRouter()
@@ -243,12 +244,12 @@ onBeforeUnmount(() => {
     </form>
 
     <div class="auth-panel__actions">
-      <div class="auth-panel__footer auth-panel__footer--stacked">
+      <div class="auth-panel__helper-block">
         <p class="auth-panel__helper">{{ props.helperText }}</p>
-        <div class="auth-panel__links">
-          <RouterLink class="auth-panel__link" to="/login">返回登录</RouterLink>
-          <RouterLink class="auth-panel__link" to="/register">注册新账号</RouterLink>
-        </div>
+      </div>
+
+      <div class="auth-panel__footer auth-panel__footer--single">
+        <RouterLink class="auth-panel__link" to="/login">返回登录</RouterLink>
       </div>
     </div>
   </section>
@@ -259,9 +260,14 @@ onBeforeUnmount(() => {
 
 @include authPages.auth-panel-base;
 
+.auth-panel__helper-block {
+  padding-left: 12px;
+  border-left: 2px solid rgba(13, 148, 136, 0.18);
+}
+
 .auth-panel__helper {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--app-text-secondary);
 }
@@ -287,15 +293,8 @@ onBeforeUnmount(() => {
   color: transparent;
 }
 
-.auth-panel__footer--stacked {
-  flex-direction: column;
-  gap: 12px;
-}
-
-.auth-panel__links {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
+.auth-panel__footer--single {
+  align-items: center;
 }
 
 @media (max-width: 720px) {

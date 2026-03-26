@@ -94,9 +94,9 @@ async function handleSubmit() {
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
       <p class="auth-panel__eyebrow">Auth / Register</p>
-      <h1 class="auth-panel__title">创建你的设备账号</h1>
+      <h1 class="auth-panel__title">注册系统账号</h1>
       <p class="auth-panel__description">
-        完成基础资料后即可直接进入系统，后续预约、签到与通知都会基于该账号身份展开。
+        填写基础资料后即可完成注册，进入系统继续进行设备预约与个人操作。
       </p>
     </div>
 
