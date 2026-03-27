@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { Bell, Fold, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+import { resolveNavigationContext } from '@/components/layout/navigation'
 import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useNotificationStore } from '@/stores/modules/notification'
 
 import AppBreadcrumb from './AppBreadcrumb.vue'
 
+const DEFAULT_PAGE_TITLE = '当前页面'
+
+const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -20,6 +24,38 @@ let headerAlive = true
 const displayName = computed(
   () => authStore.currentUser?.realName || authStore.currentUser?.username || '未登录用户',
 )
+
+/**
+ * 顶部上下文统一复用共享导航解析结果。
+ * 这样可以保证左侧菜单高亮、面包屑分组标题和当前页标题始终使用同一套角色口径，
+ * 尤其是 `/reservations`、`/borrows` 这类同路径不同角色文案的页面不会再次漂移。
+ */
+const navigationContext = computed(() => {
+  const routeTitle = typeof route.meta.title === 'string' ? route.meta.title : ''
+  const currentRole = authStore.currentUser?.role
+
+  if (!currentRole) {
+    /**
+     * 未登录场景只需要保留一个稳定可读的标题兜底，
+     * 不能把原始路径直接暴露到头部，避免测试态或异常态把内部路由细节展示给用户。
+     */
+    return {
+      activeItemPath: route.path,
+      breadcrumbItems: routeTitle ? [{ title: routeTitle, path: route.path }] : [],
+      openGroupTitle: '',
+      pageTitle: routeTitle || DEFAULT_PAGE_TITLE,
+    }
+  }
+
+  return resolveNavigationContext(
+    {
+      meta: { title: routeTitle },
+      name: route.name,
+      path: route.path,
+    },
+    currentRole,
+  )
+})
 
 /**
  * 头部铃铛只在默认布局下出现，默认布局本身就代表已进入受保护区域，
@@ -70,13 +106,19 @@ async function handleLogout() {
   <header class="app-header">
     <div class="app-header__surface">
       <div class="app-header__left">
-        <el-button circle text class="app-header__toggle" @click="appStore.toggleSidebar()">
-          <el-icon><Fold /></el-icon>
-        </el-button>
-        <AppBreadcrumb />
+        <!-- 左侧只表达页面上下文，面包屑负责定位业务域，页面标题负责承接当前页主语义。 -->
+        <div class="app-header__context">
+          <AppBreadcrumb :items="navigationContext.breadcrumbItems" />
+          <h1 class="app-header__page-title">{{ navigationContext.pageTitle }}</h1>
+        </div>
       </div>
 
       <div class="app-header__right">
+        <!-- 侧栏折叠入口只保留在头部工具区，避免布局同时出现两个入口造成操作分叉。 -->
+        <el-button circle text class="app-header__toggle" @click="appStore.toggleSidebar()">
+          <el-icon><Fold /></el-icon>
+        </el-button>
+
         <!-- 通知入口对所有已登录角色开放，但只走通知中心统一入口，不在头部额外分叉角色快捷菜单。 -->
         <div class="app-header__notifications">
           <el-badge
@@ -144,16 +186,44 @@ async function handleLogout() {
 
 .app-header__left,
 .app-header__right,
+.app-header__context,
 .app-header__notifications,
 .app-header__user-zone,
 .app-header__user-trigger {
   display: flex;
-  align-items: center;
 }
 
 .app-header__left,
+.app-header__notifications,
+.app-header__user-zone,
+.app-header__user-trigger {
+  align-items: center;
+}
+
+.app-header__left {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header__context {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-header__page-title {
+  margin: 0;
+  color: var(--app-text-primary);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
 .app-header__right {
-  gap: 16px;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
 }
 
 .app-header__notifications,

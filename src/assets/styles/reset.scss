@@ -5,7 +5,9 @@
   box-sizing: border-box;
 }
 
+// 默认布局把整页滚动收口到右侧主内容区，因此根节点链路必须先建立稳定的满高基线。
 html {
+  height: 100%;
   font-size: 16px;
 }
 
@@ -13,6 +15,7 @@ html {
 body {
   margin: 0;
   min-width: 1280px;
+  height: 100%;
   min-height: 100vh;
   font-family: var(--app-font-family-sans);
   color: var(--app-ink-950);
@@ -35,7 +38,8 @@ a {
   text-decoration: none;
 }
 
-// 根节点保持满高，给后续布局壳和 Hero 容器统一承接空间。
+// #app 同时提供 100% 高度和视口最小高度，认证页、空白页与默认布局都能共享同一条高度基线。
 #app {
+  height: 100%;
   min-height: 100vh;
 }
