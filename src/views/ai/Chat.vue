@@ -224,6 +224,8 @@ watch(
 
 .ai-chat-view__messages {
   min-height: 420px;
+  // AI 长会话需要在消息区内部保留滚动，否则整段消息会把页面主滚动完全挤占，破坏默认布局的滚动边界分工。
+  max-height: min(72vh, 720px);
   overflow-y: auto;
   padding-right: 6px;
 }
