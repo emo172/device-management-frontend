@@ -23,12 +23,11 @@ export interface CreateDeviceRequest {
 
 /**
  * 更新设备请求。
- * 后端保留 `status` 字段只为兼容表单回填，真实状态流转仍需走独立状态接口。
+ * 更新页只提交基础档案字段；真实状态流转仍需走独立状态接口，避免绕过状态日志。
  */
 export interface UpdateDeviceRequest {
   name: string
   categoryName: string
-  status: string
   description: string
   location: string
 }

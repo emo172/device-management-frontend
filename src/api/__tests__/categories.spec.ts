@@ -35,7 +35,10 @@ describe('categories api', () => {
     await expect(createCategory(payload)).resolves.toBe(response)
     expect(postMock).toHaveBeenCalledWith('/device-categories', payload)
 
-    const [, requestBody] = postMock.mock.calls[0] as [string, CreateCategoryRequest & { parentId?: string }]
+    const [, requestBody] = postMock.mock.calls[0] as [
+      string,
+      CreateCategoryRequest & { parentId?: string },
+    ]
 
     /*
      * 分类创建仍按后端 DTO 提交 `parentName`，

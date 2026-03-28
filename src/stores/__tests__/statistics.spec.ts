@@ -96,6 +96,57 @@ describe('statistics store', () => {
     expect(store.query.date).toBe('2026-03-15')
   })
 
+  it('supports overview-only loading for lightweight dashboard entry', async () => {
+    getStatisticsOverviewMock.mockResolvedValue({
+      statDate: '2026-03-18',
+      totalReservations: 12,
+      approvedReservations: 9,
+      rejectedReservations: 1,
+      cancelledReservations: 1,
+      expiredReservations: 1,
+      totalBorrows: 6,
+      totalReturns: 5,
+      totalOverdue: 2,
+      totalOverdueHours: 8,
+      utilizationRate: 0.72,
+    })
+
+    const store = useStatisticsStore()
+
+    await store.fetchOverview({ date: '2026-03-18' })
+
+    expect(getStatisticsOverviewMock).toHaveBeenCalledWith({ date: '2026-03-18' })
+    expect(getDeviceUtilizationMock).not.toHaveBeenCalled()
+    expect(getCategoryUtilizationMock).not.toHaveBeenCalled()
+    expect(getBorrowStatisticsMock).not.toHaveBeenCalled()
+    expect(store.overview?.totalReservations).toBe(12)
+    expect(store.query.date).toBe('2026-03-18')
+  })
+
+  it('clears stale overview cache when overview-only request fails', async () => {
+    getStatisticsOverviewMock.mockRejectedValue(new Error('overview failed'))
+
+    const store = useStatisticsStore()
+    store.overview = {
+      statDate: '2026-03-17',
+      totalReservations: 99,
+      approvedReservations: 88,
+      rejectedReservations: 1,
+      cancelledReservations: 2,
+      expiredReservations: 8,
+      totalBorrows: 66,
+      totalReturns: 55,
+      totalOverdue: 9,
+      totalOverdueHours: 40,
+      utilizationRate: 0.95,
+    }
+
+    await expect(store.fetchOverview({ date: '2026-03-18' })).rejects.toThrow('overview failed')
+
+    expect(store.overview).toBeNull()
+    expect(store.loading).toBe(false)
+  })
+
   it('resets loaded statistics state', () => {
     const store = useStatisticsStore()
     store.query = { date: '2026-03-15' }

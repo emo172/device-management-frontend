@@ -41,7 +41,9 @@ describe('reservations api', () => {
       ...createPayload,
     }
 
-    await expect(reservationApi.createReservation(createPayload)).resolves.toMatchObject(reservation)
+    await expect(reservationApi.createReservation(createPayload)).resolves.toMatchObject(
+      reservation,
+    )
     await expect(reservationApi.createProxyReservation(proxyPayload)).resolves.toMatchObject(
       proxyReservation,
     )

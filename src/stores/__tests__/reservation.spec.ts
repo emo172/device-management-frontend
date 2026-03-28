@@ -225,6 +225,137 @@ describe('reservation store', () => {
     )
   })
 
+  it('can clear list context without wiping current reservation detail', () => {
+    const store = useReservationStore()
+    store.list = [
+      {
+        id: 'reservation-1',
+        batchId: null,
+        userId: 'user-1',
+        userName: 'demo-user',
+        createdBy: 'user-1',
+        createdByName: 'demo-user',
+        reservationMode: 'SELF',
+        deviceId: 'device-1',
+        deviceName: '示波器',
+        deviceNumber: 'DEV-001',
+        startTime: '2026-03-15T10:00:00',
+        endTime: '2026-03-15T11:00:00',
+        purpose: '实验',
+        status: 'APPROVED',
+        signStatus: 'NOT_CHECKED_IN',
+        approvalModeSnapshot: 'DEVICE_ONLY',
+        cancelReason: null,
+        cancelTime: null,
+      },
+    ]
+    store.total = 1
+    store.query = { page: 3, size: 20 }
+    store.currentReservation = {
+      id: 'reservation-1',
+      batchId: null,
+      userId: 'user-1',
+      userName: 'demo-user',
+      createdBy: 'user-1',
+      createdByName: 'demo-user',
+      reservationMode: 'SELF',
+      deviceId: 'device-1',
+      deviceName: '示波器',
+      deviceNumber: 'DEV-001',
+      deviceStatus: 'AVAILABLE',
+      startTime: '2026-03-15T10:00:00',
+      endTime: '2026-03-15T11:00:00',
+      purpose: '实验',
+      remark: null,
+      status: 'APPROVED',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      deviceApproverId: null,
+      deviceApproverName: null,
+      deviceApprovedAt: null,
+      deviceApprovalRemark: null,
+      systemApproverId: null,
+      systemApproverName: null,
+      systemApprovedAt: null,
+      systemApprovalRemark: null,
+      cancelReason: null,
+      cancelTime: null,
+      checkedInAt: null,
+      createdAt: '2026-03-15T08:00:00',
+      updatedAt: '2026-03-15T08:00:00',
+    }
+
+    store.resetListState()
+
+    expect(store.list).toEqual([])
+    expect(store.total).toBe(0)
+    expect(store.query.page).toBe(1)
+    expect(store.currentReservation?.id).toBe('reservation-1')
+  })
+
+  it('fetches borrow confirm candidates across pages instead of only current reservation page', async () => {
+    getReservationListMock
+      .mockResolvedValueOnce({
+        total: 2,
+        records: [
+          {
+            id: 'reservation-1',
+            batchId: null,
+            userId: 'user-1',
+            userName: '普通用户1',
+            createdBy: 'user-1',
+            createdByName: '普通用户1',
+            reservationMode: 'SELF',
+            deviceId: 'device-1',
+            deviceName: '第一页非候选',
+            deviceNumber: 'DEV-001',
+            startTime: '2026-03-20T09:00:00',
+            endTime: '2026-03-20T10:00:00',
+            purpose: '实验',
+            status: 'APPROVED',
+            signStatus: 'NOT_CHECKED_IN',
+            approvalModeSnapshot: 'DEVICE_ONLY',
+            cancelReason: null,
+            cancelTime: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        total: 2,
+        records: [
+          {
+            id: 'reservation-2',
+            batchId: null,
+            userId: 'user-2',
+            userName: '普通用户2',
+            createdBy: 'user-2',
+            createdByName: '普通用户2',
+            reservationMode: 'SELF',
+            deviceId: 'device-2',
+            deviceName: '第二页候选',
+            deviceNumber: 'DEV-002',
+            startTime: '2026-03-20T10:00:00',
+            endTime: '2026-03-20T11:00:00',
+            purpose: '实验',
+            status: 'APPROVED',
+            signStatus: 'CHECKED_IN',
+            approvalModeSnapshot: 'DEVICE_ONLY',
+            cancelReason: null,
+            cancelTime: null,
+          },
+        ],
+      })
+
+    const store = useReservationStore()
+    const result = await store.fetchBorrowCandidatePage({ page: 1, size: 10 })
+
+    expect(getReservationListMock).toHaveBeenNthCalledWith(1, { page: 1, size: 50 })
+    expect(getReservationListMock).toHaveBeenNthCalledWith(2, { page: 2, size: 50 })
+    expect(result.total).toBe(1)
+    expect(result.records[0]?.id).toBe('reservation-2')
+    expect(store.list[0]?.id).toBe('reservation-2')
+  })
+
   it('tracks batch creation result and batch detail', async () => {
     createReservationBatchMock.mockResolvedValue({
       id: 'batch-1',

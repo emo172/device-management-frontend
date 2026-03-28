@@ -69,10 +69,10 @@ export function getReservationDetail(reservationId: string) {
  */
 export function createReservation(data: CreateReservationRequest) {
   return request
-    .post<ReservationResponse, CreateReservationRequest>(
-      '/reservations',
-      normalizeReservationTimeRangePayload(data),
-    )
+    .post<
+      ReservationResponse,
+      CreateReservationRequest
+    >('/reservations', normalizeReservationTimeRangePayload(data))
     .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
@@ -82,10 +82,10 @@ export function createReservation(data: CreateReservationRequest) {
  */
 export function createProxyReservation(data: ProxyReservationRequest) {
   return request
-    .post<ReservationResponse, ProxyReservationRequest>(
-      '/reservations/proxy',
-      normalizeReservationTimeRangePayload(data),
-    )
+    .post<
+      ReservationResponse,
+      ProxyReservationRequest
+    >('/reservations/proxy', normalizeReservationTimeRangePayload(data))
     .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
@@ -94,10 +94,12 @@ export function createProxyReservation(data: ProxyReservationRequest) {
  * 对应 `POST /api/reservations/{id}/audit`，接口路径本身区分审批阶段。
  */
 export function deviceAuditReservation(reservationId: string, data: AuditReservationRequest) {
-  return request.post<ReservationResponse, AuditReservationRequest>(
-    `/reservations/${reservationId}/audit`,
-    data,
-  ).then((result) => normalizeReservationWorkflowRecord(result))
+  return request
+    .post<
+      ReservationResponse,
+      AuditReservationRequest
+    >(`/reservations/${reservationId}/audit`, data)
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -105,10 +107,12 @@ export function deviceAuditReservation(reservationId: string, data: AuditReserva
  * 对应 `POST /api/reservations/{id}/system-audit`，避免把二审错误复用为一审接口。
  */
 export function systemAuditReservation(reservationId: string, data: AuditReservationRequest) {
-  return request.post<ReservationResponse, AuditReservationRequest>(
-    `/reservations/${reservationId}/system-audit`,
-    data,
-  ).then((result) => normalizeReservationWorkflowRecord(result))
+  return request
+    .post<
+      ReservationResponse,
+      AuditReservationRequest
+    >(`/reservations/${reservationId}/system-audit`, data)
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -116,10 +120,12 @@ export function systemAuditReservation(reservationId: string, data: AuditReserva
  * 对应 `POST /api/reservations/{id}/check-in`，签到时间交由调用方按窗口规则传入。
  */
 export function checkInReservation(reservationId: string, data: CheckInRequest) {
-  return request.post<ReservationResponse, CheckInRequest>(
-    `/reservations/${reservationId}/check-in`,
-    normalizeCheckInPayload(data),
-  ).then((result) => normalizeReservationWorkflowRecord(result))
+  return request
+    .post<
+      ReservationResponse,
+      CheckInRequest
+    >(`/reservations/${reservationId}/check-in`, normalizeCheckInPayload(data))
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -127,10 +133,12 @@ export function checkInReservation(reservationId: string, data: CheckInRequest) 
  * 对应 `POST /api/reservations/{id}/cancel`，后端要求提交取消原因，且只在开始前超过 24 小时的用户自助取消场景开放。
  */
 export function cancelReservation(reservationId: string, data: CancelReservationRequest) {
-  return request.post<ReservationDetailResponse, CancelReservationRequest>(
-    `/reservations/${reservationId}/cancel`,
-    data,
-  ).then((result) => normalizeReservationWorkflowRecord(result))
+  return request
+    .post<
+      ReservationDetailResponse,
+      CancelReservationRequest
+    >(`/reservations/${reservationId}/cancel`, data)
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**
@@ -138,10 +146,12 @@ export function cancelReservation(reservationId: string, data: CancelReservation
  * 对应 `PUT /api/reservations/{id}/manual-process`，仅在预约进入人工处理状态后使用。
  */
 export function manualProcessReservation(reservationId: string, data: ManualProcessRequest) {
-  return request.put<ReservationResponse, ManualProcessRequest>(
-    `/reservations/${reservationId}/manual-process`,
-    data,
-  ).then((result) => normalizeReservationWorkflowRecord(result))
+  return request
+    .put<
+      ReservationResponse,
+      ManualProcessRequest
+    >(`/reservations/${reservationId}/manual-process`, data)
+    .then((result) => normalizeReservationWorkflowRecord(result))
 }
 
 /**

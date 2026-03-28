@@ -10,6 +10,7 @@ const ADMIN_MANAGED_FETCH_SIZE = 50
  * 这些状态都是后端已明确进入终态的预约，前端不再把待审批记录混进历史视图。
  */
 const RESERVATION_HISTORY_STATUSES = ['APPROVED', 'REJECTED', 'CANCELLED', 'EXPIRED'] as const
+const BORROW_CANDIDATE_SIGN_STATUSES = ['CHECKED_IN', 'CHECKED_IN_TIMEOUT'] as const
 
 /**
  * 管理端待处理页按角色拆分待办状态。
@@ -80,6 +81,15 @@ function isManagedReservationMatched(
   return RESERVATION_PENDING_STATUS_BY_ROLE[role].includes(reservation.status)
 }
 
+function isBorrowCandidateReservation(reservation: reservationApi.ReservationListItemResponse) {
+  return (
+    reservation.status === 'APPROVED' &&
+    BORROW_CANDIDATE_SIGN_STATUSES.includes(
+      reservation.signStatus as (typeof BORROW_CANDIDATE_SIGN_STATUSES)[number],
+    )
+  )
+}
+
 function mergeCurrentReservationResult(
   currentReservation:
     | reservationApi.ReservationResponse
@@ -105,7 +115,7 @@ function mergeCurrentReservationResult(
         : nextReservation.signStatus === 'CHECKED_IN' ||
             nextReservation.signStatus === 'CHECKED_IN_TIMEOUT'
           ? checkInTime || currentReservation.checkedInAt
-        : currentReservation.checkedInAt,
+          : currentReservation.checkedInAt,
   }
 }
 
@@ -196,6 +206,16 @@ export const useReservationStore = defineStore('reservation', {
      */
     resetCurrentReservation() {
       this.currentReservation = null
+    },
+
+    /**
+     * 列表型页面在重新进入前先清空共享列表上下文。
+     * 这样不同预约页面共用同一个 Store 时，不会先短暂渲染上一页面残留的列表结果。
+     */
+    resetListState() {
+      this.list = []
+      this.total = 0
+      this.query = createDefaultQuery()
     },
 
     /**
@@ -347,6 +367,67 @@ export const useReservationStore = defineStore('reservation', {
     },
 
     /**
+     * 借用确认页需要拿到全部“已批准且已签到”的候选预约，不能被当前分页盲区卡住正式借出闭环。
+     * 这里沿用本地聚合分页方式，先顺序拿全量预约，再在前端收敛出真实候选池。
+     */
+    async fetchBorrowCandidatePage(payload: { page: number; size: number }) {
+      this.loading = true
+
+      try {
+        const records: reservationApi.ReservationListItemResponse[] = []
+        const recordIds = new Set<string>()
+        let currentPage = 1
+        let total = 0
+
+        do {
+          const result = await reservationApi.getReservationList({
+            page: currentPage,
+            size: ADMIN_MANAGED_FETCH_SIZE,
+          })
+
+          total = result.total
+          let appendedCount = 0
+
+          for (const record of result.records) {
+            if (recordIds.has(record.id)) {
+              continue
+            }
+
+            recordIds.add(record.id)
+            records.push(record)
+            appendedCount += 1
+          }
+
+          if (result.records.length === 0 || appendedCount === 0) {
+            break
+          }
+
+          if (records.length >= total) {
+            break
+          }
+
+          currentPage += 1
+        } while (true)
+
+        const filteredRecords = records.filter((reservation) =>
+          isBorrowCandidateReservation(reservation),
+        )
+        const pageRecords = sliceReservationPage(filteredRecords, payload.page, payload.size)
+
+        this.list = pageRecords
+        this.total = filteredRecords.length
+        this.query = { page: payload.page, size: payload.size }
+
+        return {
+          total: filteredRecords.length,
+          records: pageRecords,
+        }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
      * 批量预约返回的批次汇总需要独立缓存，便于后续结果页展示成功数与失败数。
      */
     async createReservationBatch(payload: reservationApi.CreateReservationBatchRequest) {
@@ -368,9 +449,7 @@ export const useReservationStore = defineStore('reservation', {
      * 切换预约上下文时清空最近结果，避免创建页与审核页之间互相污染展示。
      */
     resetReservationResult() {
-      this.list = []
-      this.total = 0
-      this.query = createDefaultQuery()
+      this.resetListState()
       this.resetCurrentReservation()
       this.currentBatch = null
     },
