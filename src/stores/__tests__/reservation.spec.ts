@@ -296,7 +296,7 @@ describe('reservation store', () => {
   it('fetches borrow confirm candidates across pages instead of only current reservation page', async () => {
     getReservationListMock
       .mockResolvedValueOnce({
-        total: 2,
+        total: 100,
         records: [
           {
             id: 'reservation-1',
@@ -321,7 +321,7 @@ describe('reservation store', () => {
         ],
       })
       .mockResolvedValueOnce({
-        total: 2,
+        total: 100,
         records: [
           {
             id: 'reservation-2',
@@ -398,6 +398,73 @@ describe('reservation store', () => {
     expect(store.currentBatch).toBeNull()
   })
 
+  it('continues borrow candidate paging when a middle page only returns duplicate records', async () => {
+    const firstCandidateRecord = {
+      id: 'borrow-candidate-1',
+      batchId: null,
+      userId: 'user-1',
+      userName: '普通用户1',
+      createdBy: 'user-1',
+      createdByName: '普通用户1',
+      reservationMode: 'SELF',
+      deviceId: 'device-1',
+      deviceName: '第一页候选',
+      deviceNumber: 'DEV-001',
+      startTime: '2026-03-20T09:00:00',
+      endTime: '2026-03-20T10:00:00',
+      purpose: '实验',
+      status: 'APPROVED',
+      signStatus: 'CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      cancelReason: null,
+      cancelTime: null,
+    }
+    const thirdPageCandidateRecord = {
+      id: 'borrow-candidate-2',
+      batchId: null,
+      userId: 'user-2',
+      userName: '普通用户2',
+      createdBy: 'user-2',
+      createdByName: '普通用户2',
+      reservationMode: 'SELF',
+      deviceId: 'device-2',
+      deviceName: '第三页候选',
+      deviceNumber: 'DEV-002',
+      startTime: '2026-03-20T11:00:00',
+      endTime: '2026-03-20T12:00:00',
+      purpose: '实验',
+      status: 'APPROVED',
+      signStatus: 'CHECKED_IN_TIMEOUT',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      cancelReason: null,
+      cancelTime: null,
+    }
+
+    getReservationListMock
+      .mockResolvedValueOnce({
+        total: 120,
+        records: [firstCandidateRecord],
+      })
+      .mockResolvedValueOnce({
+        total: 120,
+        records: [firstCandidateRecord],
+      })
+      .mockResolvedValueOnce({
+        total: 120,
+        records: [thirdPageCandidateRecord],
+      })
+
+    const store = useReservationStore()
+    const result = await store.fetchBorrowCandidatePage({ page: 1, size: 10 })
+
+    expect(getReservationListMock).toHaveBeenCalledTimes(3)
+    expect(result.total).toBe(2)
+    expect(result.records.map((item) => item.id)).toEqual([
+      'borrow-candidate-1',
+      'borrow-candidate-2',
+    ])
+  })
+
   it('loads reservation list and keeps pagination query in sync', async () => {
     getReservationListMock.mockResolvedValue({
       total: 2,
@@ -438,7 +505,7 @@ describe('reservation store', () => {
   it('builds device admin pending page from unfiltered backend pages', async () => {
     getReservationListMock
       .mockResolvedValueOnce({
-        total: 4,
+        total: 100,
         records: [
           {
             id: 'reservation-1',
@@ -483,7 +550,7 @@ describe('reservation store', () => {
         ],
       })
       .mockResolvedValueOnce({
-        total: 4,
+        total: 100,
         records: [
           {
             id: 'reservation-3',
@@ -936,7 +1003,7 @@ describe('reservation store', () => {
   it('stops managed reservation paging when backend pages stop yielding new records', async () => {
     getReservationListMock
       .mockResolvedValueOnce({
-        total: 3,
+        total: 100,
         records: [
           {
             id: 'reservation-1',
@@ -961,7 +1028,7 @@ describe('reservation store', () => {
         ],
       })
       .mockResolvedValueOnce({
-        total: 3,
+        total: 100,
         records: [],
       })
 
@@ -1080,7 +1147,7 @@ describe('reservation store', () => {
     ])
   })
 
-  it('stops managed reservation paging when next page only returns duplicate records', async () => {
+  it('continues managed reservation paging when a middle page only returns duplicate records', async () => {
     const repeatedRecord = {
       id: 'reservation-1',
       batchId: null,
@@ -1101,15 +1168,39 @@ describe('reservation store', () => {
       cancelReason: null,
       cancelTime: null,
     }
+    const thirdPageRecord = {
+      id: 'reservation-2',
+      batchId: null,
+      userId: 'user-2',
+      userName: '普通用户2',
+      createdBy: 'user-2',
+      createdByName: '普通用户2',
+      reservationMode: 'SELF',
+      deviceId: 'device-2',
+      deviceName: '信号发生器',
+      deviceNumber: 'DEV-002',
+      startTime: '2026-03-20T10:00:00',
+      endTime: '2026-03-20T11:00:00',
+      purpose: '实验',
+      status: 'PENDING_MANUAL',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      cancelReason: null,
+      cancelTime: null,
+    }
 
     getReservationListMock
       .mockResolvedValueOnce({
-        total: 3,
+        total: 120,
         records: [repeatedRecord],
       })
       .mockResolvedValueOnce({
-        total: 3,
+        total: 120,
         records: [repeatedRecord],
+      })
+      .mockResolvedValueOnce({
+        total: 120,
+        records: [thirdPageRecord],
       })
 
     const store = useReservationStore()
@@ -1120,18 +1211,18 @@ describe('reservation store', () => {
       size: 10,
     })
 
-    expect(getReservationListMock).toHaveBeenCalledTimes(2)
-    expect(result.total).toBe(1)
-    expect(result.records).toHaveLength(1)
+    expect(getReservationListMock).toHaveBeenCalledTimes(3)
+    expect(result.total).toBe(2)
+    expect(result.records.map((item) => item.id)).toEqual(['reservation-1', 'reservation-2'])
   })
 
   it('continues managed reservation paging beyond 20 backend pages when total still has more records', async () => {
     /**
-     * 这里故意构造 21 页唯一数据，保护“管理员本地分组不能因为静态页数上限而悄悄截断”的风险点。
+     * 这里故意构造 21 页唯一数据，并把总量抬到 1000+，保护“管理员本地分组不能因为静态页数上限而悄悄截断”的风险点。
      */
     for (let index = 1; index <= 21; index += 1) {
       getReservationListMock.mockResolvedValueOnce({
-        total: 21,
+        total: 1050,
         records: [
           {
             id: `reservation-${index}`,

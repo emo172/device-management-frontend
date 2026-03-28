@@ -67,6 +67,47 @@ function sliceReservationPage(
   return list.slice(start, start + size)
 }
 
+/**
+ * 当前后端列表接口只暴露基础分页，管理页与借用确认页都需要在前端顺序扫描整段分页窗口再本地过滤。
+ * 这里不能把“某一页全是重复记录”当成终止条件，因为数据插入、重排或后端短暂返回重复窗口时，后续页仍可能带来新记录。
+ * 因此统一改为“空页终止 + 扫完后端声明页数”这条更保守的收口规则，避免两处聚合逻辑继续分叉。
+ */
+async function collectReservationPages() {
+  const records: reservationApi.ReservationListItemResponse[] = []
+  const recordIds = new Set<string>()
+  let currentPage = 1
+  let expectedPageCount = 1
+
+  do {
+    const result = await reservationApi.getReservationList({
+      page: currentPage,
+      size: ADMIN_MANAGED_FETCH_SIZE,
+    })
+
+    expectedPageCount = Math.max(
+      expectedPageCount,
+      Math.ceil(result.total / ADMIN_MANAGED_FETCH_SIZE) || 1,
+    )
+
+    for (const record of result.records) {
+      if (recordIds.has(record.id)) {
+        continue
+      }
+
+      recordIds.add(record.id)
+      records.push(record)
+    }
+
+    if (result.records.length === 0 || currentPage >= expectedPageCount) {
+      break
+    }
+
+    currentPage += 1
+  } while (true)
+
+  return records
+}
+
 function isManagedReservationMatched(
   reservation: reservationApi.ReservationListItemResponse,
   role: UserRole.DEVICE_ADMIN | UserRole.SYSTEM_ADMIN,
@@ -306,47 +347,7 @@ export const useReservationStore = defineStore('reservation', {
       this.loading = true
 
       try {
-        const records: reservationApi.ReservationListItemResponse[] = []
-        const recordIds = new Set<string>()
-        let currentPage = 1
-        let total = 0
-        do {
-          const result = await reservationApi.getReservationList({
-            page: currentPage,
-            size: ADMIN_MANAGED_FETCH_SIZE,
-          })
-
-          total = result.total
-          let appendedCount = 0
-
-          for (const record of result.records) {
-            if (recordIds.has(record.id)) {
-              continue
-            }
-
-            recordIds.add(record.id)
-            records.push(record)
-            appendedCount += 1
-          }
-
-          /**
-           * 管理端本地分组建立在“顺序翻页拿全量数据”的后端能力上，
-           * 一旦某页返回空数组或重复数据，就说明继续翻页已经无法再获得稳定增量，必须及时终止，避免无意义请求循环。
-           */
-          if (result.records.length === 0 || appendedCount === 0) {
-            break
-          }
-
-          /**
-           * 一旦已经拿齐后端声明的总量，就不再继续翻页。
-           * 这里刻意去掉“最多 20 页”的静态上限，避免待审批/历史页在记录超过 1000 条时被静默截断。
-           */
-          if (records.length >= total) {
-            break
-          }
-
-          currentPage += 1
-        } while (true)
+        const records = await collectReservationPages()
 
         const filteredRecords = records.filter((reservation) =>
           isManagedReservationMatched(reservation, adminRole, payload.view),
@@ -374,40 +375,7 @@ export const useReservationStore = defineStore('reservation', {
       this.loading = true
 
       try {
-        const records: reservationApi.ReservationListItemResponse[] = []
-        const recordIds = new Set<string>()
-        let currentPage = 1
-        let total = 0
-
-        do {
-          const result = await reservationApi.getReservationList({
-            page: currentPage,
-            size: ADMIN_MANAGED_FETCH_SIZE,
-          })
-
-          total = result.total
-          let appendedCount = 0
-
-          for (const record of result.records) {
-            if (recordIds.has(record.id)) {
-              continue
-            }
-
-            recordIds.add(record.id)
-            records.push(record)
-            appendedCount += 1
-          }
-
-          if (result.records.length === 0 || appendedCount === 0) {
-            break
-          }
-
-          if (records.length >= total) {
-            break
-          }
-
-          currentPage += 1
-        } while (true)
+        const records = await collectReservationPages()
 
         const filteredRecords = records.filter((reservation) =>
           isBorrowCandidateReservation(reservation),
