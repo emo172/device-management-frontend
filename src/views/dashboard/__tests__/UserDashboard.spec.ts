@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -43,6 +46,10 @@ vi.mock('@/stores/modules/reservation', () => ({
 }))
 
 describe('UserDashboard', () => {
+  const readDashboardSource = () => {
+    return readFileSync(resolve(process.cwd(), 'src/views/dashboard/UserDashboard.vue'), 'utf-8')
+  }
+
   beforeEach(() => {
     fetchReservationListMock.mockReset()
     reservationState.loading = false
@@ -97,6 +104,20 @@ describe('UserDashboard', () => {
         signStatus: 'NOT_CHECKED_IN',
       },
     ]
+  })
+
+  it('用户仪表盘源码改为消费主题 token，避免 hero 与预约面板在深色下残留浅色硬编码', () => {
+    const source = readDashboardSource()
+
+    // 用户仪表盘同时承载 hero、提醒卡和预约列表，这里直接锁定主题 token，避免深色主题时退回浅色卡片语义。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 
   it('加载最近预约并展示待签到提醒与 AI 快捷入口', async () => {
