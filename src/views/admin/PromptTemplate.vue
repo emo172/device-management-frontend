@@ -42,6 +42,7 @@ const canDeleteCurrentTemplate = computed(
   () =>
     !!currentTemplate.value &&
     !currentTemplate.value.active &&
+    !promptTemplateStore.submitting &&
     !promptTemplateStore.deleting &&
     !hasTemplateDetailError.value,
 )
@@ -205,6 +206,18 @@ function validatePayload() {
 }
 
 async function handleSelectTemplate(templateId: string) {
+  if (promptTemplateStore.submitting || promptTemplateStore.deleting) {
+    return
+  }
+
+  if (
+    templateId === currentTemplateId.value &&
+    !!currentTemplate.value &&
+    !hasTemplateDetailError.value
+  ) {
+    return
+  }
+
   resetDetailErrorState()
 
   try {
@@ -404,6 +417,7 @@ onBeforeUnmount(() => {
                   { 'prompt-template-card--active': template.id === currentTemplateId },
                 ]"
                 type="button"
+                :disabled="promptTemplateStore.submitting || promptTemplateStore.deleting"
                 @click="handleSelectTemplate(template.id)"
               >
                 <div>
@@ -571,9 +585,9 @@ onBeforeUnmount(() => {
 .prompt-template-view__hero {
   border-radius: 28px;
   background:
-    radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 237, 0.94));
+    radial-gradient(circle at top right, var(--app-tone-warning-surface-strong), transparent 34%),
+    radial-gradient(circle at bottom left, var(--app-tone-brand-surface), transparent 28%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-warning-surface));
 }
 
 .prompt-template-view__layout {
@@ -586,9 +600,9 @@ onBeforeUnmount(() => {
 .prompt-template-view__meta-pill {
   min-width: 132px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-glass);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--app-surface-glass);
   backdrop-filter: blur(12px);
 }
 
@@ -602,7 +616,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c2410c;
+  color: var(--app-tone-warning-text);
 }
 
 .prompt-template-view__meta-pill strong,
@@ -626,7 +640,7 @@ onBeforeUnmount(() => {
 }
 
 .prompt-template-view__hero-button {
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--app-border-soft);
   border-radius: 16px;
   padding: 12px 16px;
   font: inherit;
@@ -640,7 +654,7 @@ onBeforeUnmount(() => {
 
 .prompt-template-view__hero-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow-card);
 }
 
 .prompt-template-view__hero-button:disabled {
@@ -649,20 +663,20 @@ onBeforeUnmount(() => {
 }
 
 .prompt-template-view__hero-button--ghost {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--app-surface-card);
   color: var(--app-text-primary);
 }
 
 .prompt-template-view__hero-button--primary {
-  border-color: rgba(234, 88, 12, 0.24);
-  background: linear-gradient(135deg, #ea580c, #f59e0b);
-  color: #fff;
+  border-color: var(--app-tone-warning-border);
+  background: linear-gradient(135deg, var(--app-tone-warning-solid), var(--app-tone-warning-text));
+  color: var(--app-text-primary);
 }
 
 .prompt-template-view__hero-button--danger {
-  border-color: rgba(190, 24, 93, 0.2);
-  background: rgba(255, 241, 242, 0.86);
-  color: #be185d;
+  border-color: var(--app-tone-danger-border);
+  background: var(--app-tone-danger-surface);
+  color: var(--app-tone-danger-text-strong);
 }
 
 .prompt-template-view__workspace {
@@ -676,6 +690,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: 24px;
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .prompt-template-view__list-panel {
@@ -691,7 +710,7 @@ onBeforeUnmount(() => {
 
 .prompt-template-view__panel-heading--editor {
   padding-bottom: 4px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+  border-bottom: 1px solid var(--app-border-soft);
 }
 
 .prompt-template-view__status-badge {
@@ -699,8 +718,8 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255, 237, 213, 0.72);
-  color: #c2410c;
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -717,9 +736,9 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--app-border-soft);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 250, 245, 0.9));
+  background: linear-gradient(180deg, var(--app-surface-card-strong), var(--app-surface-card));
   text-align: left;
   cursor: pointer;
   transition:
@@ -731,8 +750,8 @@ onBeforeUnmount(() => {
 .prompt-template-card:hover,
 .prompt-template-card--active {
   transform: translateY(-1px);
-  border-color: rgba(194, 65, 12, 0.35);
-  box-shadow: 0 14px 30px rgba(194, 65, 12, 0.08);
+  border-color: var(--app-tone-warning-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .prompt-template-card__meta {
@@ -740,7 +759,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #9a3412;
+  color: var(--app-tone-warning-text-strong);
   white-space: nowrap;
 }
 
@@ -766,10 +785,11 @@ onBeforeUnmount(() => {
 .prompt-template-view input,
 .prompt-template-view select,
 .prompt-template-view textarea {
-  border: 1px solid rgba(203, 213, 225, 0.9);
+  border: 1px solid var(--app-border-soft);
   border-radius: 16px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--app-surface-card-strong);
+  color: var(--app-text-primary);
   font: inherit;
 }
 
@@ -809,9 +829,9 @@ onBeforeUnmount(() => {
 .prompt-template-view__aside-card,
 .prompt-template-view__metric {
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
+  border: 1px solid var(--app-border-glass);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.58);
+  background: var(--app-surface-glass);
 }
 
 .prompt-template-view__metrics {

@@ -317,9 +317,9 @@ onBeforeUnmount(() => {
 .role-permission-view__hero {
   border-radius: 28px;
   background:
-    radial-gradient(circle at top right, rgba(20, 184, 166, 0.2), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.92));
+    radial-gradient(circle at top right, var(--app-tone-success-surface-strong), transparent 34%),
+    radial-gradient(circle at bottom left, var(--app-tone-brand-surface), transparent 30%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-surface-card));
 }
 
 .role-permission-view__layout {
@@ -332,9 +332,9 @@ onBeforeUnmount(() => {
 .role-permission-view__meta-pill {
   min-width: 132px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-glass);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--app-surface-glass);
   backdrop-filter: blur(12px);
 }
 
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
 }
 
 .role-permission-view__meta-pill strong,
@@ -378,10 +378,10 @@ onBeforeUnmount(() => {
 }
 
 .role-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06);
+  background: linear-gradient(180deg, var(--app-surface-card-strong), var(--app-surface-card));
+  box-shadow: var(--app-shadow-card);
   padding: 20px 22px;
   cursor: pointer;
   transition:
@@ -393,8 +393,8 @@ onBeforeUnmount(() => {
 .role-card:hover,
 .role-card--active {
   transform: translateY(-2px);
-  border-color: rgba(15, 118, 110, 0.4);
-  box-shadow: 0 18px 42px rgba(15, 118, 110, 0.12);
+  border-color: var(--app-tone-success-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .role-permission-view__content-header {
@@ -409,8 +409,8 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(240, 253, 250, 0.92);
-  color: #0f766e;
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text);
   font-size: 13px;
   white-space: nowrap;
 }
@@ -436,9 +436,13 @@ onBeforeUnmount(() => {
 .role-permission-view__aside-card,
 .role-permission-view__metric {
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
+  border: 1px solid var(--app-border-glass);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.58);
+  background: var(--app-surface-glass);
+}
+
+.role-permission-view :deep(.permission-tree) {
+  background: var(--app-surface-card);
 }
 
 .role-permission-view__metrics {
