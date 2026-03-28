@@ -1,10 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="">
   <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite App</title>
+    <script>
+      ;(() => {
+        const THEME_STORAGE_KEY = 'theme_preference'
+        let themePreference = 'system'
+
+        try {
+          const storedPreference = window.localStorage.getItem(THEME_STORAGE_KEY)
+
+          if (
+            storedPreference === 'light' ||
+            storedPreference === 'dark' ||
+            storedPreference === 'system'
+          ) {
+            themePreference = storedPreference
+          }
+        } catch {
+          themePreference = 'system'
+        }
+
+        let systemPrefersDark = false
+
+        try {
+          systemPrefersDark =
+            typeof window.matchMedia === 'function'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              : false
+        } catch {
+          systemPrefersDark = false
+        }
+
+        // 入口脚本加载前先写入主题，避免首屏因为等待 Vue 接管而出现明暗闪烁。
+        const resolvedTheme =
+          themePreference === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themePreference
+
+        document.documentElement.dataset.theme = resolvedTheme
+        document.documentElement.style.colorScheme = resolvedTheme
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

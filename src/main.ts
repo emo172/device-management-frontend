@@ -15,6 +15,7 @@ import {
   registerUnauthorizedHandler,
   runFatalErrorHandler,
 } from './stores/sessionBridge'
+import { registerResolvedThemeDomSync, registerSystemThemeListener } from './utils/themeMode'
 import '@/assets/styles/index.scss'
 
 const authEntryPaths = new Set(['/login', '/register', '/forgot-password', '/reset-password'])
@@ -39,7 +40,9 @@ function stripBaseUrl(path: string) {
   const baseUrl =
     ((router as { options?: { history?: { base?: string } } }).options?.history?.base as
       | string
-      | undefined) || import.meta.env.BASE_URL || '/'
+      | undefined) ||
+    import.meta.env.BASE_URL ||
+    '/'
   const normalizedBasePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '')
 
   if (!normalizedBasePath) {
@@ -105,7 +108,33 @@ function createMainFatalErrorSnapshot(description: string) {
   }
 }
 
-async function bootstrapApp() {
+/**
+ * 运行时全局异常监听拆成可清理的独立函数，既能给入口复用，也能让测试在每轮结束后主动回收监听。
+ */
+export function registerGlobalRuntimeErrorHandlers() {
+  const handleWindowError = (event: ErrorEvent) => {
+    const message =
+      event.error instanceof Error ? event.error.message : '页面运行时发生未捕获异常。'
+
+    void runFatalErrorHandler(createMainFatalErrorSnapshot(`页面运行异常：${message}`))
+  }
+
+  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    const reason = event.reason instanceof Error ? event.reason.message : '存在未处理的异步异常。'
+
+    void runFatalErrorHandler(createMainFatalErrorSnapshot(`异步任务执行失败：${reason}`))
+  }
+
+  window.addEventListener('error', handleWindowError)
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
+  return () => {
+    window.removeEventListener('error', handleWindowError)
+    window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+  }
+}
+
+export async function bootstrapApp() {
   const app = createApp(App)
 
   app.use(pinia)
@@ -115,6 +144,17 @@ async function bootstrapApp() {
   const appStore = useAppStore(pinia)
   const authStore = useAuthStore(pinia)
   const notificationStore = useNotificationStore(pinia)
+
+  /**
+   * `index.html` 只负责首屏抢先写入主题，真正的运行时解析与系统主题跟随从入口开始统一接管。
+   * 这里额外注册运行时 DOM 同步，是为了让头部手动切换和系统主题回调都先写 Store，
+   * 再由统一链路落到 `data-theme` / `color-scheme`，避免样式变量与图表主题出现分叉。
+   */
+  appStore.initializeThemeState()
+  const stopThemeDomSync = registerResolvedThemeDomSync(() => appStore.resolvedTheme)
+  const unregisterSystemThemeListener = registerSystemThemeListener((systemPrefersDark) => {
+    appStore.refreshResolvedTheme(systemPrefersDark)
+  })
 
   // 首屏导航守卫与 router.onError 会在路由安装阶段立即参与流程，
   // 因此必须先装配 bridge，避免首个 401 或首个路由异常发生时没有统一收口。
@@ -157,18 +197,7 @@ async function bootstrapApp() {
     )
   }
 
-  window.addEventListener('error', (event) => {
-    const message =
-      event.error instanceof Error ? event.error.message : '页面运行时发生未捕获异常。'
-
-    void runFatalErrorHandler(createMainFatalErrorSnapshot(`页面运行异常：${message}`))
-  })
-
-  window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason instanceof Error ? event.reason.message : '存在未处理的异步异常。'
-
-    void runFatalErrorHandler(createMainFatalErrorSnapshot(`异步任务执行失败：${reason}`))
-  })
+  const unregisterGlobalRuntimeHandlers = registerGlobalRuntimeErrorHandlers()
 
   /**
    * 首屏认证恢复必须发生在 router 安装之前。
@@ -185,6 +214,14 @@ async function bootstrapApp() {
   // 避免入口包体被一次性放大；后续业务组件按需引入即可。
 
   app.mount('#app')
+
+  return () => {
+    stopThemeDomSync()
+    unregisterSystemThemeListener()
+    unregisterGlobalRuntimeHandlers()
+  }
 }
 
-void bootstrapApp()
+if (import.meta.env.MODE !== 'test') {
+  void bootstrapApp()
+}

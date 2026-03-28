@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
+import { useAppStore } from '@/stores/modules/app'
 
 /**
  * 默认业务布局。
  * 所有受保护业务页统一复用该壳层，确保侧边导航、头部通知与主内容区结构保持一致。
  */
+
+const appStore = useAppStore()
 </script>
 
 <template>
-  <div class="default-layout">
+  <div class="default-layout" :data-resolved-theme="appStore.resolvedTheme">
     <aside class="default-layout__sidebar-column">
       <AppSidebar />
     </aside>
@@ -37,7 +40,7 @@ import AppSidebar from '@/components/layout/AppSidebar.vue'
   height: 100%;
   min-height: 100vh;
   overflow: hidden;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  background: linear-gradient(180deg, var(--app-page-bg) 0%, var(--app-page-bg-elevated) 100%);
 }
 
 .default-layout__sidebar-column {

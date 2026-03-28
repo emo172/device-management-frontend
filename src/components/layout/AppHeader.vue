@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Fold, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { Bell, Fold, Monitor, Moon, Setting, Sunny, SwitchButton } from '@element-plus/icons-vue'
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -7,6 +7,7 @@ import { resolveNavigationContext } from '@/components/layout/navigation'
 import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useNotificationStore } from '@/stores/modules/notification'
+import type { ThemePreference } from '@/utils/themeMode'
 
 import AppBreadcrumb from './AppBreadcrumb.vue'
 
@@ -21,9 +22,46 @@ const notificationStore = useNotificationStore()
 // 头部可能在异步未读数请求尚未结束时就被布局卸载，这里显式记录生命周期，避免 finally 里误重启轮询。
 let headerAlive = true
 
+/**
+ * 顶部主题入口只承载三态偏好切换，不在布局层自行推导额外模式，避免和 Store 的主题真相源分叉。
+ */
+const themeOptions: ReadonlyArray<{
+  preference: ThemePreference
+  label: string
+  icon: typeof Sunny
+}> = [
+  {
+    preference: 'light',
+    label: '浅色',
+    icon: Sunny,
+  },
+  {
+    preference: 'dark',
+    label: '深色',
+    icon: Moon,
+  },
+  {
+    preference: 'system',
+    label: '跟随系统',
+    icon: Monitor,
+  },
+]
+
 const displayName = computed(
   () => authStore.currentUser?.realName || authStore.currentUser?.username || '未登录用户',
 )
+
+/**
+ * 头部按钮需要同时表达“用户当前选择的偏好”和“当前页面最终生效的主题”。
+ * 这里优先展示偏好态，避免 `system` 被直接折算成明暗色后丢失“跟随系统”的业务含义。
+ */
+const currentThemeOption = computed(() => {
+  const matchedOption = themeOptions.find(
+    (option) => option.preference === appStore.themePreference,
+  )
+
+  return matchedOption ?? themeOptions[themeOptions.length - 1]!
+})
 
 /**
  * 顶部上下文统一复用共享导航解析结果。
@@ -100,6 +138,13 @@ function handleOpenPasswordTab() {
 async function handleLogout() {
   await authStore.logout()
 }
+
+/**
+ * 顶部主题入口只做偏好写入，真正的 DOM 主题切换仍由应用入口统一接管，避免头部组件重复操作 document。
+ */
+function handleThemePreferenceChange(preference: ThemePreference) {
+  appStore.setThemePreference(preference)
+}
 </script>
 
 <template>
@@ -118,6 +163,40 @@ async function handleLogout() {
         <el-button circle text class="app-header__toggle" @click="appStore.toggleSidebar()">
           <el-icon><Fold /></el-icon>
         </el-button>
+
+        <!-- 主题切换只放在头部工具区，保证通知与用户菜单继续维持独立入口，不把主题配置混入业务导航。 -->
+        <div class="app-header__theme-switcher">
+          <el-dropdown class="app-header__theme-dropdown" trigger="click">
+            <el-button
+              data-testid="theme-entry"
+              text
+              class="app-header__theme-button"
+              :data-theme-preference="appStore.themePreference"
+              :data-resolved-theme="appStore.resolvedTheme"
+            >
+              <el-icon><component :is="currentThemeOption.icon" /></el-icon>
+              <span class="app-header__theme-label">{{ currentThemeOption.label }}</span>
+            </el-button>
+
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in themeOptions"
+                  :key="option.preference"
+                  :data-testid="`theme-option-${option.preference}`"
+                  :class="{
+                    'app-header__theme-option--active':
+                      option.preference === appStore.themePreference,
+                  }"
+                  @click="handleThemePreferenceChange(option.preference)"
+                >
+                  <el-icon><component :is="option.icon" /></el-icon>
+                  <span>{{ option.label }}</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
 
         <!-- 通知入口对所有已登录角色开放，但只走通知中心统一入口，不在头部额外分叉角色快捷菜单。 -->
         <div class="app-header__notifications">
@@ -187,16 +266,20 @@ async function handleLogout() {
 .app-header__left,
 .app-header__right,
 .app-header__context,
+.app-header__theme-switcher,
 .app-header__notifications,
 .app-header__user-zone,
-.app-header__user-trigger {
+.app-header__user-trigger,
+.app-header__theme-button {
   display: flex;
 }
 
 .app-header__left,
+.app-header__theme-switcher,
 .app-header__notifications,
 .app-header__user-zone,
-.app-header__user-trigger {
+.app-header__user-trigger,
+.app-header__theme-button {
   align-items: center;
 }
 
@@ -227,6 +310,7 @@ async function handleLogout() {
 }
 
 .app-header__notifications,
+.app-header__theme-switcher,
 .app-header__user-zone {
   flex-shrink: 0;
 }
@@ -235,8 +319,34 @@ async function handleLogout() {
 .app-header__icon-button {
   width: 40px;
   height: 40px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-glass-strong);
+  color: var(--app-text-primary);
+}
+
+.app-header__theme-dropdown {
+  display: block;
+}
+
+.app-header__theme-button {
+  gap: 8px;
+  min-width: 112px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: 999px;
+  background: var(--app-surface-glass-strong);
+  box-shadow: var(--app-shadow-solid);
+  color: var(--app-text-primary);
+}
+
+.app-header__theme-label {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.app-header__theme-option--active {
+  color: var(--app-tone-brand-text-strong);
 }
 
 .app-header__user-trigger {
@@ -244,14 +354,14 @@ async function handleLogout() {
   padding: 6px 8px 6px 6px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-glass-strong);
+  box-shadow: var(--app-shadow-solid);
   color: var(--app-text-primary);
   cursor: pointer;
 }
 
 .app-header__avatar {
-  background: linear-gradient(135deg, #d97706, #f59e0b);
-  color: #fff;
+  background: linear-gradient(135deg, var(--app-tone-warning-solid), var(--app-tone-brand-solid));
+  color: var(--el-color-white);
 }
 </style>

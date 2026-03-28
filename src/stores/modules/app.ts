@@ -1,5 +1,14 @@
 import { defineStore } from 'pinia'
 
+import {
+  getStoredThemePreference,
+  getSystemPrefersDark,
+  persistThemePreference,
+  resolveThemePreference,
+  type ResolvedTheme,
+  type ThemePreference,
+} from '@/utils/themeMode'
+
 /**
  * 致命错误重试目标。
  * 第一阶段只承载错误页本身需要的最小信息：是否允许重试，以及重试时应回到哪个路由路径。
@@ -34,6 +43,8 @@ interface AppState {
   sidebarCollapsed: boolean
   loading: boolean
   fatalError: FatalErrorState | null
+  themePreference: ThemePreference
+  resolvedTheme: ResolvedTheme
 }
 
 function createDefaultState(): AppState {
@@ -41,6 +52,8 @@ function createDefaultState(): AppState {
     sidebarCollapsed: false,
     loading: false,
     fatalError: null,
+    themePreference: 'system',
+    resolvedTheme: 'light',
   }
 }
 
@@ -89,10 +102,41 @@ export const useAppStore = defineStore('app', {
     },
 
     /**
-     * 登录态切换或路由重建时恢复默认 UI，避免旧页面残留折叠态和加载态污染新会话。
+     * 应用启动时需要先从持久化偏好恢复主题，再交给入口层把最终主题写回 DOM。
+     * 这里只负责解析状态，不直接触碰文档，避免 Store 在测试或非浏览器环境承担副作用。
+     */
+    initializeThemeState() {
+      this.themePreference = getStoredThemePreference()
+      this.refreshResolvedTheme()
+    },
+
+    /**
+     * 用户显式切换主题时必须同步更新本地持久化，保证下次刷新时 `index.html` 预注入能立即命中同一偏好。
+     */
+    setThemePreference(preference: ThemePreference) {
+      this.themePreference = preference
+      persistThemePreference(preference)
+      this.refreshResolvedTheme()
+    },
+
+    /**
+     * `resolvedTheme` 是由偏好与系统环境共同推导出的运行时状态，不能单独持久化，只能实时重算。
+     */
+    refreshResolvedTheme(systemPrefersDark = getSystemPrefersDark()) {
+      this.resolvedTheme = resolveThemePreference(this.themePreference, systemPrefersDark)
+    },
+
+    /**
+     * 登录态切换或路由重建时只恢复临时 UI，主题偏好属于用户长期设置，不能随着会话重置被清空。
      */
     resetState() {
+      const preservedThemePreference = this.themePreference
+      const preservedResolvedTheme = this.resolvedTheme
+
       Object.assign(this, createDefaultState())
+
+      this.themePreference = preservedThemePreference
+      this.resolvedTheme = preservedResolvedTheme
     },
   },
 

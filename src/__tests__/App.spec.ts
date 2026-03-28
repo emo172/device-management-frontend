@@ -1,7 +1,10 @@
 import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mount } from '@vue/test-utils'
+
+import { createAppPinia } from '@/stores'
 
 const routeState = {
   name: 'Login',
@@ -82,6 +85,10 @@ vi.mock('vue-router', async (importOriginal) => {
 const App = (await import('../App.vue')).default
 
 describe('App', () => {
+  beforeEach(() => {
+    setActivePinia(createAppPinia())
+  })
+
   it.each(authRouteCases)('在 $routeName 认证路由下切换到对应 AuthLayout 左栏内容', (testCase) => {
     routeState.name = testCase.routeName
     routeState.meta = { layout: 'auth' }
