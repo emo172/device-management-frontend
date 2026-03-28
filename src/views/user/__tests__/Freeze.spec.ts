@@ -1,8 +1,28 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const userViewModules = import.meta.glob('../*.vue')
 const freezeUserMock = vi.fn()
+
+const layoutStubs = {
+  ConsoleDetailLayout: {
+    template:
+      '<div class="console-detail-layout"><div class="console-detail-layout__main"><slot name="main" /></div><aside class="console-detail-layout__aside"><slot name="aside" /></aside></div>',
+  },
+  ConsoleAsidePanel: {
+    template: '<section class="console-aside-panel"><slot /></section>',
+  },
+  ConsoleFeedbackSurface: {
+    template: '<section class="console-feedback-surface"><slot /></section>',
+  },
+}
+
+function readUserViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -47,6 +67,7 @@ describe('user freeze dialog', () => {
       },
       global: {
         stubs: {
+          ...layoutStubs,
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
@@ -93,6 +114,7 @@ describe('user freeze dialog', () => {
       },
       global: {
         stubs: {
+          ...layoutStubs,
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
@@ -142,6 +164,7 @@ describe('user freeze dialog', () => {
       },
       global: {
         stubs: {
+          ...layoutStubs,
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
@@ -181,5 +204,19 @@ describe('user freeze dialog', () => {
 
     submitDeferred.resolve()
     await flushPromises()
+  })
+
+  it('冻结弹窗源码改为消费主题 token，避免表单面板和冻结提示在深色下残留浅色硬编码', () => {
+    const source = readUserViewSource('Freeze.vue')
+
+    // 冻结弹窗承载高风险操作，必须直接锁定面板与提示区的主题 token，避免深色下出现浅色孤岛。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-danger-text)')
+    expect(source).toContain('var(--app-tone-danger-surface)')
+    expect(source).toContain('var(--app-border-soft)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

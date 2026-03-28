@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -100,6 +103,27 @@ const elementStubs = {
     name: 'ElTagStub',
     template: '<span><slot /></span>',
   }),
+  ConsolePageHero: defineComponent({
+    name: 'ConsolePageHeroStub',
+    template: '<section class="console-page-hero"><slot /><slot name="actions" /></section>',
+  }),
+  ConsoleDetailLayout: defineComponent({
+    name: 'ConsoleDetailLayoutStub',
+    template:
+      '<div class="console-detail-layout"><div class="console-detail-layout__main"><slot name="main" /></div><aside class="console-detail-layout__aside"><slot name="aside" /></aside></div>',
+  }),
+  ConsoleAsidePanel: defineComponent({
+    name: 'ConsoleAsidePanelStub',
+    template: '<section class="console-aside-panel"><slot /></section>',
+  }),
+  ConsoleFeedbackSurface: defineComponent({
+    name: 'ConsoleFeedbackSurfaceStub',
+    template: '<section class="console-feedback-surface"><slot /></section>',
+  }),
+}
+
+function readUserViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
 }
 
 describe('Profile view', () => {
@@ -211,5 +235,19 @@ describe('Profile view', () => {
     expect(wrapper.text()).not.toContain('请输入旧密码')
     expect(wrapper.text()).not.toContain('密码至少 8 位且需同时包含字母和数字')
     expect(wrapper.text()).not.toContain('两次输入的新密码不一致')
+  })
+
+  it('个人中心源码改为消费主题 token，避免资料卡和提示区在深色下保留浅色硬编码', () => {
+    const source = readUserViewSource('Profile.vue')
+
+    // 个人中心同时承载 hero、资料卡和侧栏提示，直接锁定页面级 token，避免后续回退成浅色玻璃底色。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-danger-text)')
+    expect(source).toContain('var(--app-border-soft)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

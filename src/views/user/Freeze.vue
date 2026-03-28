@@ -230,10 +230,10 @@ async function handleSubmit() {
 <style scoped lang="scss">
 .user-freeze-dialog__panel {
   padding: 24px 28px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .user-freeze-dialog__header {
@@ -251,7 +251,7 @@ async function handleSubmit() {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #b91c1c;
+  color: var(--app-tone-danger-text);
 }
 
 .user-freeze-dialog__header h2 {
@@ -291,6 +291,7 @@ async function handleSubmit() {
   align-items: flex-start;
   padding: 18px 20px;
   text-align: left;
+  background: linear-gradient(180deg, var(--app-tone-danger-surface), var(--app-surface-card));
 }
 
 .user-freeze-dialog__tip strong,
@@ -312,6 +313,6 @@ async function handleSubmit() {
 .user-freeze-dialog__error {
   margin: 8px 0 0;
   font-size: 13px;
-  color: #dc2626;
+  color: var(--app-tone-danger-text);
 }
 </style>

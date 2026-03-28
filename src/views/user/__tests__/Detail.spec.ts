@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const userViewModules = import.meta.glob('../*.vue')
 const fetchUserDetailMock = vi.fn()
 const resetCurrentManagedUserMock = vi.fn()
+
+function readUserViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
+}
 
 const routeState = {
   params: { id: 'user-2' },
@@ -76,5 +83,19 @@ describe('user detail view', () => {
     expect(fetchUserDetailMock).toHaveBeenCalledWith('user-2')
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
+  })
+
+  it('用户详情页源码改为消费主题 token，避免详情卡和风险面板在深色下残留浅色硬编码', () => {
+    const source = readUserViewSource('Detail.vue')
+
+    // 详情页需要统一收口主卡片和风险侧栏的层级语义，否则深色下最容易残留浅色背景与阴影口径。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-danger-surface)')
+    expect(source).toContain('var(--app-shadow-card)')
+    expect(source).toContain('var(--app-border-soft)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })
