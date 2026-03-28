@@ -1,40 +1,186 @@
-// 在基础设施阶段先把视觉变量收口，后续业务模块只消费变量而不直接写死颜色。
+// 主题 token 是全站视觉真相源，后续布局、业务组件与 Element Plus 都只能消费这里的语义变量。
 :root {
+  color-scheme: light;
+
+  --app-font-family-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --app-font-family-display: 'Noto Serif SC', 'Songti SC', serif;
+
+  --app-radius-lg: 28px;
+  --app-radius-md: 20px;
+  --app-radius-sm: 14px;
+  --app-glass-blur: 16px;
+
   --app-ink-950: #112636;
   --app-ink-900: #193247;
   --app-fog-50: #f4f7f8;
   --app-fog-100: #e8eef1;
-  --app-surface-glass: rgba(255, 255, 255, 0.72);
-  --app-surface-glass-strong: rgba(255, 255, 255, 0.82);
-  --app-surface-solid: #ffffff;
-  --app-border-soft: rgba(148, 163, 184, 0.18);
-  --app-border-glass: rgba(255, 255, 255, 0.54);
   --app-accent-amber: #c77b30;
   --app-accent-teal: #0f766e;
   --app-accent-blue: #2563eb;
   --app-accent-rose: #be185d;
   --app-accent-slate: #475569;
   --app-accent-violet: #7c3aed;
-  --app-font-family-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --app-font-family-display: 'Noto Serif SC', 'Songti SC', serif;
-  --app-radius-lg: 28px;
-  --app-radius-md: 20px;
-  --app-radius-sm: 14px;
+
+  // 页面、壳层与浮层分层后，后续任务切换布局背景时只需要替换 token，不再重复定义具体颜色。
+  --app-page-bg: #f4f7f8;
+  --app-page-bg-elevated: #eef3f6;
+  --app-page-accent: rgba(37, 99, 235, 0.16);
+  --app-page-accent-strong: rgba(199, 123, 48, 0.12);
+  --app-shell-bg: rgba(255, 255, 255, 0.72);
+  --app-shell-bg-strong: rgba(255, 255, 255, 0.82);
+  --app-surface-muted: #eef3f6;
+  --app-surface-card: rgba(255, 255, 255, 0.92);
+  --app-surface-card-strong: #ffffff;
+  --app-surface-overlay: rgba(255, 255, 255, 0.96);
+  --app-surface-overlay-strong: #ffffff;
+  --app-surface-glass: var(--app-shell-bg);
+  --app-surface-glass-strong: var(--app-shell-bg-strong);
+  --app-surface-solid: var(--app-surface-card-strong);
+
+  --app-text-primary: #112636;
+  --app-text-secondary: #526277;
+  --app-text-tertiary: #6b7b8d;
+  --app-text-placeholder: #8a97a8;
+  --app-text-disabled: #9ba8b6;
+
+  --app-border-soft: rgba(148, 163, 184, 0.18);
+  --app-border-subtle: rgba(148, 163, 184, 0.12);
+  --app-border-strong: rgba(82, 98, 119, 0.22);
+  --app-border-glass: rgba(255, 255, 255, 0.54);
+  --app-border-color: rgba(148, 163, 184, 0.28);
+
   --app-shadow-glass: 0 20px 42px rgba(15, 23, 42, 0.08);
   --app-shadow-solid: 0 16px 32px rgba(15, 23, 42, 0.06);
-  --app-glass-blur: 16px;
+  --app-shadow-card: 0 20px 60px rgba(15, 23, 42, 0.12);
   --app-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
 
-  // 保留旧变量别名，避免当前已存在页面在壳层重构前因变量切换而大面积失效。
-  --app-color-primary: var(--app-accent-blue);
-  --app-color-primary-soft: rgba(37, 99, 235, 0.14);
+  // 图表色板先在 token 层冻结，后续图表任务直接读取，不再到页面里各写一份 palette。
+  --app-chart-1: #2563eb;
+  --app-chart-2: #0f766e;
+  --app-chart-3: #c77b30;
+  --app-chart-4: #7c3aed;
+  --app-chart-5: #be185d;
+  --app-chart-6: #475569;
+
+  --app-tone-brand-text: #1d4ed8;
+  --app-tone-brand-text-strong: #1e40af;
+  --app-tone-brand-surface: rgba(37, 99, 235, 0.12);
+  --app-tone-brand-surface-strong: rgba(37, 99, 235, 0.2);
+  --app-tone-brand-border: rgba(37, 99, 235, 0.24);
+  --app-tone-brand-solid: #2563eb;
+
+  --app-tone-info-text: #334155;
+  --app-tone-info-text-strong: #1e293b;
+  --app-tone-info-surface: rgba(71, 85, 105, 0.12);
+  --app-tone-info-surface-strong: rgba(71, 85, 105, 0.18);
+  --app-tone-info-border: rgba(71, 85, 105, 0.24);
+  --app-tone-info-solid: #475569;
+
+  --app-tone-success-text: #0f766e;
+  --app-tone-success-text-strong: #115e59;
+  --app-tone-success-surface: rgba(15, 118, 110, 0.12);
+  --app-tone-success-surface-strong: rgba(15, 118, 110, 0.18);
+  --app-tone-success-border: rgba(15, 118, 110, 0.24);
+  --app-tone-success-solid: #0f766e;
+
+  --app-tone-warning-text: #b45309;
+  --app-tone-warning-text-strong: #92400e;
+  --app-tone-warning-surface: rgba(199, 123, 48, 0.14);
+  --app-tone-warning-surface-strong: rgba(199, 123, 48, 0.22);
+  --app-tone-warning-border: rgba(199, 123, 48, 0.26);
+  --app-tone-warning-solid: #c77b30;
+
+  --app-tone-danger-text: #be123c;
+  --app-tone-danger-text-strong: #9f1239;
+  --app-tone-danger-surface: rgba(190, 24, 93, 0.12);
+  --app-tone-danger-surface-strong: rgba(190, 24, 93, 0.2);
+  --app-tone-danger-border: rgba(190, 24, 93, 0.24);
+  --app-tone-danger-solid: #be185d;
+
+  // 兼容当前仓库里已经落地的旧变量命名，避免本任务提前触发页面级大面积联动。
+  --app-color-primary: var(--app-tone-brand-solid);
+  // 主按钮在亮暗两套品牌实色下对比度不同，因此保留独立 contrast token 给错误页与主 CTA 复用。
+  --app-color-primary-contrast: #ffffff;
+  --app-color-primary-soft: var(--app-tone-brand-surface);
   --app-color-surface: var(--app-surface-glass-strong);
-  --app-color-page-start: var(--app-fog-50);
-  --app-color-page-end: var(--app-fog-100);
-  --app-text-primary: var(--app-ink-950);
-  --app-text-secondary: #526277;
-  --app-text-placeholder: #8a97a8;
-  --app-border-color: rgba(148, 163, 184, 0.28);
-  --app-shadow-card: 0 20px 60px rgba(15, 23, 42, 0.12);
+  --app-color-page-start: var(--app-page-bg);
+  --app-color-page-end: var(--app-page-bg-elevated);
   --app-font-family: var(--app-font-family-sans);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --app-page-bg: #0f1722;
+  --app-page-bg-elevated: #16202d;
+  --app-page-accent: rgba(96, 165, 250, 0.18);
+  --app-page-accent-strong: rgba(245, 158, 11, 0.14);
+  --app-shell-bg: rgba(15, 23, 34, 0.82);
+  --app-shell-bg-strong: rgba(22, 32, 45, 0.9);
+  --app-surface-muted: #1b2735;
+  --app-surface-card: rgba(22, 32, 45, 0.94);
+  --app-surface-card-strong: #16202d;
+  --app-surface-overlay: rgba(20, 28, 40, 0.98);
+  --app-surface-overlay-strong: #1b2735;
+
+  --app-text-primary: #e7eef7;
+  --app-text-secondary: #b6c2d2;
+  --app-text-tertiary: #93a4b8;
+  --app-text-placeholder: #73859a;
+  --app-text-disabled: #607387;
+
+  --app-border-soft: rgba(148, 163, 184, 0.2);
+  --app-border-subtle: rgba(148, 163, 184, 0.16);
+  --app-border-strong: rgba(148, 163, 184, 0.3);
+  --app-border-glass: rgba(148, 163, 184, 0.24);
+  --app-border-color: rgba(148, 163, 184, 0.28);
+
+  --app-shadow-glass: 0 24px 48px rgba(2, 6, 23, 0.42);
+  --app-shadow-solid: 0 20px 40px rgba(2, 6, 23, 0.36);
+  --app-shadow-card: 0 24px 60px rgba(2, 6, 23, 0.42);
+  --app-focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.32);
+
+  --app-chart-1: #60a5fa;
+  --app-chart-2: #2dd4bf;
+  --app-chart-3: #f59e0b;
+  --app-chart-4: #a78bfa;
+  --app-chart-5: #fb7185;
+  --app-chart-6: #94a3b8;
+
+  --app-tone-brand-text: #93c5fd;
+  --app-tone-brand-text-strong: #dbeafe;
+  --app-tone-brand-surface: rgba(96, 165, 250, 0.16);
+  --app-tone-brand-surface-strong: rgba(96, 165, 250, 0.24);
+  --app-tone-brand-border: rgba(96, 165, 250, 0.32);
+  --app-tone-brand-solid: #60a5fa;
+
+  --app-tone-info-text: #cbd5e1;
+  --app-tone-info-text-strong: #e2e8f0;
+  --app-tone-info-surface: rgba(148, 163, 184, 0.16);
+  --app-tone-info-surface-strong: rgba(148, 163, 184, 0.24);
+  --app-tone-info-border: rgba(148, 163, 184, 0.28);
+  --app-tone-info-solid: #94a3b8;
+
+  --app-tone-success-text: #5eead4;
+  --app-tone-success-text-strong: #ccfbf1;
+  --app-tone-success-surface: rgba(45, 212, 191, 0.16);
+  --app-tone-success-surface-strong: rgba(45, 212, 191, 0.26);
+  --app-tone-success-border: rgba(45, 212, 191, 0.3);
+  --app-tone-success-solid: #2dd4bf;
+
+  --app-tone-warning-text: #fcd34d;
+  --app-tone-warning-text-strong: #fef3c7;
+  --app-tone-warning-surface: rgba(245, 158, 11, 0.18);
+  --app-tone-warning-surface-strong: rgba(245, 158, 11, 0.28);
+  --app-tone-warning-border: rgba(245, 158, 11, 0.32);
+  --app-tone-warning-solid: #f59e0b;
+
+  --app-tone-danger-text: #fda4af;
+  --app-tone-danger-text-strong: #ffe4e6;
+  --app-tone-danger-surface: rgba(251, 113, 133, 0.18);
+  --app-tone-danger-surface-strong: rgba(251, 113, 133, 0.28);
+  --app-tone-danger-border: rgba(251, 113, 133, 0.3);
+  --app-tone-danger-solid: #fb7185;
+
+  --app-color-primary-contrast: #0f1722;
 }

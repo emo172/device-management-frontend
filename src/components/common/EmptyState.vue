@@ -34,8 +34,9 @@ defineEmits<{
 
 <style scoped lang="scss">
 .empty-state {
-  border: 1px dashed rgba(148, 163, 184, 0.4);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px dashed var(--app-border-soft);
+  // 公共空状态默认服务多个业务域，底色保持中性 surface，避免组件先天带入 info 语义。
+  background: var(--app-surface-card-strong);
 }
 
 .empty-state__content {

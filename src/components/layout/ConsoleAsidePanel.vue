@@ -54,7 +54,7 @@ const slots = useSlots()
 
 .console-aside-panel__title {
   font-size: 18px;
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
 }
 
 .console-aside-panel__description {

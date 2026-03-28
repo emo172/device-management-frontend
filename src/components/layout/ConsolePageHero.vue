@@ -71,7 +71,7 @@ const slots = useSlots()
   font-family: var(--app-font-family-display);
   font-size: clamp(30px, 3vw, 40px);
   line-height: 1.12;
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
 }
 
 .console-page-hero__description,

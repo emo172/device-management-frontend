@@ -60,7 +60,11 @@ function handleSelect(path: string) {
 </script>
 
 <template>
-  <el-aside :width="appStore.sidebarCollapsed ? '88px' : '248px'" class="app-sidebar">
+  <el-aside
+    :width="appStore.sidebarCollapsed ? '88px' : '248px'"
+    class="app-sidebar"
+    :data-resolved-theme="appStore.resolvedTheme"
+  >
     <div class="app-sidebar__surface">
       <div class="app-sidebar__brand">
         <span class="app-sidebar__logo">DM</span>
@@ -158,7 +162,7 @@ function handleSelect(path: string) {
   overflow: hidden;
   border-radius: var(--app-radius-lg) 0 0 var(--app-radius-lg);
   background:
-    radial-gradient(circle at top, rgba(233, 180, 76, 0.16), transparent 32%),
+    radial-gradient(circle at top, var(--app-page-accent-strong), transparent 32%),
     var(--app-surface-glass);
 }
 
@@ -176,8 +180,8 @@ function handleSelect(path: string) {
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #d97706, #f59e0b);
-  color: #fff;
+  background: linear-gradient(135deg, var(--app-tone-warning-solid), var(--app-tone-brand-solid));
+  color: var(--el-color-white);
   font-size: 16px;
   font-weight: 700;
 }
@@ -235,7 +239,7 @@ function handleSelect(path: string) {
 }
 
 .app-sidebar__group.is-open .app-sidebar__group-title {
-  color: #9a3412;
+  color: var(--app-tone-warning-text-strong);
 }
 
 .app-sidebar__menu {
@@ -255,8 +259,8 @@ function handleSelect(path: string) {
 }
 
 .app-sidebar__menu :deep(.el-menu-item.is-active) {
-  background: rgba(217, 119, 6, 0.12);
-  color: #9a3412;
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text-strong);
 }
 
 .app-sidebar__menu-icon {
@@ -278,7 +282,7 @@ function handleSelect(path: string) {
 
 .app-sidebar__role-panel {
   padding: 18px 20px 22px;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  border-top: 1px solid var(--app-border-soft);
 }
 
 .app-sidebar__role-panel--collapsed {

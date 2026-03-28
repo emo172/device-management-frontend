@@ -27,6 +27,7 @@ describe('AppBreadcrumb', () => {
     })
 
     expect(wrapper.find('.app-breadcrumb__surface').exists()).toBe(true)
+    expect(wrapper.get('.app-breadcrumb__surface').attributes('data-surface-tone')).toBe('glass')
     expect(wrapper.findAll('.el-breadcrumb-item-stub')).toHaveLength(3)
     expect(wrapper.findAll('.el-breadcrumb-item-stub').map((item) => item.text())).toEqual([
       '设备与资产',
@@ -54,6 +55,7 @@ describe('AppBreadcrumb', () => {
     })
 
     expect(wrapper.find('.app-breadcrumb__surface').exists()).toBe(true)
+    expect(wrapper.get('.app-breadcrumb__surface').attributes('data-surface-tone')).toBe('glass')
     expect(wrapper.findAll('.el-breadcrumb-item-stub')).toHaveLength(0)
     expect(wrapper.text()).toBe('')
   })

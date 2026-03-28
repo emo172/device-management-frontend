@@ -16,7 +16,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div class="app-breadcrumb__surface">
+  <div class="app-breadcrumb__surface" data-surface-tone="glass">
     <el-breadcrumb class="app-breadcrumb" separator="/">
       <el-breadcrumb-item
         v-for="item in props.items"

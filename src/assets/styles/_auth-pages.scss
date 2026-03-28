@@ -32,7 +32,7 @@
     margin: 0;
     font-size: clamp(24px, 2.8vw, 30px);
     line-height: 1.12;
-    color: var(--app-ink-950);
+    color: var(--app-text-primary);
   }
 
   .auth-panel__description {
@@ -48,9 +48,9 @@
     gap: 14px;
   }
 
-  // 浅色控制台背景下仍保留输入框的实体浅底，用户才能更快识别可编辑区域，避免右栏去卡片化后输入边界变得发虚。
+  // 认证页输入区必须跟随主题切换，否则深色下会留下突兀的浅色输入底。
   .auth-form :is(.el-input__wrapper, .el-select__wrapper) {
-    background: rgba(255, 255, 255, 0.92);
+    background: var(--app-tone-brand-surface);
     border-radius: var(--app-radius-sm);
   }
 
@@ -63,13 +63,13 @@
   .auth-form__label {
     font-size: 13px;
     font-weight: 600;
-    color: var(--app-ink-950);
+    color: var(--app-text-primary);
   }
 
   .auth-form__error {
     margin: 0;
     font-size: 12px;
-    color: #dc2626;
+    color: var(--app-tone-danger-solid);
   }
 
   .auth-form__submit {
@@ -96,12 +96,12 @@
   .auth-panel__link {
     font-size: 13px;
     font-weight: 600;
-    color: var(--app-accent-teal);
+    color: var(--app-tone-brand-text);
     text-decoration: none;
   }
 
   .auth-panel__link:hover {
-    color: #115e59;
+    color: var(--app-tone-brand-text-strong);
   }
 
   @media (max-height: 820px) {

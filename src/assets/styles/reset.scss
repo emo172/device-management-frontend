@@ -11,18 +11,18 @@ html {
   font-size: 16px;
 }
 
-// 本期只保障桌面端体验，因此从全局层直接锁住最小工作宽度。
+// 本期先锁定桌面端控制台基线，同时把页面背景改成 token 消费，避免根层残留浅色专用渐变。
 body {
   margin: 0;
   min-width: 1280px;
   height: 100%;
   min-height: 100vh;
   font-family: var(--app-font-family-sans);
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(199, 123, 48, 0.12), transparent 24%),
-    linear-gradient(135deg, var(--app-fog-50), var(--app-fog-100));
+    radial-gradient(circle at top left, var(--app-page-accent), transparent 30%),
+    radial-gradient(circle at top right, var(--app-page-accent-strong), transparent 24%),
+    linear-gradient(135deg, var(--app-page-bg), var(--app-page-bg-elevated));
 }
 
 // 表单控件继承 body 上的统一字体栈，避免浏览器默认字体破坏整站视觉一致性。

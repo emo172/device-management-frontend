@@ -160,6 +160,16 @@ describe('AppSidebar', () => {
     expect(wrapper.find('.menu-stub > .tooltip-stub').exists()).toBe(false)
   })
 
+  it('侧栏壳层暴露当前解析后的主题态，供布局联动样式消费', () => {
+    const appStore = useAppStore()
+    appStore.setThemePreference('dark')
+    setCurrentUserRole(UserRole.DEVICE_ADMIN)
+
+    const wrapper = mountSidebar()
+
+    expect(wrapper.get('.app-sidebar').attributes('data-resolved-theme')).toBe('dark')
+  })
+
   it('分类管理仅对设备管理员可见', () => {
     setCurrentUserRole(UserRole.DEVICE_ADMIN)
     const deviceAdminWrapper = mountSidebar()

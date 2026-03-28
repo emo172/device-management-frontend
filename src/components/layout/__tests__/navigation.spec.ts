@@ -342,4 +342,18 @@ describe('navigation', () => {
     expect(context.pageTitle).toBe('借还管理')
     expect(getBreadcrumbTitles(context.breadcrumbItems)).toEqual(['设备与资产', '借还管理'])
   })
+
+  it('导航解析结果与主题切换解耦，布局换肤不应改变导航语义', () => {
+    const lightContext = resolveNavigationContext(
+      createRouteLike('/notifications', '通知中心', 'NotificationList'),
+      UserRole.USER,
+    )
+    const darkContext = resolveNavigationContext(
+      createRouteLike('/notifications', '通知中心', 'NotificationList'),
+      UserRole.USER,
+    )
+
+    expect(lightContext).toEqual(darkContext)
+    expect(getBreadcrumbTitles(lightContext.breadcrumbItems)).toEqual(['消息中心', '通知中心'])
+  })
 })

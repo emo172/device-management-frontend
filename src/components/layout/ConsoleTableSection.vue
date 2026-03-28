@@ -71,7 +71,7 @@ const countText = computed(() => {
 
 .console-table-section__title {
   font-size: 20px;
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
 }
 
 .console-table-section__count {
