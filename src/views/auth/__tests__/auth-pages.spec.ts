@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -112,6 +115,10 @@ function mountPage(component: object) {
   })
 }
 
+function readAuthSource(relativePath: string) {
+  return readFileSync(resolve(process.cwd(), relativePath), 'utf-8')
+}
+
 describe('auth public pages', () => {
   beforeEach(() => {
     authStoreState.loading = false
@@ -185,6 +192,29 @@ describe('auth public pages', () => {
     await flushPromises()
   })
 
+  it('登录页只接受站内相对路径 redirect，非法值回退到仪表盘', async () => {
+    routeState.query = { redirect: 'https://example.com/phishing' }
+    loginMock.mockResolvedValue(undefined)
+
+    const Login = (await import('../Login.vue')).default
+    const wrapper = mountPage(Login)
+
+    await wrapper.get('input[name="account"]').setValue('demo')
+    await wrapper.get('input[name="password"]').setValue('Password123')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
+
+    pushMock.mockReset()
+    routeState.query = { redirect: '//evil.example.com' }
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
+  })
+
   it('登录页会拦截仅输入空白的账号和密码', async () => {
     const Login = (await import('../Login.vue')).default
     const wrapper = mountPage(Login)
@@ -250,6 +280,29 @@ describe('auth public pages', () => {
       phone: '',
     })
     expect(pushMock).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('认证页源码使用主题 token 而不是浅色硬编码', () => {
+    const loginSource = readAuthSource('src/views/auth/Login.vue')
+    const registerSource = readAuthSource('src/views/auth/Register.vue')
+    const forgotPasswordSource = readAuthSource('src/views/auth/ForgotPassword.vue')
+    const resetPasswordSource = readAuthSource('src/views/auth/ResetPassword.vue')
+    const passwordResetPanelSource = readAuthSource(
+      'src/views/auth/components/PasswordResetPanel.vue',
+    )
+
+    // 认证页需要直接消费语义 token，才能保证浅色与深色都由同一套主题变量驱动。
+    expect(loginSource).toContain('var(--app-tone-brand-text)')
+    expect(loginSource).toContain('var(--app-tone-brand-text-strong)')
+    expect(passwordResetPanelSource).toContain('var(--app-border-soft)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(loginSource).not.toMatch(hardcodedColorPattern)
+    expect(registerSource).not.toMatch(hardcodedColorPattern)
+    expect(forgotPasswordSource).not.toMatch(hardcodedColorPattern)
+    expect(resetPasswordSource).not.toMatch(hardcodedColorPattern)
+    expect(passwordResetPanelSource).not.toMatch(hardcodedColorPattern)
   })
 
   it('注册请求进行中时会禁用提交并阻止重复提交', async () => {

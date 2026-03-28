@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +10,10 @@ import { useAppStore } from '@/stores/modules/app'
 
 const errorViewModules = import.meta.glob('../*.vue')
 const pushMock = vi.fn()
+
+function readError500ViewSource() {
+  return readFileSync(resolve(__dirname, '../500.vue'), 'utf-8')
+}
 
 async function loadError500View() {
   const loader = errorViewModules['../500.vue']
@@ -156,5 +163,19 @@ describe('500 error page', () => {
     expect(wrapper.text()).toContain('请返回首页后重新进入目标模块')
     expect(wrapper.find('[data-testid="retry-action"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="go-home-action"]').exists()).toBe(true)
+  })
+
+  it('500 页面源码改为消费主题 token，避免暗色主题下残留浅色次级按钮与浅色说明文案', () => {
+    const source = readError500ViewSource()
+
+    // 500 页既要保留错误来源提示，也要同时承载主次动作，源码必须直接绑定深浅两套 token，避免暗色下出现浅底按钮和浅色说明文字。
+    expect(source).toContain('var(--app-text-secondary)')
+    expect(source).toContain('var(--app-color-primary)')
+    expect(source).toContain('var(--app-tone-info-surface)')
+    expect(source).toContain('var(--app-text-primary)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(|\b(?:white|black|transparent)\b/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

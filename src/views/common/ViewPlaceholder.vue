@@ -30,10 +30,10 @@ defineProps<{
 
 .view-placeholder__surface {
   padding: 32px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid var(--app-border-soft);
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 251, 0.92));
-  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-surface-card));
+  box-shadow: var(--app-shadow-card);
 }
 
 .view-placeholder__eyebrow {
