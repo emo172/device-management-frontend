@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { defineComponent, h, inject, provide } from 'vue'
 import { mount } from '@vue/test-utils'
@@ -10,6 +12,10 @@ import { useReservationStore } from '@/stores/modules/reservation'
 
 const historyViewModules = import.meta.glob('../*.vue')
 const pushMock = vi.fn()
+
+function readReservationManageSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/reservation/manage/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -246,5 +252,72 @@ describe('reservation history manage view', () => {
       page: 2,
       size: 10,
     })
+  })
+
+  it('进入历史页时先清空共享列表上下文，避免上一页面数据短暂闪出', async () => {
+    const { module, error } = await loadHistoryView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'system-admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'system-admin-1',
+      username: 'system-admin',
+    })
+
+    const reservationStore = useReservationStore()
+    const resetListStateSpy = vi.spyOn(reservationStore, 'resetListState')
+    vi.spyOn(
+      reservationStore as typeof reservationStore & {
+        fetchManagedReservationPage?: (payload: unknown) => Promise<unknown>
+      },
+      'fetchManagedReservationPage',
+    ).mockResolvedValue({ total: 0, records: [] })
+
+    mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTag: { template: '<span><slot /></span>' },
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+        },
+        directives: {
+          loading: { mounted() {}, updated() {} },
+        },
+      },
+    })
+
+    expect(resetListStateSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('历史页源码改为消费主题 token，避免审批历史表格壳层在深色下保留浅色底', () => {
+    const source = readReservationManageSource('History.vue')
+
+    // 审批历史需要长时间核对最终状态，必须锁定 hero 和表格壳层 token，避免深色下出现难以阅读的浅色背景残留。
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-tone-info-surface)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +14,10 @@ const pushMock = vi.fn()
 const promptMock = vi.fn()
 const successMock = vi.fn()
 const reservationViewModules = import.meta.glob('../*.vue')
+
+function readReservationViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/reservation/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -137,7 +143,11 @@ describe('reservation list view', () => {
 
     const fetchReservationListSpy = vi
       .spyOn(reservationStore, 'fetchReservationList')
-      .mockResolvedValue({ total: 1, records: [reservationRecord] })
+      .mockImplementation(async () => {
+        reservationStore.list = [reservationRecord]
+        reservationStore.total = 1
+        return { total: 1, records: [reservationRecord] }
+      })
     const cancelReservationSpy = vi.spyOn(reservationStore, 'cancelReservation').mockResolvedValue(
       createReservationDetailResponse({
         status: 'CANCELLED',
@@ -385,5 +395,67 @@ describe('reservation list view', () => {
     expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('创建预约')
+  })
+
+  it('进入预约列表页时先清空共享列表上下文，避免上一页面数据短暂闪出', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const reservationStore = useReservationStore()
+    const resetListStateSpy = vi.spyOn(reservationStore, 'resetListState')
+    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({ total: 0, records: [] })
+
+    mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          ReservationCard: { template: '<article></article>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTable: { template: '<div><slot /></div>' },
+          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+        },
+        directives: {
+          loading: { mounted() {}, updated() {} },
+        },
+      },
+    })
+
+    expect(resetListStateSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('列表页源码改为消费主题 token，避免表格壳层与操作提示在深色下残留浅色渐变和固定色值', () => {
+    const source = readReservationViewSource('List.vue')
+
+    // 预约列表是高频浏览入口，必须直接锁定表格壳层、链接与状态提示 token，避免深色主题回退成浅色孤岛。
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-tone-warning-text)')
+    expect(source).toContain('var(--app-tone-brand-text)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

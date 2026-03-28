@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +18,10 @@ const { routeState } = vi.hoisted(() => ({
     current: null as { params: { id: string } } | null,
   },
 }))
+
+function readReservationViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/reservation/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -288,5 +294,19 @@ describe('reservation detail view', () => {
 
     expect(fetchReservationDetailSpy).toHaveBeenCalledWith('reservation-2')
     expect(wrapper.text()).toContain('频谱分析仪')
+  })
+
+  it('详情页源码改为消费主题 token，避免详情卡与审批侧栏在深色下残留浅色玻璃效果', () => {
+    const source = readReservationViewSource('Detail.vue')
+
+    // 详情页需要并排展示主信息和审批信息，必须锁定卡片与侧栏 token，避免深色下出现灰白块打断审批阅读。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-info-surface)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

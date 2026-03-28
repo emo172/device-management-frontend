@@ -164,6 +164,7 @@ onMounted(() => {
       eyebrow="Reservation Create"
       :title="isSystemAdmin ? '创建 / 代预约' : '创建预约'"
       description="创建页只承接角色差异与冲突回填，字段编辑和业务校验统一留在 ReservationForm 内部。"
+      class="reservation-create-page__hero"
     />
 
     <ConsoleDetailLayout>
@@ -206,6 +207,7 @@ onMounted(() => {
 
       <template #aside>
         <ConsoleAsidePanel
+          class="reservation-create-page__aside"
           title="预约约束"
           description="设备列表只保留 AVAILABLE 状态，提交阶段若命中后端冲突校验，消息会持续回填到表单直到用户调整完毕。"
         >
@@ -234,6 +236,22 @@ onMounted(() => {
   gap: 20px;
 }
 
+.reservation-create-page__hero,
+.reservation-create-page__mode-card,
+.reservation-create-page__aside {
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+}
+
+.reservation-create-page__hero {
+  background: linear-gradient(135deg, var(--app-surface-card), var(--app-tone-brand-surface));
+}
+
+.reservation-create-page__mode-card,
+.reservation-create-page__aside {
+  background: var(--app-surface-card);
+}
+
 .reservation-create-page__mode-card :deep(.el-card__header) {
   margin: 0;
   color: var(--app-text-primary);
@@ -241,6 +259,12 @@ onMounted(() => {
 
 .reservation-create-page__mode-card {
   border-radius: 28px;
+}
+
+// 创建模式卡需要在页面层固定 radio 组选中态表面，避免深色下分段按钮与卡片背景融成一片。
+.reservation-create-page__mode-card :deep(.el-radio-group),
+.reservation-create-page__mode-card :deep(.el-radio-button__inner) {
+  background: var(--app-surface-card);
 }
 
 .reservation-create-page__target-user {

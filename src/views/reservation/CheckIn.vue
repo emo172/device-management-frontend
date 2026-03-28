@@ -202,6 +202,7 @@ onUnmounted(() => {
 
         <template #aside>
           <ConsoleAsidePanel
+            class="reservation-check-in-view__aside"
             title="签到反馈"
             description="只有普通用户本人预约且处于签到窗口内时，右侧才开放提交入口，管理员始终保持只读。"
           >
@@ -234,17 +235,18 @@ onUnmounted(() => {
 }
 
 .reservation-check-in-view__card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .reservation-check-in-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+  box-shadow: var(--app-shadow-card);
 }
+
 .reservation-check-in-view__card-header span {
   margin: 0;
   color: var(--app-text-primary);
@@ -258,5 +260,26 @@ onUnmounted(() => {
 
 .reservation-check-in-view__submit {
   margin-top: 20px;
+}
+
+// 签到页反馈文案直接影响用户是否还能操作，必须锁定 alert 与描述区表面 token，避免深色下信息层级塌陷。
+.reservation-check-in-view__card :deep(.el-card__body),
+.reservation-check-in-view__card :deep(.el-descriptions__body),
+.reservation-check-in-view__card :deep(.el-descriptions__table),
+.reservation-check-in-view__aside :deep(.el-alert),
+.reservation-check-in-view__aside :deep(.el-alert__content) {
+  background: var(--app-surface-card);
+}
+
+.reservation-check-in-view__card :deep(.el-descriptions__label),
+.reservation-check-in-view__card :deep(.el-descriptions__content),
+.reservation-check-in-view__aside :deep(.el-alert) {
+  border-color: var(--app-border-soft);
+}
+
+.reservation-check-in-view__aside {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

@@ -131,6 +131,7 @@ async function handlePaginationChange(payload: { currentPage: number; pageSize: 
 }
 
 onMounted(() => {
+  reservationStore.resetListState()
   void loadPendingPage(1)
 })
 </script>
@@ -243,9 +244,9 @@ onMounted(() => {
 }
 
 .reservation-manage-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+  box-shadow: var(--app-shadow-card);
 }
 
 .reservation-manage-view__hero-actions,
@@ -257,6 +258,22 @@ onMounted(() => {
 
 .reservation-manage-view__hero-actions {
   align-self: flex-start;
+}
+
+.reservation-manage-view__table-shell {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+// 审核表格需要稳定区分待审记录与操作区，页面层锁定壳层后才能避免深色下按钮附近重新冒出默认浅底。
+.reservation-manage-view__table-shell :deep(.console-table-section__body),
+.reservation-manage-view__table-shell :deep(.el-table),
+.reservation-manage-view__table-shell :deep(.el-table__inner-wrapper),
+.reservation-manage-view__table-shell :deep(.el-table th.el-table__cell),
+.reservation-manage-view__table-shell :deep(.el-table tr),
+.reservation-manage-view__table-shell :deep(.el-table td.el-table__cell) {
+  background: var(--app-surface-card-strong);
 }
 
 .reservation-manage-view__hero h1 {

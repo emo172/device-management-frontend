@@ -168,6 +168,7 @@ onUnmounted(() => {
 
         <template #aside>
           <ConsoleAsidePanel
+            class="reservation-detail-view__aside"
             title="审批信息"
             description="审批模式快照与审批人备注必须跟详情主信息并排展示，避免用户把流程口径和最终状态分开理解。"
           >
@@ -208,17 +209,18 @@ onUnmounted(() => {
 }
 
 .reservation-detail-view__card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .reservation-detail-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+  box-shadow: var(--app-shadow-card);
 }
+
 .reservation-detail-view__card-header span {
   margin: 0;
   color: var(--app-text-primary);
@@ -232,5 +234,28 @@ onUnmounted(() => {
 
 .reservation-detail-view__card--full {
   grid-column: 1 / -1;
+}
+
+// 详情页的描述表和审批信息是深色模式最容易发白的区域，页面层显式收口后才不会被 Element Plus 默认浅色表面覆盖。
+.reservation-detail-view__card :deep(.el-card__body),
+.reservation-detail-view__card :deep(.el-descriptions__body),
+.reservation-detail-view__card :deep(.el-descriptions__table),
+.reservation-detail-view__aside :deep(.el-descriptions__body),
+.reservation-detail-view__aside :deep(.el-descriptions__table),
+.reservation-detail-view__aside :deep(.el-descriptions__cell) {
+  background: var(--app-surface-card);
+}
+
+.reservation-detail-view__card :deep(.el-descriptions__label),
+.reservation-detail-view__card :deep(.el-descriptions__content),
+.reservation-detail-view__aside :deep(.el-descriptions__label),
+.reservation-detail-view__aside :deep(.el-descriptions__content) {
+  border-color: var(--app-border-soft);
+}
+
+.reservation-detail-view__aside {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>
