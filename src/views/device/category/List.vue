@@ -113,6 +113,12 @@ onMounted(() => {
   gap: 20px;
 }
 
+.category-list-view__hero {
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card), var(--app-tone-brand-surface));
+  box-shadow: var(--app-shadow-card);
+}
+
 .category-list-view__card-header,
 .category-list-view__tree-node,
 .category-list-view__tree-meta {
@@ -141,7 +147,11 @@ onMounted(() => {
 .category-list-view__tree-node {
   width: 100%;
   gap: 16px;
-  padding: 6px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: 18px;
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .category-list-view__tree-node p {
@@ -150,5 +160,23 @@ onMounted(() => {
 
 .category-list-view__tree-meta {
   gap: 10px;
+}
+
+// 分类树节点层级多、标签密度高，页面级明确节点底色和悬浮色后，深色模式下才不会出现“树在壳层上漂白”的断层感。
+.category-list-view :deep(.el-tree) {
+  padding: 6px;
+  border-radius: 22px;
+  background: var(--app-surface-muted);
+}
+
+.category-list-view :deep(.el-tree-node__content) {
+  height: auto;
+  padding: 6px 0;
+  border-radius: 20px;
+}
+
+.category-list-view :deep(.el-tree-node__content:hover),
+.category-list-view :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: var(--app-tone-brand-surface);
 }
 </style>

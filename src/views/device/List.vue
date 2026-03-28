@@ -240,9 +240,13 @@ onMounted(() => {
 }
 
 .device-list-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(217, 119, 6, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-warning-surface)
+  );
+  box-shadow: var(--app-shadow-card);
 }
 
 .device-list-view__hero-actions,
@@ -256,33 +260,6 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.device-list-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #b45309;
-}
-
-.device-list-view__title,
-.device-list-view__table-header h2 {
-  margin: 0;
-  color: var(--app-text-primary);
-}
-
-.device-list-view__title {
-  font-size: clamp(30px, 4vw, 40px);
-}
-
-.device-list-view__description {
-  max-width: 760px;
-  margin: 14px 0 0;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--app-text-secondary);
-}
-
 .device-list-view__card-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -293,7 +270,13 @@ onMounted(() => {
   background: transparent;
   font-size: 14px;
   font-weight: 600;
-  color: #1d4ed8;
+  color: var(--app-tone-brand-text);
   cursor: pointer;
+}
+
+// 列表里的详情入口和首屏 Hero 同时承担高频导航，统一改为主题 token 才不会在深色下留下孤立亮块或固定蓝链色。
+.device-list-view__link:hover,
+.device-list-view__link:focus-visible {
+  color: var(--app-tone-brand-text-strong);
 }
 </style>

@@ -7,7 +7,6 @@ import DeviceForm from '@/components/form/DeviceForm.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
-import { DeviceStatus } from '@/enums'
 import { useCategoryStore } from '@/stores/modules/category'
 import { useDeviceStore } from '@/stores/modules/device'
 
@@ -15,14 +14,14 @@ interface DeviceFormValue {
   name: string
   deviceNumber: string
   categoryName: string
-  status: string
   location: string
   description: string
 }
 
 /**
  * 编辑设备页。
- * 页面进入时需要并行拉取分类树与设备详情，再把详情映射为可编辑表单值；提交时只走基础信息更新接口，不在此页直接承担状态流转。
+ * 页面进入时需要并行拉取分类树与设备详情，再把详情映射为可编辑表单值；
+ * 提交时只走基础信息更新接口，不在此页直接承担状态流转，避免绕过专用状态接口与状态日志链路。
  */
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +34,6 @@ const initialValue = computed<DeviceFormValue>(() => ({
   name: deviceStore.currentDevice?.name ?? '',
   deviceNumber: deviceStore.currentDevice?.deviceNumber ?? '',
   categoryName: deviceStore.currentDevice?.categoryName ?? '',
-  status: deviceStore.currentDevice?.status ?? DeviceStatus.AVAILABLE,
   location: deviceStore.currentDevice?.location ?? '',
   description: deviceStore.currentDevice?.description ?? '',
 }))
@@ -44,7 +42,6 @@ async function handleSubmit(payload: DeviceFormValue) {
   await deviceStore.updateDevice(deviceId.value, {
     name: payload.name,
     categoryName: payload.categoryName,
-    status: payload.status,
     location: payload.location,
     description: payload.description,
   })
@@ -56,6 +53,11 @@ async function handleSubmit(payload: DeviceFormValue) {
 watch(
   deviceId,
   (value) => {
+    if (!value) {
+      deviceStore.resetCurrentDevice()
+      return
+    }
+
     void deviceStore.fetchDeviceDetail(value)
   },
   { immediate: true },
@@ -76,6 +78,7 @@ onUnmounted(() => {
       eyebrow="Device Edit"
       title="编辑设备"
       description="编辑页只修改基础档案，不在这里混入状态流转和图片维护，避免单页职责膨胀。"
+      class="device-form-page__hero"
     />
 
     <ConsoleDetailLayout>
@@ -91,6 +94,7 @@ onUnmounted(() => {
 
       <template #aside>
         <ConsoleAsidePanel
+          class="device-form-page__aside"
           title="编辑说明"
           description="设备编号在编辑页保持只读，避免把历史预约与借还记录关联的主标识链路打断。"
         >
@@ -108,6 +112,20 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.device-form-page__hero,
+.device-form-page__aside {
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+}
+
+.device-form-page__hero {
+  background: linear-gradient(135deg, var(--app-surface-card), var(--app-tone-info-surface));
+}
+
+.device-form-page__aside {
+  background: var(--app-surface-card);
 }
 
 .device-form-page__note {

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +12,10 @@ import { useDeviceStore } from '@/stores/modules/device'
 
 const pushMock = vi.fn()
 const deviceViewModules = import.meta.glob('../*.vue')
+
+function readDeviceViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/device/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -129,6 +136,20 @@ describe('device list view', () => {
     expect(wrapper.text()).toContain('新增设备')
     expect(wrapper.text()).toContain('高精度示波器-admin')
     expect(wrapper.text()).toContain('/files/devices/device-1.png')
+  })
+
+  it('列表页源码改为消费主题 token，避免 hero 与表格链接在深色下残留浅色渐变和硬编码蓝色', () => {
+    const source = readDeviceViewSource('List.vue')
+
+    // 设备列表首屏和表格链接都长期暴露在高频浏览场景，必须直接锁定页面级 token，避免深色下继续透出浅底和固定蓝色。
+    expect(source).toContain('var(--app-tone-warning-surface)')
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-tone-brand-text)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 
   it('普通用户访问时不显示新增入口，并以只读模式渲染设备卡片', async () => {

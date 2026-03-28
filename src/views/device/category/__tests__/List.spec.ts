@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +12,10 @@ import { useAuthStore } from '@/stores/modules/auth'
 import { useCategoryStore } from '@/stores/modules/category'
 
 const categoryViewModules = import.meta.glob('../*.vue')
+
+function readCategoryViewSource(fileName: 'List.vue') {
+  return readFileSync(resolve(process.cwd(), `src/views/device/category/${fileName}`), 'utf-8')
+}
 
 async function loadListView() {
   const loader = categoryViewModules['../List.vue']
@@ -102,5 +109,19 @@ describe('category list view', () => {
     await wrapper.get('.category-list-view__create').trigger('click')
 
     expect(wrapper.find('.manage-visible').exists()).toBe(true)
+  })
+
+  it('分类树页源码改为消费主题 token，避免树节点和统计壳层在深色下继续贴着默认底色', () => {
+    const source = readCategoryViewSource('List.vue')
+
+    // 分类树文字密度高且包含层级关系，必须锁定树容器和节点 token，否则深色下最容易出现节点贴底与文字发灰。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-surface-muted)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

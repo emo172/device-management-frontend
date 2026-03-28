@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,6 +14,10 @@ const routeState = {
   params: { id: 'device-1' },
 }
 const deviceViewModules = import.meta.glob('../*.vue')
+
+function readDeviceViewSource(fileName: 'Create.vue' | 'Edit.vue') {
+  return readFileSync(resolve(process.cwd(), `src/views/device/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -101,7 +108,6 @@ describe('device create/edit pages', () => {
                   name: '新设备',
                   deviceNumber: 'DEV-002',
                   categoryName: '测试设备',
-                  status: 'AVAILABLE',
                   location: 'A-202',
                   description: '新设备',
                 })
@@ -128,6 +134,25 @@ describe('device create/edit pages', () => {
       description: '新设备',
     })
     expect(pushMock).toHaveBeenCalledWith('/devices/device-1')
+  })
+
+  it('Create 与 Edit 页源码改为消费主题 token，避免表单主区和侧栏在深色下退回默认白底', () => {
+    const createSource = readDeviceViewSource('Create.vue')
+    const editSource = readDeviceViewSource('Edit.vue')
+
+    // 设备创建与编辑共用同一套表单壳层，必须同时锁定主区和侧栏 token，避免只修一页后另一页在深色下继续发白。
+    expect(createSource).toContain('var(--app-tone-brand-surface)')
+    expect(createSource).toContain('var(--app-border-soft)')
+    expect(createSource).toContain('var(--app-shadow-card)')
+
+    expect(editSource).toContain('var(--app-tone-info-surface)')
+    expect(editSource).toContain('var(--app-border-soft)')
+    expect(editSource).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(createSource).not.toMatch(hardcodedColorPattern)
+    expect(editSource).not.toMatch(hardcodedColorPattern)
   })
 
   it('Edit 页面回填设备详情，并在提交后更新设备基础信息', async () => {
@@ -161,7 +186,6 @@ describe('device create/edit pages', () => {
                   name: '更新后示波器',
                   deviceNumber: 'DEV-001',
                   categoryName: '测试设备',
-                  status: 'AVAILABLE',
                   location: 'A-202',
                   description: '更新描述',
                 })
@@ -183,7 +207,6 @@ describe('device create/edit pages', () => {
     expect(deviceStore.updateDevice).toHaveBeenCalledWith('device-1', {
       name: '更新后示波器',
       categoryName: '测试设备',
-      status: 'AVAILABLE',
       location: 'A-202',
       description: '更新描述',
     })
