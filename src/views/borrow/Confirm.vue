@@ -23,7 +23,8 @@ function normalizeQueryValue(value: LocationQueryValue | LocationQueryValue[] | 
 
 /**
  * 借用确认页。
- * 后端当前没有“仅返回已批准且已签到候选预约”的专用接口，因此这里先复用预约分页接口，并在当前页内按真实状态字段本地筛选候选项。
+ * 后端当前没有“仅返回已批准且已签到候选预约”的专用接口，
+ * 因此前端需要先聚合预约分页结果，再在本地收敛出真实候选池，避免借用确认被分页盲区卡住。
  */
 const route = useRoute()
 const router = useRouter()
@@ -35,21 +36,14 @@ const remark = ref('')
 const submitting = ref(false)
 const pagination = ref({ page: 1, size: 10 })
 
-const candidateReservations = computed(() => {
-  return reservationStore.list.filter((item) => {
-    return (
-      item.status === 'APPROVED' &&
-      (item.signStatus === 'CHECKED_IN' || item.signStatus === 'CHECKED_IN_TIMEOUT')
-    )
-  })
-})
+const candidateReservations = computed(() => reservationStore.list)
 
 const selectedReservation = computed(() => {
   return candidateReservations.value.find((item) => item.id === selectedReservationId.value) ?? null
 })
 
 /**
- * 借用确认候选当前仍复用预约接口。
+ * 借用确认候选当前仍复用预约接口聚合结果。
  * 如果后端尚未补齐设备名或借用人姓名，这里必须回退到真实 ID，避免页面渲染出空标题或伪造占位文案。
  */
 function resolveReservationDeviceLabel(item: { deviceName?: string | null; deviceId: string }) {
@@ -70,20 +64,13 @@ async function loadCandidateReservations(overrides?: { page: number; size: numbe
     size: overrides?.size ?? pagination.value.size,
   }
 
-  const result = await reservationStore.fetchReservationList({
+  const result = await reservationStore.fetchBorrowCandidatePage({
     page: pagination.value.page,
     size: pagination.value.size,
   })
 
-  const currentPageCandidates = result.records.filter((item) => {
-    return (
-      item.status === 'APPROVED' &&
-      (item.signStatus === 'CHECKED_IN' || item.signStatus === 'CHECKED_IN_TIMEOUT')
-    )
-  })
-
-  if (!currentPageCandidates.some((item) => item.id === selectedReservationId.value)) {
-    selectedReservationId.value = currentPageCandidates[0]?.id ?? ''
+  if (!result.records.some((item) => item.id === selectedReservationId.value)) {
+    selectedReservationId.value = result.records[0]?.id ?? ''
   }
 }
 
@@ -126,7 +113,7 @@ onMounted(() => {
     <ConsolePageHero
       eyebrow="Confirm Borrow"
       title="借用确认"
-      description="从当前已加载的预约分页结果中筛选已批准且已签到的候选预约；等后端补齐专用筛选接口后，这里可以无缝切换为真实候选池。"
+      description="统一聚合已批准且已签到的预约候选，再按前端分页展示，避免借用确认被原始预约分页盲区卡住。"
       class="borrow-confirm-view__hero"
     >
       <template #actions>
@@ -146,16 +133,16 @@ onMounted(() => {
     </ConsolePageHero>
 
     <section class="borrow-confirm-view__notice">
-      <strong>当前页候选筛选说明</strong>
+      <strong>候选聚合说明</strong>
       <p>
-        当前仅筛选已加载页面中的预约记录；如果候选预约不在这一页，需要后端提供专用筛选接口后才能彻底消除分页盲区。
+        页面会先聚合全部已批准且已签到的预约，再在前端做候选分页；因此左侧列表只展示可正式借出的真实候选。
       </p>
     </section>
 
     <EmptyState
       v-if="!candidateReservations.length && !reservationStore.loading"
-      title="当前页没有可借出的预约"
-      description="请先确认候选预约已处于已批准且已签到状态；若数据不在当前分页，需要切换后端接口后再补齐精确筛选。"
+      title="暂无可借出的预约"
+      description="请先确认预约已处于已批准且已签到状态；若当前仍为空，说明系统里暂时没有符合借用确认条件的记录。"
       action-text="重新加载候选"
       @action="loadCandidateReservations"
     />
@@ -220,12 +207,18 @@ onMounted(() => {
                 <div>
                   <dt>设备</dt>
                   <dd>
-                    {{ resolveReservationDeviceLabel(selectedReservation) }}（{{ selectedReservation.deviceId }}）
+                    {{ resolveReservationDeviceLabel(selectedReservation) }}（{{
+                      selectedReservation.deviceId
+                    }}）
                   </dd>
                 </div>
                 <div>
                   <dt>借用人</dt>
-                  <dd>{{ resolveReservationUserLabel(selectedReservation) }}（{{ selectedReservation.userId }}）</dd>
+                  <dd>
+                    {{ resolveReservationUserLabel(selectedReservation) }}（{{
+                      selectedReservation.userId
+                    }}）
+                  </dd>
                 </div>
               </dl>
 
@@ -252,17 +245,16 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .borrow-confirm-view__hero,
 .borrow-confirm-view__notice,
 .borrow-confirm-view__candidate-panel,
 .borrow-confirm-view__detail-panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-confirm-view__hero,
@@ -296,7 +288,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
 }
 
 .borrow-confirm-view__hero h1,
@@ -310,11 +302,15 @@ onMounted(() => {
 .borrow-confirm-view__empty-tip {
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-text-secondary);
 }
 
 .borrow-confirm-view__notice {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(249, 115, 22, 0.08));
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-brand-surface),
+    var(--app-tone-warning-surface)
+  );
 }
 
 .borrow-confirm-view__candidate-list {
@@ -327,9 +323,9 @@ onMounted(() => {
   display: grid;
   gap: 8px;
   padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--app-border-soft);
   border-radius: 20px;
-  background: #fff;
+  background: var(--app-surface-card-strong);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -341,8 +337,8 @@ onMounted(() => {
 
 .borrow-confirm-view__candidate-card:hover,
 .borrow-confirm-view__candidate-card--active {
-  border-color: rgba(37, 99, 235, 0.5);
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.12);
+  border-color: var(--app-tone-brand-border);
+  box-shadow: var(--app-shadow-card);
   transform: translateY(-1px);
 }
 
@@ -354,7 +350,7 @@ onMounted(() => {
 .borrow-confirm-view__candidate-card span,
 .borrow-confirm-view__detail-list dt,
 .borrow-confirm-view__remark-field span {
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .borrow-confirm-view__detail-list {
@@ -377,9 +373,18 @@ onMounted(() => {
 .borrow-confirm-view__remark-field textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  border: 1px solid var(--app-border-strong);
   border-radius: 16px;
+  background: var(--app-surface-card-strong);
+  color: var(--app-text-primary);
   resize: vertical;
   font: inherit;
+}
+
+// 借用确认右侧说明面板承载选中详情与现场备注，页面层补一层 token，避免深色主题下因插槽内容混用而出现阅读断层。
+.borrow-confirm-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

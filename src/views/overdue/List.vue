@@ -140,7 +140,7 @@ onMounted(() => {
     <ConsolePageHero
       eyebrow="Overdue Board"
       title="逾期看板"
-      description="聚合查看逾期单据、累计逾期时长与处理结果。当前后端逾期接口仍以设备 ID、用户 ID、借还记录 ID 为主，不在前端虚构设备名与借用人姓名字段。"
+      description="聚合查看当前页逾期单据、当前页累计逾期时长与处理结果。当前后端逾期接口仍以设备 ID、用户 ID、借还记录 ID 为主，不在前端虚构设备名与借用人姓名字段。"
       class="overdue-list-view__hero"
     >
       <template #actions>
@@ -276,7 +276,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
+}
+
+.overdue-list-view__hero,
+.overdue-list-view__filter-panel,
+.overdue-list-view__table-shell {
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+}
+
+.overdue-list-view__hero {
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-danger-surface)
+  );
+}
+
+.overdue-list-view__filter-panel,
+.overdue-list-view__table-shell {
+  background: var(--app-surface-card-strong);
 }
 
 .overdue-list-view__hero,
@@ -293,7 +312,6 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.overdue-list-view__eyebrow,
 .overdue-list-view__filter-eyebrow {
   margin: 0;
   font-family: 'Fira Code', monospace;
@@ -303,26 +321,30 @@ onMounted(() => {
   text-transform: uppercase;
 }
 
-.overdue-list-view__eyebrow {
-  color: #e11d48;
+.overdue-list-view__hero :deep(.console-page-hero__eyebrow) {
+  color: var(--app-tone-danger-text);
 }
 
 .overdue-list-view__filter-eyebrow {
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
 }
 
-.overdue-list-view__hero h1,
+.overdue-list-view__hero :deep(.console-page-hero__title),
 .overdue-list-view__filter-panel h2,
 .overdue-list-view__table-header h2 {
   margin: 10px 0 0;
   font-family: 'Fira Code', monospace;
 }
 
-.overdue-list-view__hero p:not(.overdue-list-view__eyebrow) {
+.overdue-list-view__hero :deep(.console-page-hero__title) {
+  color: var(--app-tone-danger-text-strong);
+}
+
+.overdue-list-view__hero :deep(.console-page-hero__description) {
   max-width: 860px;
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-tone-danger-text);
 }
 
 .overdue-list-view__field {
@@ -333,17 +355,17 @@ onMounted(() => {
 
 .overdue-list-view__field span,
 .overdue-list-view__table-header span {
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .overdue-list-view__field select {
   min-width: 220px;
   height: 42px;
   padding: 0 12px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--app-border-strong);
   border-radius: 14px;
-  background: #fff;
-  color: #1e293b;
+  background: var(--app-surface-card);
+  color: var(--app-text-primary);
 }
 
 .overdue-list-view__table-header {
@@ -357,15 +379,22 @@ onMounted(() => {
   overflow: auto;
 }
 
+// 逾期列表同一块壳层里同时承载空态、原生表格和分页，页面层继续锁定主题 token，避免深色模式下局部区域退回浏览器默认白底。
+.overdue-list-view__table-shell :deep(.console-table-section__body),
+.overdue-list-view__table-shell :deep(.console-table-section__footer) {
+  background: var(--app-surface-card-strong);
+}
+
 .overdue-list-view__table {
   width: 100%;
   border-collapse: collapse;
+  color: var(--app-text-primary);
 }
 
 .overdue-list-view__table th,
 .overdue-list-view__table td {
   padding: 16px 12px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--app-border-soft);
   text-align: left;
   vertical-align: middle;
 }
@@ -375,7 +404,7 @@ onMounted(() => {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .overdue-list-view__link {
@@ -383,7 +412,12 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-family: 'Fira Code', monospace;
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
   cursor: pointer;
+}
+
+.overdue-list-view__link:hover,
+.overdue-list-view__link:focus-visible {
+  color: var(--app-tone-brand-text-strong);
 }
 </style>
