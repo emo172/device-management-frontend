@@ -7,6 +7,7 @@ import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.v
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
+import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
 import { createHotTimeSlotHeatmapOption, formatTimeSlotLabel } from './chartOptions'
@@ -16,13 +17,34 @@ import { createHotTimeSlotHeatmapOption, formatTimeSlotLabel } from './chartOpti
  * 热力图只表达当前统计日期各时段热度，不额外捏造周/月趋势维度，保证前端展示与后端真实契约一致。
  */
 const statisticsStore = useStatisticsStore()
+const appStore = useAppStore()
 
-const pendingDate = ref(statisticsStore.query.date || '')
-const appliedDate = ref(statisticsStore.query.date || '')
+function resolveAppliedDate() {
+  /**
+   * 热门时段接口没有单独返回 `statDate`，因此要沿用同批次总览接口返回的成功日期。
+   * 这样默认加载完成后，热门时段页也能展示真实日期，而不是继续保留错误的占位口径。
+   */
+  return statisticsStore.overview?.statDate || statisticsStore.query.date || ''
+}
 
-const heatmapOption = computed(() => createHotTimeSlotHeatmapOption(statisticsStore.hotTimeSlots))
+const pendingDate = ref(resolveAppliedDate())
+const appliedDate = ref(resolveAppliedDate())
+
+const sortedHotTimeSlots = computed(() => {
+  /**
+   * 热门时段接口没有声明返回顺序，因此页面层必须按预约总数显式排序后再取“最热门时段”。
+   * 这样即使后端返回无序数组，也不会把首项误展示成高峰时段。
+   */
+  return [...statisticsStore.hotTimeSlots].sort(
+    (left, right) => Number(right.totalReservations) - Number(left.totalReservations),
+  )
+})
+
+const heatmapOption = computed(() =>
+  createHotTimeSlotHeatmapOption(statisticsStore.hotTimeSlots, appStore.resolvedTheme),
+)
 const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
-const hottestSlot = computed(() => statisticsStore.hotTimeSlots[0] ?? null)
+const hottestSlot = computed(() => sortedHotTimeSlots.value[0] ?? null)
 
 async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
@@ -30,9 +52,9 @@ async function loadStatistics(queryDate = pendingDate.value || undefined) {
 
     /**
      * 热力图刷新期间仍沿用上一版时段分布，因此日期标签必须等到新数据写入后再切换。
-     * 这样即使请求失败，也不会把旧时段热度误标成用户刚刚选择的新日期。
+     * 热门时段页需要借助总览成功返回的日期锚定口径，避免默认加载后继续显示错误占位文案。
      */
-    appliedDate.value = queryDate ?? ''
+    appliedDate.value = resolveAppliedDate()
     pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
@@ -123,7 +145,7 @@ onMounted(() => {
             description="当前日期还没有可展示的时段热度统计。"
           />
 
-          <el-table v-else :data="statisticsStore.hotTimeSlots" stripe>
+          <el-table v-else :data="sortedHotTimeSlots" stripe>
             <el-table-column prop="timeSlot" label="时段" min-width="120">
               <template #default="scope">{{ formatTimeSlotLabel(scope.row.timeSlot) }}</template>
             </el-table-column>
@@ -170,17 +192,17 @@ onMounted(() => {
 .statistics-detail-view {
   display: grid;
   gap: 20px;
+  --statistics-tone-surface: var(--app-tone-success-surface);
+  --statistics-tone-text: var(--app-tone-success-text);
+  --statistics-tone-text-strong: var(--app-tone-success-text-strong);
+  --statistics-tone-border: var(--app-tone-success-border);
 }
 
 .statistics-detail-view__hero {
   border-radius: 28px;
-}
-
-.statistics-detail-view--heatmap .statistics-detail-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(236, 253, 245, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: var(--app-surface-card);
 }
 
 .statistics-detail-view__back-link {
@@ -191,17 +213,24 @@ onMounted(() => {
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
-  color: #047857;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(4, 120, 87, 0.16);
+  color: var(--statistics-tone-text-strong);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--statistics-tone-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__meta-pill {
   min-width: 136px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+.statistics-detail-view__hero :deep(.console-page-hero__eyebrow),
+.statistics-detail-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-text-secondary);
 }
 
 .statistics-detail-view__meta-pill span,
@@ -213,7 +242,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #047857;
+  color: var(--statistics-tone-text);
 }
 
 .statistics-detail-view__meta-pill strong,
@@ -263,11 +292,19 @@ onMounted(() => {
   color: var(--app-text-primary);
 }
 
+// 热门时段页右侧摘要主要承担峰值结论与判读说明，改成实体 token 后能避免热力图旁边再出现一块浅色孤岛。
+.statistics-detail-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
+}
+
 .statistics-detail-view__aside-card {
   padding: 18px 20px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__rule-list {

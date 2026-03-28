@@ -6,6 +6,7 @@ import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
+import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
 import {
@@ -19,20 +20,51 @@ import {
  * 当前真实接口只提供单日借出/归还聚合与排行榜，因此页面明确展示“当日对比 + TOP10”，不伪造多日趋势线。
  */
 const statisticsStore = useStatisticsStore()
+const appStore = useAppStore()
 
-const pendingDate = ref(statisticsStore.query.date || '')
-const appliedDate = ref(statisticsStore.query.date || '')
+function resolveAppliedDate() {
+  /**
+   * 借用统计接口会直接返回 `statDate`，页面要优先使用成功数据的真实日期。
+   * 这样默认加载成功后，即使没有显式点选日期，也不会继续挂着“沿用总览默认日期”的旧口径。
+   */
+  return (
+    statisticsStore.borrowStatistics?.statDate ||
+    statisticsStore.overview?.statDate ||
+    statisticsStore.query.date ||
+    ''
+  )
+}
 
-const borrowOption = computed(() => createBorrowComparisonOption(statisticsStore.borrowStatistics))
+const pendingDate = ref(resolveAppliedDate())
+const appliedDate = ref(resolveAppliedDate())
+
+const sortedDeviceRanking = computed(() => {
+  /**
+   * 借用排行榜页需要显式排序后再取 TOP1 和图表前十，避免接口顺序变化时误判最热门设备。
+   */
+  return [...statisticsStore.deviceRanking].sort(
+    (left, right) => right.totalBorrows - left.totalBorrows,
+  )
+})
+
+const sortedUserRanking = computed(() => {
+  return [...statisticsStore.userRanking].sort(
+    (left, right) => right.totalBorrows - left.totalBorrows,
+  )
+})
+
+const borrowOption = computed(() =>
+  createBorrowComparisonOption(statisticsStore.borrowStatistics, appStore.resolvedTheme),
+)
 const deviceRankingOption = computed(() =>
-  createDeviceRankingOption(statisticsStore.deviceRanking.slice(0, 10)),
+  createDeviceRankingOption(sortedDeviceRanking.value.slice(0, 10), appStore.resolvedTheme),
 )
 const userRankingOption = computed(() =>
-  createUserRankingOption(statisticsStore.userRanking.slice(0, 10)),
+  createUserRankingOption(sortedUserRanking.value.slice(0, 10), appStore.resolvedTheme),
 )
 const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
-const topDevice = computed(() => statisticsStore.deviceRanking[0] ?? null)
-const topUser = computed(() => statisticsStore.userRanking[0] ?? null)
+const topDevice = computed(() => sortedDeviceRanking.value[0] ?? null)
+const topUser = computed(() => sortedUserRanking.value[0] ?? null)
 
 async function loadStatistics(queryDate = pendingDate.value || undefined) {
   try {
@@ -40,9 +72,9 @@ async function loadStatistics(queryDate = pendingDate.value || undefined) {
 
     /**
      * 统计子页允许在请求期间继续展示上一版图表，避免切换日期时整页闪空。
-     * 因此只有新日期的数据真正落地后，才提交到页面口径与筛选器，避免旧图表挂上新日期标签。
+     * 借用统计要优先采用成功返回的 `statDate`，否则默认加载场景会把已成功的数据误标成默认文案。
      */
-    appliedDate.value = queryDate ?? ''
+    appliedDate.value = resolveAppliedDate()
     pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
@@ -198,17 +230,17 @@ onMounted(() => {
 .statistics-detail-view {
   display: grid;
   gap: 20px;
+  --statistics-tone-surface: var(--app-tone-info-surface);
+  --statistics-tone-text: var(--app-tone-info-text);
+  --statistics-tone-text-strong: var(--app-tone-info-text-strong);
+  --statistics-tone-border: var(--app-tone-info-border);
 }
 
 .statistics-detail-view__hero {
   border-radius: 28px;
-}
-
-.statistics-detail-view--borrow .statistics-detail-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(249, 115, 22, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: var(--app-surface-card);
 }
 
 .statistics-detail-view__back-link {
@@ -219,17 +251,24 @@ onMounted(() => {
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
-  color: #1d4ed8;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(29, 78, 216, 0.16);
+  color: var(--statistics-tone-text-strong);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--statistics-tone-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__meta-pill {
   min-width: 136px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+.statistics-detail-view__hero :deep(.console-page-hero__eyebrow),
+.statistics-detail-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-text-secondary);
 }
 
 .statistics-detail-view__meta-pill span,
@@ -241,7 +280,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #1d4ed8;
+  color: var(--statistics-tone-text);
 }
 
 .statistics-detail-view__meta-pill strong,
@@ -297,11 +336,19 @@ onMounted(() => {
   color: var(--app-text-primary);
 }
 
+// 借用统计右侧摘要承接榜单结论，页面层改成实体 token 后可以避免玻璃壳层把图表与结论分成两套视觉系统。
+.statistics-detail-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
+}
+
 .statistics-detail-view__aside-card {
   padding: 18px 20px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__rule-list {

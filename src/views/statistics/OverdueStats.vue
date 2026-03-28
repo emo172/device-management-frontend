@@ -7,6 +7,7 @@ import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.v
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
+import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
 import { createOverdueSummaryOption } from './chartOptions'
@@ -16,9 +17,23 @@ import { createOverdueSummaryOption } from './chartOptions'
  * 单独聚合逾期数量与逾期小时数，帮助系统管理员判断逾期风险是“数量多”还是“时长长”。
  */
 const statisticsStore = useStatisticsStore()
+const appStore = useAppStore()
 
-const pendingDate = ref(statisticsStore.query.date || '')
-const appliedDate = ref(statisticsStore.query.date || '')
+function resolveAppliedDate() {
+  /**
+   * 逾期统计接口会返回 `statDate`，因此页面日期必须优先使用最后一次成功结果。
+   * 这样系统管理员在默认加载成功后也能看到真实统计日期，而不是继续背着旧的占位文案。
+   */
+  return (
+    statisticsStore.overdueStatistics?.statDate ||
+    statisticsStore.overview?.statDate ||
+    statisticsStore.query.date ||
+    ''
+  )
+}
+
+const pendingDate = ref(resolveAppliedDate())
+const appliedDate = ref(resolveAppliedDate())
 
 const overdueCards = computed(() => [
   {
@@ -36,7 +51,9 @@ const overdueCards = computed(() => [
     accent: 'amber' as const,
   },
 ])
-const overdueOption = computed(() => createOverdueSummaryOption(statisticsStore.overdueStatistics))
+const overdueOption = computed(() =>
+  createOverdueSummaryOption(statisticsStore.overdueStatistics, appStore.resolvedTheme),
+)
 const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
 
 async function loadStatistics(queryDate = pendingDate.value || undefined) {
@@ -47,7 +64,7 @@ async function loadStatistics(queryDate = pendingDate.value || undefined) {
      * 逾期统计页允许旧卡片在刷新期间继续可见，因此必须把页面日期口径锚定在最后一次成功数据。
      * 只有新请求成功后才更新展示日期，才能避免失败场景下把旧逾期数据误标成新日期。
      */
-    appliedDate.value = queryDate ?? ''
+    appliedDate.value = resolveAppliedDate()
     pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
@@ -179,17 +196,17 @@ onMounted(() => {
 .statistics-detail-view {
   display: grid;
   gap: 20px;
+  --statistics-tone-surface: var(--app-tone-danger-surface);
+  --statistics-tone-text: var(--app-tone-danger-text);
+  --statistics-tone-text-strong: var(--app-tone-danger-text-strong);
+  --statistics-tone-border: var(--app-tone-danger-border);
 }
 
 .statistics-detail-view__hero {
   border-radius: 28px;
-}
-
-.statistics-detail-view--overdue .statistics-detail-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(249, 115, 22, 0.2), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 237, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: var(--app-surface-card);
 }
 
 .statistics-detail-view__back-link {
@@ -200,17 +217,24 @@ onMounted(() => {
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
-  color: #c2410c;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(194, 65, 12, 0.16);
+  color: var(--statistics-tone-text-strong);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--statistics-tone-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__meta-pill {
   min-width: 136px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+.statistics-detail-view__hero :deep(.console-page-hero__eyebrow),
+.statistics-detail-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-text-secondary);
 }
 
 .statistics-detail-view__meta-pill span,
@@ -222,7 +246,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c2410c;
+  color: var(--statistics-tone-text);
 }
 
 .statistics-detail-view__meta-pill strong,
@@ -276,11 +300,19 @@ onMounted(() => {
   color: var(--app-text-primary);
 }
 
+// 逾期页右侧面板承担风险判读结论，切到实体 token 后能避免危险提示在浅色玻璃底上失焦。
+.statistics-detail-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
+}
+
 .statistics-detail-view__aside-card {
   padding: 18px 20px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__rule-list {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useAppStore } from '@/stores/modules/app'
 import { BarChart, HeatmapChart, LineChart, PieChart } from 'echarts/charts'
 import {
   GridComponent,
@@ -22,6 +23,8 @@ use([
   VisualMapComponent,
 ])
 
+const appStore = useAppStore()
+
 /**
  * 统计图表面板。
  * 统一承接标题、说明和 VChart 容器，避免每个统计页反复编写同样的图表边框与布局样式。
@@ -39,7 +42,10 @@ defineProps<{
 </script>
 
 <template>
-  <section class="shared-chart-panel shared-chart-panel__surface">
+  <section
+    class="shared-chart-panel shared-chart-panel__surface"
+    :data-resolved-theme="appStore.resolvedTheme"
+  >
     <div class="shared-chart-panel__header">
       <div>
         <h2>{{ title }}</h2>
@@ -63,7 +69,8 @@ defineProps<{
   @include shell.console-solid-surface;
 
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--app-surface-solid);
+  border: 1px solid var(--app-border-subtle);
   padding: 22px;
 }
 

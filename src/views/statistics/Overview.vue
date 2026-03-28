@@ -194,32 +194,21 @@ onMounted(() => {
 }
 
 .statistics-overview-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(13, 148, 136, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: var(--app-surface-card-strong);
 }
 
-.statistics-overview-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #0f766e;
-}
-
-.statistics-overview-view__title {
-  margin: 0;
-  color: var(--app-text-primary);
-  font-size: clamp(30px, 4vw, 40px);
-}
-
-.statistics-overview-view__description {
-  max-width: 780px;
-  margin: 14px 0 0;
+.statistics-overview-view__hero :deep(.console-page-hero__eyebrow) {
   color: var(--app-text-secondary);
-  line-height: 1.8;
+}
+
+.statistics-overview-view__hero :deep(.console-page-hero__title) {
+  color: var(--app-text-primary);
+}
+
+.statistics-overview-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-text-secondary);
 }
 
 .statistics-overview-view__controls {
@@ -254,8 +243,11 @@ onMounted(() => {
   display: grid;
   gap: 10px;
   padding: 22px;
+  border: 1px solid var(--app-border-soft);
   text-decoration: none;
   color: inherit;
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-overview-view__nav-card strong {
