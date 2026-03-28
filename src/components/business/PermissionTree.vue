@@ -122,10 +122,10 @@ function handleModuleToggle(moduleItem: RolePermissionTreeModuleResponse) {
 }
 
 .permission-tree__module {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-solid);
 }
 
 .permission-tree__module-header {
@@ -134,7 +134,7 @@ function handleModuleToggle(moduleItem: RolePermissionTreeModuleResponse) {
   justify-content: space-between;
   gap: 16px;
   padding: 20px 22px 16px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid var(--app-border-soft);
 }
 
 .permission-tree__module-code {
@@ -142,7 +142,7 @@ function handleModuleToggle(moduleItem: RolePermissionTreeModuleResponse) {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
 }
 
 .permission-tree__module-meta {
@@ -155,8 +155,8 @@ function handleModuleToggle(moduleItem: RolePermissionTreeModuleResponse) {
   border: none;
   border-radius: 999px;
   padding: 10px 14px;
-  background: rgba(15, 118, 110, 0.1);
-  color: #0f766e;
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text);
   cursor: pointer;
 }
 
@@ -177,7 +177,7 @@ function handleModuleToggle(moduleItem: RolePermissionTreeModuleResponse) {
   align-items: flex-start;
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(248, 250, 252, 0.9);
+  background: var(--app-tone-info-surface);
 }
 
 .permission-tree__permission-item input {

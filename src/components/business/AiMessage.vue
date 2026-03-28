@@ -78,19 +78,31 @@ function resolveIntentTagType(intent?: string): StatusTagType {
   width: min(720px, 78%);
   padding: 18px 20px;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(255, 255, 255, 0.98));
-  border: 1px solid rgba(15, 118, 110, 0.16);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-success-surface),
+    var(--app-surface-card-strong)
+  );
+  border: 1px solid var(--app-tone-success-border);
+  box-shadow: var(--app-shadow-solid);
 }
 
 .ai-message--failed .ai-message__bubble {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(255, 255, 255, 0.98));
-  border-color: rgba(239, 68, 68, 0.2);
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-danger-surface),
+    var(--app-surface-card-strong)
+  );
+  border-color: var(--app-tone-danger-border);
 }
 
 .ai-message--assistant .ai-message__bubble {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(255, 255, 255, 0.98));
-  border-color: rgba(245, 158, 11, 0.18);
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-warning-surface),
+    var(--app-surface-card-strong)
+  );
+  border-color: var(--app-tone-warning-border);
 }
 
 .ai-message__header,

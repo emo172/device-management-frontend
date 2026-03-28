@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const businessComponentModules = import.meta.glob('../*.vue')
@@ -26,6 +28,13 @@ async function loadComponent(componentName: string) {
   }
 }
 
+function readComponentSource(componentName: string) {
+  return readFileSync(
+    resolve(process.cwd(), `src/components/business/${componentName}.vue`),
+    'utf-8',
+  )
+}
+
 const modules = [
   {
     module: 'DEVICE',
@@ -49,6 +58,17 @@ const modules = [
 ]
 
 describe('PermissionTree', () => {
+  it('权限树容器和模块操作只消费 info 与 success 语义 token', () => {
+    const source = readComponentSource('PermissionTree')
+
+    expect(source).toContain('var(--app-tone-success-text)')
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-info-surface)')
+    expect(source).not.toContain('rgba(255, 255, 255, 0.92)')
+    expect(source).not.toContain('rgba(248, 250, 252, 0.9)')
+    expect(source).not.toContain('#0f766e')
+  })
+
   it('按模块展示权限节点，并在勾选变化时回传最新 permissionIds', async () => {
     const { module, error } = await loadComponent('PermissionTree')
 

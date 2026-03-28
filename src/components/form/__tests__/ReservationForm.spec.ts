@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const formComponentModules = import.meta.glob('../*.vue')
@@ -26,6 +28,10 @@ async function loadReservationForm() {
   }
 }
 
+function readReservationFormSource() {
+  return readFileSync(resolve(process.cwd(), 'src/components/form/ReservationForm.vue'), 'utf-8')
+}
+
 const deviceOptions = [
   {
     id: 'device-1',
@@ -36,6 +42,15 @@ const deviceOptions = [
 ]
 
 describe('ReservationForm', () => {
+  it('预约表单容器只消费主题 token，不保留浅色硬编码表面', () => {
+    const source = readReservationFormSource()
+
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).not.toContain('rgba(148, 163, 184, 0.18)')
+    expect(source).not.toContain('rgba(255, 255, 255, 0.94)')
+  })
+
   it('表单合法时提交预约，并在字段变更时清空旧冲突提示', async () => {
     const { module, error } = await loadReservationForm()
 

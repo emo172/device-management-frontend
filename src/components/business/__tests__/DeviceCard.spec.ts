@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const businessComponentModules = import.meta.glob('../*.vue')
@@ -26,6 +28,13 @@ async function loadComponent(componentName: string) {
   }
 }
 
+function readComponentSource(componentName: string) {
+  return readFileSync(
+    resolve(process.cwd(), `src/components/business/${componentName}.vue`),
+    'utf-8',
+  )
+}
+
 const device = {
   id: 'device-1',
   name: '高精度示波器',
@@ -39,6 +48,17 @@ const device = {
 }
 
 describe('DeviceCard', () => {
+  it('设备卡片只消费 warning tone 语义，不保留浅色面板硬编码', () => {
+    const source = readComponentSource('DeviceCard')
+
+    expect(source).toContain('var(--app-tone-warning-surface)')
+    expect(source).toContain('var(--app-tone-warning-text)')
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).not.toContain('rgba(255, 255, 255, 0.96)')
+    expect(source).not.toContain('rgba(248, 250, 252, 0.92)')
+    expect(source).not.toContain('#b45309')
+  })
+
   it('展示设备摘要信息，并在管理员模式下暴露管理动作', async () => {
     const { module, error } = await loadComponent('DeviceCard')
 

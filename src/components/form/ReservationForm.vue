@@ -188,9 +188,26 @@ function handleSubmit() {
 <style scoped lang="scss">
 .reservation-form {
   padding: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-solid);
+}
+
+// 预约表单在深色下需要让设备选择、时间说明和备注输入共用同一实体输入表面，避免冲突提示上方出现浅色孤岛。
+.reservation-form :deep(.el-input__wrapper),
+.reservation-form :deep(.el-select__wrapper),
+.reservation-form :deep(.el-textarea__inner),
+.reservation-form :deep(.el-input-number) {
+  background: var(--app-surface-card-strong);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+}
+
+.reservation-form :deep(.el-input__wrapper:hover),
+.reservation-form :deep(.el-select__wrapper:hover),
+.reservation-form :deep(.el-textarea__inner:hover),
+.reservation-form :deep(.el-input-number:hover) {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
 .reservation-form__grid {

@@ -91,17 +91,19 @@ const showCancelHint = computed(
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/styles/console-shell' as shell;
+
 .reservation-card {
+  @include shell.console-solid-surface;
+
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92)),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 38%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    linear-gradient(180deg, var(--app-surface-card), var(--app-surface-card-strong)),
+    radial-gradient(circle at top right, var(--app-tone-brand-surface), transparent 38%);
 }
 
 .reservation-card__top,
@@ -128,7 +130,7 @@ const showCancelHint = computed(
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #0369a1;
+  color: var(--app-tone-brand-text);
 }
 
 .reservation-card__title {
@@ -157,6 +159,6 @@ const showCancelHint = computed(
 }
 
 .reservation-card__hint {
-  color: #b45309;
+  color: var(--app-tone-warning-text);
 }
 </style>

@@ -130,7 +130,28 @@ function handleSubmit() {
 .category-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-solid);
+}
+
+// 分类表单会同时承载树选择、数字输入和审批模式切换，统一输入语义后才能和设备/预约表单保持同一主题层级。
+.category-form :deep(.el-input__wrapper),
+.category-form :deep(.el-select__wrapper),
+.category-form :deep(.el-textarea__inner),
+.category-form :deep(.el-input-number) {
+  background: var(--app-surface-card-strong);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+}
+
+.category-form :deep(.el-input__wrapper:hover),
+.category-form :deep(.el-select__wrapper:hover),
+.category-form :deep(.el-textarea__inner:hover),
+.category-form :deep(.el-input-number:hover) {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
 .category-form__grid {

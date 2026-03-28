@@ -1,5 +1,7 @@
 import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const changePasswordMock = vi.fn()
@@ -57,10 +59,23 @@ const elementStubs = {
   }),
 }
 
+function readResetPasswordFormSource() {
+  return readFileSync(resolve(process.cwd(), 'src/components/form/ResetPasswordForm.vue'), 'utf-8')
+}
+
 describe('ResetPasswordForm', () => {
   beforeEach(() => {
     authStoreState.loading = false
     changePasswordMock.mockReset()
+  })
+
+  it('重置密码表单错误态与输入区只消费主题 token', () => {
+    const source = readResetPasswordFormSource()
+
+    expect(source).toContain('var(--app-tone-danger-solid)')
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-border-strong)')
+    expect(source).not.toContain('#dc2626')
   })
 
   it('会拦截无效密码表单并展示校验信息', async () => {

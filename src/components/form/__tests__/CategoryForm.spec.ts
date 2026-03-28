@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const formComponentModules = import.meta.glob('../*.vue')
@@ -26,6 +28,10 @@ async function loadCategoryForm() {
   }
 }
 
+function readCategoryFormSource() {
+  return readFileSync(resolve(process.cwd(), 'src/components/form/CategoryForm.vue'), 'utf-8')
+}
+
 const categoryOptions = [{ label: '测试设备', value: '测试设备' }]
 const nestedCategoryOptions = [
   {
@@ -36,6 +42,13 @@ const nestedCategoryOptions = [
 ]
 
 describe('CategoryForm', () => {
+  it('分类表单容器只消费主题 token，不保留浅色硬编码表面', () => {
+    const source = readCategoryFormSource()
+
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-surface-card)')
+  })
+
   it('提交分类表单时回传父级分类名称与默认审批模式', async () => {
     const { module, error } = await loadCategoryForm()
 

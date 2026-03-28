@@ -163,12 +163,27 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-solid);
 }
 
 .reset-password-form__field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+// 修改密码表单既有错误提示也有敏感输入，输入区要维持实体表面，错误态则只走 danger token，避免深色下出现旧的红色写死值。
+.reset-password-form :deep(.el-input__wrapper) {
+  background: var(--app-surface-card-strong);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+}
+
+.reset-password-form :deep(.el-input__wrapper:hover) {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
 .reset-password-form__label {
@@ -180,7 +195,7 @@ defineExpose({
 .reset-password-form__error {
   margin: 0;
   font-size: 13px;
-  color: #dc2626;
+  color: var(--app-tone-danger-solid);
 }
 
 .reset-password-form__actions {
