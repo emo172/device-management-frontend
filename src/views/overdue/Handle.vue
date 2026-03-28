@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { LocationQueryValue } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -10,6 +10,8 @@ import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import { OverdueHandleType, OverdueProcessingStatus } from '@/enums'
+import { UserRole } from '@/enums/UserRole'
+import { useAuthStore } from '@/stores/modules/auth'
 import { useOverdueStore } from '@/stores/modules/overdue'
 import { formatDateTime } from '@/utils/date'
 
@@ -31,6 +33,7 @@ function isHandleType(value: string): value is OverdueHandleType {
  */
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const overdueStore = useOverdueStore()
 
 const overdueRecordId = computed(() => String(route.params.id ?? ''))
@@ -44,7 +47,33 @@ const compensationAmount = ref('')
 const submitting = ref(false)
 
 const currentRecord = computed(() => overdueStore.currentRecord)
+const matchedCurrentRecord = computed(() => {
+  return currentRecord.value?.id === overdueRecordId.value ? currentRecord.value : null
+})
 const needsCompensation = computed(() => selectedMethod.value === OverdueHandleType.COMPENSATION)
+const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
+
+function parseCompensationAmount() {
+  const normalizedText = String(compensationAmount.value ?? '').trim()
+
+  if (!needsCompensation.value) {
+    return undefined
+  }
+
+  if (!normalizedText) {
+    ElMessage.warning('赔偿金额不能为空')
+    return null
+  }
+
+  const amount = Number(normalizedText)
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    ElMessage.warning('赔偿金额必须是大于等于 0 的有效数字')
+    return null
+  }
+
+  return amount
+}
 
 /**
  * 处理页优先展示后端已回传的真实名称；若当前环境仍只有 ID，则继续展示 ID，
@@ -71,19 +100,28 @@ function handleSelectMethod(type: OverdueHandleType) {
 }
 
 async function handleSubmit() {
-  if (!overdueRecordId.value) {
+  if (
+    !isDeviceAdmin.value ||
+    !overdueRecordId.value ||
+    !matchedCurrentRecord.value ||
+    matchedCurrentRecord.value.processingStatus === OverdueProcessingStatus.PROCESSED
+  ) {
     return
   }
 
   submitting.value = true
 
   try {
+    const normalizedCompensationAmount = parseCompensationAmount()
+
+    if (normalizedCompensationAmount === null) {
+      return
+    }
+
     const payload = {
       processingMethod: selectedMethod.value,
       remark: remark.value.trim() || undefined,
-      compensationAmount: needsCompensation.value
-        ? Number(compensationAmount.value || 0)
-        : undefined,
+      compensationAmount: normalizedCompensationAmount,
     }
 
     await overdueStore.processRecord(overdueRecordId.value, payload)
@@ -103,9 +141,18 @@ function handleBack() {
   void router.push(`/overdue/${overdueRecordId.value}`)
 }
 
-onMounted(() => {
-  void loadRecord()
-})
+watch(
+  overdueRecordId,
+  (value) => {
+    if (!value) {
+      overdueStore.resetCurrentRecord()
+      return
+    }
+
+    void loadRecord()
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   overdueStore.resetCurrentRecord()
@@ -127,7 +174,11 @@ onBeforeUnmount(() => {
             class="overdue-handle-view__submit"
             type="danger"
             :loading="submitting"
-            :disabled="currentRecord?.processingStatus === OverdueProcessingStatus.PROCESSED"
+            :disabled="
+              !isDeviceAdmin ||
+              !matchedCurrentRecord ||
+              matchedCurrentRecord.processingStatus === OverdueProcessingStatus.PROCESSED
+            "
             @click="handleSubmit"
           >
             提交处理结果
@@ -137,14 +188,14 @@ onBeforeUnmount(() => {
     </ConsolePageHero>
 
     <EmptyState
-      v-if="!currentRecord && !overdueStore.loading"
+      v-if="!matchedCurrentRecord && !overdueStore.loading"
       title="未找到待处理逾期记录"
       description="请先从逾期列表或详情页进入处理流程。"
       action-text="返回逾期列表"
       @action="router.push('/overdue')"
     />
 
-    <template v-else-if="currentRecord">
+    <template v-else-if="matchedCurrentRecord">
       <ConsoleDetailLayout class="overdue-handle-view__layout">
         <template #main>
           <article class="overdue-handle-view__summary-panel">
@@ -156,27 +207,41 @@ onBeforeUnmount(() => {
             <dl class="overdue-handle-view__detail-list">
               <div>
                 <dt>逾期记录 ID</dt>
-                <dd>{{ currentRecord.id }}</dd>
+                <dd>{{ matchedCurrentRecord.id }}</dd>
               </div>
               <div>
                 <dt>借还记录 ID</dt>
-                <dd>{{ currentRecord.borrowRecordId }}</dd>
+                <dd>{{ matchedCurrentRecord.borrowRecordId }}</dd>
               </div>
               <div>
                 <dt>设备</dt>
-                <dd>{{ displayIdentityName(currentRecord.deviceName, currentRecord.deviceId) }}</dd>
+                <dd>
+                  {{
+                    displayIdentityName(
+                      matchedCurrentRecord.deviceName,
+                      matchedCurrentRecord.deviceId,
+                    )
+                  }}
+                </dd>
               </div>
               <div>
                 <dt>用户</dt>
-                <dd>{{ displayIdentityName(currentRecord.userName, currentRecord.userId) }}</dd>
+                <dd>
+                  {{
+                    displayIdentityName(matchedCurrentRecord.userName, matchedCurrentRecord.userId)
+                  }}
+                </dd>
               </div>
               <div>
                 <dt>逾期时长</dt>
-                <dd>{{ currentRecord.overdueHours }} 小时 / {{ currentRecord.overdueDays }} 天</dd>
+                <dd>
+                  {{ matchedCurrentRecord.overdueHours }} 小时 /
+                  {{ matchedCurrentRecord.overdueDays }} 天
+                </dd>
               </div>
               <div>
                 <dt>发现时间</dt>
-                <dd>{{ formatDateTime(currentRecord.createdAt) }}</dd>
+                <dd>{{ formatDateTime(matchedCurrentRecord.createdAt) }}</dd>
               </div>
             </dl>
           </article>
@@ -236,17 +301,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .overdue-handle-view__hero,
 .overdue-handle-view__summary-panel,
 .overdue-handle-view__form-panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
   padding: 24px 28px;
+}
+
+.overdue-handle-view__hero {
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-danger-surface)
+  );
 }
 
 .overdue-handle-view__hero,
@@ -267,6 +339,7 @@ onBeforeUnmount(() => {
   margin-top: 18px;
 }
 
+.overdue-handle-view__hero :deep(.console-page-hero__eyebrow),
 .overdue-handle-view__eyebrow {
   margin: 0;
   font-family: 'Fira Code', monospace;
@@ -274,20 +347,24 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #e11d48;
+  color: var(--app-tone-danger-text);
 }
 
-.overdue-handle-view__hero h1,
+.overdue-handle-view__hero :deep(.console-page-hero__title),
 .overdue-handle-view__panel-header h2 {
   margin: 10px 0 0;
   font-family: 'Fira Code', monospace;
 }
 
-.overdue-handle-view__hero p:not(.overdue-handle-view__eyebrow) {
+.overdue-handle-view__hero :deep(.console-page-hero__title) {
+  color: var(--app-tone-danger-text-strong);
+}
+
+.overdue-handle-view__hero :deep(.console-page-hero__description) {
   max-width: 760px;
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-tone-danger-text);
 }
 
 .overdue-handle-view__detail-list {
@@ -298,26 +375,28 @@ onBeforeUnmount(() => {
 
 .overdue-handle-view__detail-list dt,
 .overdue-handle-view__field span {
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .overdue-handle-view__detail-list dd {
   margin: 6px 0 0;
   font-family: 'Fira Code', monospace;
+  color: var(--app-text-primary);
 }
 
 .overdue-handle-view__method-card {
   flex: 1;
   padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--app-border-soft);
   border-radius: 20px;
-  background: #fff;
+  background: var(--app-surface-card-strong);
+  color: var(--app-text-primary);
   cursor: pointer;
 }
 
 .overdue-handle-view__method-card--active {
-  border-color: rgba(225, 29, 72, 0.45);
-  box-shadow: 0 16px 36px rgba(225, 29, 72, 0.12);
+  border-color: var(--app-tone-danger-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .overdue-handle-view__field {
@@ -331,12 +410,21 @@ onBeforeUnmount(() => {
 .overdue-handle-view__field input {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  border: 1px solid var(--app-border-strong);
   border-radius: 16px;
+  background: var(--app-surface-card-strong);
+  color: var(--app-text-primary);
   font: inherit;
 }
 
 .overdue-handle-view__field textarea {
   resize: vertical;
+}
+
+// 处理页右侧既包含按钮态卡片也包含原生表单控件，页面层继续包一层 token，确保深色主题下决策区和左侧快照保持同一阅读层次。
+.overdue-handle-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

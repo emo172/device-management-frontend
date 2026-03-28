@@ -10,7 +10,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
-import { DeviceStatus } from '@/enums'
+import { DeviceStatus, DeviceStatusLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useDeviceStore } from '@/stores/modules/device'
@@ -27,6 +27,14 @@ const deviceId = computed(() => String(route.params.id || ''))
 const currentDevice = computed(() => deviceStore.currentDevice)
 const isDeviceAdmin = computed(() => authStore.userRole === UserRole.DEVICE_ADMIN)
 
+function getDeviceStatusText(status: string) {
+  if (status === 'RETIRED') {
+    return '已退役'
+  }
+
+  return DeviceStatusLabel[status as DeviceStatus] ?? status
+}
+
 const handleUploadChange: UploadProps['onChange'] = async (uploadFile) => {
   if (!uploadFile.raw) {
     return
@@ -39,6 +47,11 @@ const handleUploadChange: UploadProps['onChange'] = async (uploadFile) => {
 watch(
   deviceId,
   (value) => {
+    if (!value) {
+      deviceStore.resetCurrentDevice()
+      return
+    }
+
     void deviceStore.fetchDeviceDetail(value)
   },
   { immediate: true },
@@ -109,7 +122,11 @@ onUnmounted(() => {
                 :timestamp="`记录 ${index + 1}`"
               >
                 <div class="device-detail-view__timeline-item">
-                  <span>{{ log.oldStatus }} -> {{ log.newStatus }}</span>
+                  <span>
+                    {{ getDeviceStatusText(log.oldStatus) }}
+                    ->
+                    {{ getDeviceStatusText(log.newStatus) }}
+                  </span>
                   <p>{{ log.reason }}</p>
                 </div>
               </el-timeline-item>
@@ -119,6 +136,7 @@ onUnmounted(() => {
 
         <template #aside>
           <ConsoleAsidePanel
+            class="device-detail-view__aside"
             title="设备图片"
             description="图片与现场外观信息只由设备管理员补充，普通用户和系统管理员保持只读视角。"
           >
@@ -151,6 +169,12 @@ onUnmounted(() => {
         </template>
       </ConsoleDetailLayout>
     </div>
+
+    <EmptyState
+      v-else
+      title="暂无设备详情"
+      description="可以返回列表重新进入，或稍后重试详情查询。"
+    />
   </section>
 </template>
 
@@ -159,6 +183,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.device-detail-view__hero {
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+  box-shadow: var(--app-shadow-card);
 }
 
 .device-detail-view__card-header {
@@ -177,11 +207,35 @@ onUnmounted(() => {
 }
 
 .device-detail-view__card {
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .device-detail-view__card--full {
   grid-column: 1 / -1;
+}
+
+// 详情页的描述表格和时间线要在页面级再锁一层主题表面，避免 Element Plus 默认浅底在深色模式下重新冒出来。
+.device-detail-view__card :deep(.el-card__body),
+.device-detail-view__card :deep(.el-descriptions__body),
+.device-detail-view__card :deep(.el-descriptions__table),
+.device-detail-view__card :deep(.el-timeline-item__content) {
+  background: var(--app-surface-card);
+}
+
+.device-detail-view__card :deep(.el-descriptions__label),
+.device-detail-view__card :deep(.el-descriptions__content),
+.device-detail-view__card :deep(.el-timeline-item__node) {
+  border-color: var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+}
+
+.device-detail-view__aside {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .device-detail-view__upload :deep(.el-upload) {
@@ -191,7 +245,9 @@ onUnmounted(() => {
 .device-detail-view__image {
   width: 100%;
   height: 320px;
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
+  background: var(--app-surface-card-strong);
   overflow: hidden;
 }
 

@@ -47,6 +47,7 @@ function handleSubmit(payload: CategoryFormValue) {
 
 <template>
   <el-dialog
+    class="manage-category-dialog"
     :model-value="modelValue"
     title="新建设备分类"
     width="640px"
@@ -70,6 +71,16 @@ function handleSubmit(payload: CategoryFormValue) {
 .manage-category-dialog__surface {
   min-height: auto;
   align-items: stretch;
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
   text-align: left;
+}
+
+// 分类管理弹窗属于程序化浮层，需要单独锁定浮层和内部表面的主题语义，避免页面已切深色但弹窗仍像浅色叠层。
+.manage-category-dialog :deep(.el-dialog) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-overlay);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

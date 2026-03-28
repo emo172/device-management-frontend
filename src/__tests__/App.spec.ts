@@ -1,7 +1,10 @@
 import { defineComponent } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { mount } from '@vue/test-utils'
+
+import { createAppPinia } from '@/stores'
 
 const routeState = {
   name: 'Login',
@@ -69,7 +72,11 @@ vi.mock('vue-router', async (importOriginal) => {
     ...actual,
     RouterView: defineComponent({
       name: 'RouterViewStub',
-      template: '<div class="router-view-stub">路由内容</div>',
+      template: `
+        <div class="router-view-stub">
+          <div class="router-view-stub__wide-content" style="width: 2400px">路由内容</div>
+        </div>
+      `,
     }),
     useRoute: () => routeState,
   }
@@ -78,6 +85,10 @@ vi.mock('vue-router', async (importOriginal) => {
 const App = (await import('../App.vue')).default
 
 describe('App', () => {
+  beforeEach(() => {
+    setActivePinia(createAppPinia())
+  })
+
   it.each(authRouteCases)('在 $routeName 认证路由下切换到对应 AuthLayout 左栏内容', (testCase) => {
     routeState.name = testCase.routeName
     routeState.meta = { layout: 'auth' }
@@ -104,10 +115,73 @@ describe('App', () => {
     routeState.meta = {}
 
     const wrapper = mount(App)
+    const workspace = wrapper.get('.default-layout__workspace')
+    const mainShell = wrapper.get('.default-layout__main-shell')
+    const mainScroll = wrapper.get('.default-layout__main-scroll')
+    const routerView = wrapper.get('.router-view-stub')
+    const wideContent = wrapper.get('.router-view-stub__wide-content')
+    const workspaceElement = workspace.element as HTMLElement
+    const mainScrollElement = mainScroll.element as HTMLElement
+
+    // jsdom 不参与真实排版，这里手工注入滚动尺寸，显式模拟“容器变窄、内容变宽”的布局结果。
+    Object.defineProperties(mainScrollElement, {
+      clientWidth: {
+        configurable: true,
+        value: 960,
+      },
+      scrollWidth: {
+        configurable: true,
+        value: 2400,
+      },
+      scrollLeft: {
+        configurable: true,
+        writable: true,
+        value: 0,
+      },
+    })
+    Object.defineProperties(workspaceElement, {
+      clientWidth: {
+        configurable: true,
+        value: 960,
+      },
+      scrollWidth: {
+        configurable: true,
+        value: 960,
+      },
+      scrollLeft: {
+        configurable: true,
+        writable: true,
+        value: 0,
+      },
+    })
+
+    const mainScrollStyle = window.getComputedStyle(mainScroll.element)
+    const resolvedOverflowX = mainScrollStyle.overflowX || mainScrollStyle.overflow
+    const resolvedOverflowY = mainScrollStyle.overflowY || mainScrollStyle.overflow
 
     expect(wrapper.find('.default-layout').exists()).toBe(true)
-    expect(wrapper.find('.default-layout__surface').exists()).toBe(true)
-    expect(wrapper.find('.default-layout__main-shell').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__sidebar-column').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__workspace').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__header').exists()).toBe(true)
+    expect(mainScroll.classes()).toContain('default-layout__main-scroll')
+    expect(mainShell.classes()).toContain('default-layout__main-shell')
+    expect(wrapper.find('.default-layout__sidebar-column .app-sidebar-stub').exists()).toBe(true)
+    expect(wrapper.find('.default-layout__header .app-header-stub').exists()).toBe(true)
+    // 默认布局把所有业务内容收口到右侧主滚动区，因此这里同时校验骨架父子关系和滚动承接位置。
+    expect(mainScroll.element.parentElement).toBe(workspace.element)
+    expect(mainShell.element.parentElement).toBe(mainScroll.element)
+    expect(resolvedOverflowX).toBe('auto')
+    expect(resolvedOverflowY).toBe('auto')
+    expect(mainScroll.element.contains(routerView.element)).toBe(true)
+    expect(mainShell.element.contains(routerView.element)).toBe(true)
+    expect(mainScroll.element.contains(wideContent.element)).toBe(true)
+    expect(mainShell.element.contains(wideContent.element)).toBe(true)
+    expect(mainScrollElement.scrollWidth).toBeGreaterThan(mainScrollElement.clientWidth)
+    mainScrollElement.scrollLeft = 320
+    expect(mainScrollElement.scrollLeft).toBe(320)
+    expect(workspaceElement.scrollWidth).toBe(workspaceElement.clientWidth)
+    expect(workspaceElement.scrollLeft).toBe(0)
+    expect(window.getComputedStyle(wideContent.element).width).toBe('2400px')
     expect(wrapper.text()).toContain('路由内容')
   })
 

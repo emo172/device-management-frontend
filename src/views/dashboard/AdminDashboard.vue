@@ -30,7 +30,10 @@ const currentRole = computed(
 )
 const isSystemAdmin = computed(() => currentRole.value === UserRole.SYSTEM_ADMIN)
 const isSystemAdminOverviewPending = computed(() => {
-  return isSystemAdmin.value && !statisticsStore.overview
+  return isSystemAdmin.value && statisticsStore.loading && !statisticsStore.overview
+})
+const isSystemAdminOverviewUnavailable = computed(() => {
+  return isSystemAdmin.value && !statisticsStore.loading && !statisticsStore.overview
 })
 
 const displayName = computed(
@@ -101,10 +104,14 @@ const reminderDescription = computed(() => {
 
 onMounted(async () => {
   if (isSystemAdmin.value) {
-    await Promise.all([
-      statisticsStore.fetchAll(),
-      reservationStore.fetchReservationList({ page: 1, size: DASHBOARD_PAGE_SIZE }),
-    ])
+    try {
+      await Promise.all([
+        statisticsStore.fetchOverview(),
+        reservationStore.fetchReservationList({ page: 1, size: DASHBOARD_PAGE_SIZE }),
+      ])
+    } catch {
+      // 首页只展示概览口径，统计概览失败时保留系统管理员专属异常占位，不回退到设备管理员的运行态数据。
+    }
     return
   }
 
@@ -149,6 +156,17 @@ onMounted(async () => {
         <strong class="overview-value">--</strong>
         <p class="panel-note">
           当前正在等待统计接口回填今日预约、今日借用与今日逾期数据，不回退展示设备管理员运行态口径。
+        </p>
+      </article>
+      <article
+        v-else-if="isSystemAdminOverviewUnavailable"
+        class="dashboard-card overview-loading-card overview-unavailable-card"
+        data-testid="system-admin-overview-unavailable"
+      >
+        <p class="overview-title">今日统计暂不可用</p>
+        <strong class="overview-value">--</strong>
+        <p class="panel-note">
+          当前无法回填系统管理员首页概览，请稍后重试或进入统计分析页查看更完整的数据状态。
         </p>
       </article>
       <article
@@ -209,12 +227,12 @@ onMounted(async () => {
 }
 
 .dashboard-card {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-md);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)),
-    linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(249, 115, 22, 0.08));
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    linear-gradient(180deg, var(--app-surface-card-strong), var(--app-surface-card)),
+    linear-gradient(135deg, var(--app-tone-brand-surface), var(--app-tone-warning-surface));
+  box-shadow: var(--app-shadow-card);
   padding: 24px;
 }
 
@@ -223,11 +241,14 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 24px;
   align-items: flex-end;
+  background:
+    radial-gradient(circle at top right, var(--app-tone-brand-surface-strong), transparent 34%),
+    linear-gradient(140deg, var(--app-surface-card-strong), var(--app-tone-brand-surface));
 }
 
 .eyebrow {
   margin: 0;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -237,7 +258,7 @@ onMounted(async () => {
 .admin-hero h1,
 .panel-header h2 {
   margin: 8px 0 0;
-  color: #172033;
+  color: var(--app-text-primary);
 }
 
 .admin-hero h1 {
@@ -253,7 +274,7 @@ onMounted(async () => {
 .panel-note,
 .action-item span {
   margin: 12px 0 0;
-  color: #52607a;
+  color: var(--app-text-secondary);
   line-height: 1.6;
 }
 
@@ -271,8 +292,8 @@ onMounted(async () => {
   min-height: 42px;
   padding: 0 18px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #0f766e, #0ea5a6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--app-tone-success-solid), var(--app-tone-brand-solid));
+  color: var(--app-surface-card-strong);
   font-weight: 600;
 }
 
@@ -307,37 +328,38 @@ onMounted(async () => {
   height: 120px;
   border-radius: 50%;
   opacity: 0.18;
+  background: var(--overview-accent);
 }
 
 .accent-teal::after {
-  background: #14b8a6;
+  --overview-accent: var(--app-tone-success-solid);
 }
 
 .accent-green::after {
-  background: #22c55e;
+  --overview-accent: var(--app-tone-success-text);
 }
 
 .accent-amber::after {
-  background: #f59e0b;
+  --overview-accent: var(--app-tone-warning-solid);
 }
 
 .accent-rose::after {
-  background: #fb7185;
+  --overview-accent: var(--app-tone-danger-solid);
 }
 
 .accent-blue::after {
-  background: #38bdf8;
+  --overview-accent: var(--app-tone-brand-solid);
 }
 
 .overview-title {
   margin: 0;
-  color: #52607a;
+  color: var(--app-text-secondary);
 }
 
 .overview-value {
   display: block;
   margin-top: 14px;
-  color: #172033;
+  color: var(--app-text-primary);
   font-size: 34px;
   line-height: 1;
 }
@@ -356,8 +378,8 @@ onMounted(async () => {
   min-height: 28px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text-strong);
   font-size: 12px;
   font-weight: 700;
 }
@@ -373,10 +395,10 @@ onMounted(async () => {
 .action-item {
   display: block;
   padding: 16px 18px;
-  border-radius: 16px;
-  color: #172033;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text-primary);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
 }
 
 .action-item strong {

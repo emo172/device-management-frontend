@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 
-import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -197,12 +196,12 @@ onMounted(async () => {
 }
 
 .dashboard-card {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-md);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)),
-    linear-gradient(135deg, rgba(14, 116, 144, 0.08), rgba(249, 115, 22, 0.08));
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    linear-gradient(180deg, var(--app-surface-card-strong), var(--app-surface-card)),
+    linear-gradient(135deg, var(--app-tone-brand-surface), var(--app-tone-warning-surface));
+  box-shadow: var(--app-shadow-card);
   padding: 24px;
 }
 
@@ -211,12 +210,15 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 24px;
   align-items: flex-end;
+  background:
+    radial-gradient(circle at top right, var(--app-tone-brand-surface-strong), transparent 34%),
+    linear-gradient(140deg, var(--app-surface-card-strong), var(--app-tone-brand-surface));
 }
 
 .hero-card h1,
 .panel-header h2 {
   margin: 8px 0 0;
-  color: #172033;
+  color: var(--app-text-primary);
   font-size: 28px;
   line-height: 1.2;
 }
@@ -227,7 +229,7 @@ onMounted(async () => {
 
 .eyebrow {
   margin: 0;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -240,7 +242,7 @@ onMounted(async () => {
 .empty-text,
 .compact-list span {
   margin: 12px 0 0;
-  color: #52607a;
+  color: var(--app-text-secondary);
   line-height: 1.6;
 }
 
@@ -265,14 +267,14 @@ onMounted(async () => {
 
 .primary-link,
 .feature-link {
-  background: linear-gradient(135deg, #0f766e, #0ea5a6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--app-tone-success-solid), var(--app-tone-brand-solid));
+  color: var(--app-surface-card-strong);
 }
 
 .secondary-link {
-  border: 1px solid rgba(15, 118, 110, 0.18);
-  color: #0f766e;
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--app-tone-brand-border);
+  color: var(--app-tone-brand-text-strong);
+  background: var(--app-tone-brand-surface);
 }
 
 .dashboard-grid {
@@ -305,8 +307,8 @@ onMounted(async () => {
 }
 
 .badge {
-  background: rgba(15, 118, 110, 0.1);
-  color: #0f766e;
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text-strong);
 }
 
 .reservation-list,
@@ -325,9 +327,9 @@ onMounted(async () => {
   gap: 16px;
   align-items: center;
   padding: 16px 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
 }
 
 .reservation-meta {
@@ -338,13 +340,13 @@ onMounted(async () => {
 }
 
 .status-chip {
-  background: rgba(249, 115, 22, 0.12);
-  color: #c2410c;
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text-strong);
 }
 
 .sign-chip {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0369a1;
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
 }
 
 @media (max-width: 1200px) {

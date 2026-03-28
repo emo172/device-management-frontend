@@ -176,16 +176,19 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .borrow-detail-view__hero,
 .borrow-detail-view__status-card,
 .borrow-detail-view__panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
+}
+
+.borrow-detail-view__hero {
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
 }
 
 .borrow-detail-view__hero,
@@ -210,7 +213,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
 }
 
 .borrow-detail-view__hero h1,
@@ -224,7 +227,7 @@ onBeforeUnmount(() => {
   max-width: 780px;
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-text-secondary);
 }
 
 .borrow-detail-view__grid {
@@ -245,13 +248,20 @@ onBeforeUnmount(() => {
 
 .borrow-detail-view__panel dt {
   font-size: 13px;
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .borrow-detail-view__panel dd,
 .borrow-detail-view__panel p {
   margin: 6px 0 0;
   line-height: 1.7;
-  color: #0f172a;
+  color: var(--app-text-primary);
+}
+
+// 借还详情侧栏既承载状态标签又承载操作说明，页面层显式收口 token，避免深色下说明面板与主卡片产生亮度断层。
+.borrow-detail-view__grid :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

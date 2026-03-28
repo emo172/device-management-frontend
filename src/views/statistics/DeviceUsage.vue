@@ -7,6 +7,7 @@ import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.v
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
 import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
+import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
 import { createUtilizationBarOption } from './chartOptions'
@@ -16,19 +17,51 @@ import { createUtilizationBarOption } from './chartOptions'
  * 单独拆页后，系统管理员可以把“利用率排行表格”和“利用率柱状图”放在同一视图交叉查看，而不挤占总览页空间。
  */
 const statisticsStore = useStatisticsStore()
+const appStore = useAppStore()
 
-const pendingDate = ref(statisticsStore.query.date || '')
-const appliedDate = ref(statisticsStore.query.date || '')
+function resolveAppliedDate() {
+  /**
+   * 利用率接口本身没有 `statDate`，因此优先回落到本次成功批量请求里的总览日期。
+   * 这样即使系统管理员没有手动点选日期，也不会把成功加载的数据误写成“沿用总览默认日期”。
+   */
+  return statisticsStore.overview?.statDate || statisticsStore.query.date || ''
+}
+
+const pendingDate = ref(resolveAppliedDate())
+const appliedDate = ref(resolveAppliedDate())
+
+const sortedDeviceUtilization = computed(() => {
+  /**
+   * 后端当前没有承诺利用率结果已经按高到低排序，因此页面层要显式排序后再取 TOP 与图表前十。
+   * 这样可以避免接口返回顺序变化时，把错误设备展示成“最活跃设备”。
+   */
+  return [...statisticsStore.deviceUtilization].sort(
+    (left, right) => Number(right.utilizationRate) - Number(left.utilizationRate),
+  )
+})
+
+const sortedCategoryUtilization = computed(() => {
+  /**
+   * 分类利用率同样不能假设后端天然有序，因此摘要卡片与图表都统一复用显式排序后的结果。
+   */
+  return [...statisticsStore.categoryUtilization].sort(
+    (left, right) => Number(right.utilizationRate) - Number(left.utilizationRate),
+  )
+})
 
 const deviceOption = computed(() =>
-  createUtilizationBarOption('设备利用率', statisticsStore.deviceUtilization.slice(0, 10)),
+  createUtilizationBarOption(
+    '设备利用率',
+    sortedDeviceUtilization.value.slice(0, 10),
+    appStore.resolvedTheme,
+  ),
 )
 const categoryOption = computed(() =>
-  createUtilizationBarOption('分类利用率', statisticsStore.categoryUtilization),
+  createUtilizationBarOption('分类利用率', sortedCategoryUtilization.value, appStore.resolvedTheme),
 )
 const effectiveDateLabel = computed(() => appliedDate.value || '沿用总览默认日期')
-const topDevice = computed(() => statisticsStore.deviceUtilization[0] ?? null)
-const topCategory = computed(() => statisticsStore.categoryUtilization[0] ?? null)
+const topDevice = computed(() => sortedDeviceUtilization.value[0] ?? null)
+const topCategory = computed(() => sortedCategoryUtilization.value[0] ?? null)
 const tableCountText = computed(() => `设备 ${statisticsStore.deviceUtilization.length} 条`)
 
 async function loadStatistics(queryDate = pendingDate.value || undefined) {
@@ -37,9 +70,9 @@ async function loadStatistics(queryDate = pendingDate.value || undefined) {
 
     /**
      * 子页刷新期间仍会沿用上一版排行与图表，因此日期标签只能在新数据回写成功后再切换。
-     * 否则会出现“旧排行 + 新日期”的错位展示，误导系统管理员判断当天利用率。
+     * 利用率页需要借助总览接口返回的 `statDate` 锚定最后一次成功口径，避免默认加载场景继续显示错误文案。
      */
-    appliedDate.value = queryDate ?? ''
+    appliedDate.value = resolveAppliedDate()
     pendingDate.value = appliedDate.value
   } catch {
     // 请求层已经负责提示错误，这里只阻止统计子页交互链路出现未处理拒绝。
@@ -129,7 +162,7 @@ onMounted(() => {
             description="当前日期尚未生成设备利用率统计，可切回总览页更换统计日期。"
           />
 
-          <el-table v-else :data="statisticsStore.deviceUtilization" stripe>
+          <el-table v-else :data="sortedDeviceUtilization" stripe>
             <el-table-column prop="deviceName" label="设备名称" min-width="180" />
             <el-table-column prop="categoryName" label="分类" min-width="160" />
             <el-table-column prop="totalReservations" label="预约总数" min-width="120" />
@@ -203,17 +236,17 @@ onMounted(() => {
 .statistics-detail-view {
   display: grid;
   gap: 20px;
+  --statistics-tone-surface: var(--app-tone-success-surface);
+  --statistics-tone-text: var(--app-tone-success-text);
+  --statistics-tone-text-strong: var(--app-tone-success-text-strong);
+  --statistics-tone-border: var(--app-tone-success-border);
 }
 
 .statistics-detail-view__hero {
   border-radius: 28px;
-}
-
-.statistics-detail-view--utilization .statistics-detail-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(20, 184, 166, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: var(--app-surface-card);
 }
 
 .statistics-detail-view__back-link {
@@ -224,17 +257,24 @@ onMounted(() => {
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
-  color: #0f766e;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(15, 118, 110, 0.18);
+  color: var(--statistics-tone-text-strong);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--statistics-tone-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__meta-pill {
   min-width: 136px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.64);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+.statistics-detail-view__hero :deep(.console-page-hero__eyebrow),
+.statistics-detail-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-text-secondary);
 }
 
 .statistics-detail-view__meta-pill span,
@@ -246,7 +286,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--statistics-tone-text);
 }
 
 .statistics-detail-view__meta-pill strong,
@@ -302,11 +342,19 @@ onMounted(() => {
   color: var(--app-text-primary);
 }
 
+// 利用率页右侧摘要既有排行结论也有规则提醒，切到实体表面 token 后能避免玻璃壳层把阅读层次打散。
+.statistics-detail-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
+}
+
 .statistics-detail-view__aside-card {
   padding: 18px 20px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--app-surface-card-strong);
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
 }
 
 .statistics-detail-view__rule-list {

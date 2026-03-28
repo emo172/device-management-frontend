@@ -76,9 +76,14 @@ function handleReset() {
   max-width: 320px;
 }
 
-// 工具条壳层更轻玻璃，但输入内容区要更稳，避免筛选词在高亮背景里发虚。
+// 搜索栏壳层可以保持玻璃感，但输入区必须切到实体 token，避免深色主题下留下发灰的浅色输入底。
 .search-bar :deep(.el-input__wrapper) {
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--app-surface-card-strong);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+}
+
+.search-bar :deep(.el-input__wrapper:hover) {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
 .search-bar__label {

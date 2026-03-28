@@ -287,15 +287,15 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 
 .profile-page__hero {
   background:
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 32%),
-    linear-gradient(135deg, rgba(240, 253, 250, 0.96), rgba(236, 253, 245, 0.9));
+    radial-gradient(circle at top right, var(--app-tone-success-surface-strong), transparent 32%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-success-surface));
 }
 
 .profile-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .profile-card__header {
@@ -312,7 +312,7 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
 }
 
 .profile-card__title {
@@ -349,7 +349,7 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 }
 
 .profile-form__error {
-  color: #dc2626;
+  color: var(--app-tone-danger-text);
 }
 
 .profile-form__actions {
@@ -392,7 +392,11 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
   gap: 6px;
   padding: 16px 18px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(240, 249, 255, 0.9));
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-brand-surface)
+  );
 }
 
 .profile-meta__item dt {

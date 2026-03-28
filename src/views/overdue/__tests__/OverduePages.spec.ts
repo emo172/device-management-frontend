@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,6 +18,7 @@ import { useOverdueStore } from '@/stores/modules/overdue'
 
 const pushMock = vi.fn()
 const messageSuccessMock = vi.fn()
+const messageWarningMock = vi.fn()
 const routeState = {
   path: '/overdue',
   params: {} as Record<string, string>,
@@ -38,11 +42,16 @@ vi.mock('element-plus', async (importOriginal) => {
     ...actual,
     ElMessage: {
       success: messageSuccessMock,
+      warning: messageWarningMock,
     },
   }
 })
 
 const overdueViewModules = import.meta.glob('../*.vue')
+
+function readOverdueViewSource(componentName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/overdue/${componentName}`), 'utf-8')
+}
 
 async function loadOverdueView(componentName: string) {
   const loader = overdueViewModules[`../${componentName}.vue`]
@@ -153,6 +162,7 @@ describe('overdue pages', () => {
   beforeEach(() => {
     pushMock.mockReset()
     messageSuccessMock.mockReset()
+    messageWarningMock.mockReset()
     routeState.path = '/overdue'
     routeState.params = {}
     routeState.query = {}
@@ -324,6 +334,46 @@ describe('overdue pages', () => {
     })
   })
 
+  it('逾期处理页在赔偿模式下未填写赔偿金额时阻止提交', async () => {
+    const { module, error } = await loadOverdueView('Handle')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-1/handle'
+    routeState.params = { id: pendingRecord.id }
+    routeState.query = { method: OverdueHandleType.COMPENSATION }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = pendingRecord
+    vi.spyOn(overdueStore, 'fetchOverdueDetail').mockResolvedValue(pendingRecord)
+    const processRecordSpy = vi
+      .spyOn(overdueStore, 'processRecord')
+      .mockResolvedValue(processedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await wrapper.get('textarea').setValue('仍需赔偿')
+    await wrapper.get('.overdue-handle-view__submit').trigger('click')
+
+    expect(processRecordSpy).not.toHaveBeenCalled()
+    expect(messageWarningMock).toHaveBeenCalledWith('赔偿金额不能为空')
+  })
+
   it('逾期详情页会按路由主键拉取详情并展示处理状态', async () => {
     const { module, error } = await loadOverdueView('Detail')
 
@@ -362,5 +412,153 @@ describe('overdue pages', () => {
     expect(wrapper.text()).toContain(pendingRecord.deviceName)
     expect(wrapper.text()).toContain(pendingRecord.userName)
     expect(wrapper.text()).toContain(pendingRecord.borrowRecordId)
+  })
+
+  it('普通用户进入处理页时不会提交逾期处理结果', async () => {
+    const { module, error } = await loadOverdueView('Handle')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-1/handle'
+    routeState.params = { id: pendingRecord.id }
+    routeState.query = { method: OverdueHandleType.WARNING }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = pendingRecord
+    vi.spyOn(overdueStore, 'fetchOverdueDetail').mockResolvedValue(pendingRecord)
+    const processRecordSpy = vi
+      .spyOn(overdueStore, 'processRecord')
+      .mockResolvedValue(processedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await wrapper.get('.overdue-handle-view__submit').trigger('click')
+
+    expect(processRecordSpy).not.toHaveBeenCalled()
+  })
+
+  it('处理页在记录尚未加载完成时不会提交处理请求', async () => {
+    const { module, error } = await loadOverdueView('Handle')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-1/handle'
+    routeState.params = { id: pendingRecord.id }
+    routeState.query = { method: OverdueHandleType.WARNING }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = null
+    vi.spyOn(overdueStore, 'fetchOverdueDetail').mockResolvedValue(undefined as never)
+    const processRecordSpy = vi
+      .spyOn(overdueStore, 'processRecord')
+      .mockResolvedValue(processedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await wrapper.get('.overdue-handle-view__submit').trigger('click')
+
+    expect(processRecordSpy).not.toHaveBeenCalled()
+  })
+
+  it('处理页当前缓存记录与路由 id 不一致时不会沿用旧记录提交', async () => {
+    const { module, error } = await loadOverdueView('Handle')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/overdue/overdue-2/handle'
+    routeState.params = { id: 'overdue-2' }
+    routeState.query = { method: OverdueHandleType.WARNING }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    overdueStore.currentRecord = pendingRecord
+    vi.spyOn(overdueStore, 'fetchOverdueDetail').mockResolvedValue(undefined as never)
+    const processRecordSpy = vi
+      .spyOn(overdueStore, 'processRecord')
+      .mockResolvedValue(processedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await wrapper.get('.overdue-handle-view__submit').trigger('click')
+
+    expect(processRecordSpy).not.toHaveBeenCalled()
+  })
+
+  it('逾期域页面源码改为消费主题 token，避免告警红色、详情面板与处理表单在深色下残留浅色硬编码', () => {
+    const listSource = readOverdueViewSource('List.vue')
+    const detailSource = readOverdueViewSource('Detail.vue')
+    const handleSource = readOverdueViewSource('Handle.vue')
+
+    // 逾期域同时承载风险提示、详情追溯与管理员裁决，页面源码必须直接绑定语义 token，深色主题下才能维持红色告警和表单可读性。
+    expect(listSource).toContain('var(--app-tone-danger-text)')
+    expect(listSource).toContain(':deep(.console-page-hero__eyebrow)')
+    expect(listSource).toContain(':deep(.console-page-hero__title)')
+    expect(listSource).toContain('var(--app-tone-danger-text-strong)')
+    expect(listSource).toContain('var(--app-surface-card-strong)')
+    expect(listSource).toContain('var(--app-border-soft)')
+
+    expect(detailSource).toContain('var(--app-surface-card)')
+    expect(detailSource).toContain('var(--app-tone-danger-surface)')
+    expect(detailSource).toContain(':deep(.console-page-hero__eyebrow)')
+    expect(detailSource).toContain(':deep(.console-page-hero__title)')
+    expect(detailSource).toContain('var(--app-tone-danger-text-strong)')
+    expect(detailSource).toContain('var(--app-text-secondary)')
+
+    expect(handleSource).toContain('var(--app-surface-card)')
+    expect(handleSource).toContain('var(--app-tone-danger-border)')
+    expect(handleSource).toContain(':deep(.console-page-hero__eyebrow)')
+    expect(handleSource).toContain(':deep(.console-page-hero__title)')
+    expect(handleSource).toContain('var(--app-tone-danger-text-strong)')
+    expect(handleSource).toContain('var(--app-text-primary)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(listSource).not.toMatch(hardcodedColorPattern)
+    expect(detailSource).not.toMatch(hardcodedColorPattern)
+    expect(handleSource).not.toMatch(hardcodedColorPattern)
   })
 })

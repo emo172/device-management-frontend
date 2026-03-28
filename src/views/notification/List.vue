@@ -160,37 +160,23 @@ onMounted(() => {
 }
 
 .notification-list-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(13, 148, 136, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.12), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  border: 1px solid var(--app-border-soft);
+  box-shadow: var(--app-shadow-card);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
 }
 
-.notification-list-view__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0f766e;
+.notification-list-view__hero :deep(.console-page-hero__eyebrow) {
+  color: var(--app-tone-info-text);
 }
 
-.notification-list-view__title,
+.notification-list-view__hero :deep(.console-page-hero__title),
 .notification-list-view__list-header h2 {
   margin: 0;
   color: var(--app-text-primary);
 }
 
-.notification-list-view__title {
-  font-size: clamp(30px, 4vw, 40px);
-}
-
-.notification-list-view__description {
-  max-width: 760px;
-  margin: 14px 0 0;
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--app-text-secondary);
+.notification-list-view__hero :deep(.console-page-hero__description) {
+  color: var(--app-tone-info-text);
 }
 
 .notification-list-view__hero-actions,
@@ -211,6 +197,19 @@ onMounted(() => {
 
 .notification-list-view__workspace {
   align-items: stretch;
+}
+
+// 通知页左侧筛选与右侧列表会长期并排出现，页面层继续锁定不同表面 token，避免暗色下玻璃壳层重新透出浅色底。
+.notification-list-view__workspace :deep(.conversation-shell__sidebar) {
+  border-color: var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+.notification-list-view__workspace :deep(.conversation-shell__main) {
+  border-color: var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .notification-list-view__list-header {
@@ -237,6 +236,10 @@ onMounted(() => {
 
 .notification-list-view__select {
   width: 240px;
+}
+
+.notification-list-view__list-shell {
+  background: var(--app-surface-card);
 }
 
 .notification-list-view__list {

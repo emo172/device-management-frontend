@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
@@ -53,6 +56,10 @@ async function loadView(componentName: string) {
       error,
     }
   }
+}
+
+function readRolePermissionSource() {
+  return readFileSync(resolve(process.cwd(), 'src/views/admin/RolePermission.vue'), 'utf-8')
 }
 
 describe('RolePermission view', () => {
@@ -213,6 +220,20 @@ describe('RolePermission view', () => {
     await flushPromises()
 
     expect(fetchRolePermissionTreeSpy).toHaveBeenCalledWith('role-user')
+  })
+
+  it('角色权限页源码改为消费主题 token，避免 hero、角色卡和摘要卡片残留浅色硬编码', () => {
+    const source = readRolePermissionSource()
+
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-shadow-card)')
+    expect(source).not.toContain('rgba(20, 184, 166, 0.2)')
+    expect(source).not.toContain('rgba(255, 255, 255, 0.58)')
+    expect(source).not.toContain('#0f766e')
   })
 
   it('页面卸载后会清空授权上下文，并在再次进入时重新拉取权限树', async () => {

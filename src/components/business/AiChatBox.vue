@@ -31,6 +31,18 @@ function handleSubmit() {
 
   emit('submit', message)
 }
+
+/**
+ * 新会话重置必须避开进行中的请求。
+ * 否则旧请求返回时可能把结果写回已经清空的会话，造成消息列表与会话意图串话。
+ */
+function handleReset() {
+  if (props.loading) {
+    return
+  }
+
+  emit('reset')
+}
 </script>
 
 <template>
@@ -48,7 +60,7 @@ function handleSubmit() {
     <div class="ai-chat-box__footer">
       <p class="ai-chat-box__tip">回车发送，Shift + Enter 换行</p>
       <div class="ai-chat-box__actions">
-        <el-button @click="$emit('reset')">开启新会话</el-button>
+        <el-button :disabled="loading" @click="handleReset">开启新会话</el-button>
         <el-button type="primary" :disabled="!canSubmit" :loading="loading" @click="handleSubmit">
           发送消息
         </el-button>
@@ -65,7 +77,7 @@ function handleSubmit() {
 
   padding: 22px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--app-surface-card);
 }
 
 .ai-chat-box__textarea {
@@ -73,17 +85,17 @@ function handleSubmit() {
   resize: vertical;
   min-height: 120px;
   padding: 16px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--app-border-soft);
   border-radius: 18px;
   outline: none;
   font: inherit;
   line-height: 1.7;
   color: var(--app-text-primary);
-  background: rgba(248, 250, 252, 0.8);
+  background: var(--app-surface-muted);
 }
 
 .ai-chat-box__textarea:focus {
-  border-color: rgba(15, 118, 110, 0.36);
+  border-color: var(--app-tone-brand-border);
   box-shadow: var(--app-focus-ring);
 }
 

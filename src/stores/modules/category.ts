@@ -102,7 +102,9 @@ export const useCategoryStore = defineStore('category', {
 
         return {
           ...node,
-          children: [...node.children, category].sort((left, right) => left.sortOrder - right.sortOrder),
+          children: [...node.children, category].sort(
+            (left, right) => left.sortOrder - right.sortOrder,
+          ),
         }
       })
     },

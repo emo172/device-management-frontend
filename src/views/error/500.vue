@@ -124,16 +124,18 @@ async function handleRetry() {
 
 .error-view__action {
   padding: 10px 18px;
-  border: none;
+  border: 1px solid var(--app-color-primary);
   border-radius: 999px;
   background: var(--app-color-primary);
-  color: #fff;
+  color: var(--app-color-primary-contrast);
   font: inherit;
   cursor: pointer;
+  box-shadow: var(--app-shadow-solid);
 }
 
 .error-view__action--secondary {
-  background: rgba(15, 23, 42, 0.08);
+  border-color: var(--app-border-soft);
+  background: var(--app-tone-info-surface);
   color: var(--app-text-primary);
 }
 </style>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, useSlots } from 'vue'
+import { computed } from 'vue'
+
+import { useAppStore } from '@/stores/modules/app'
 
 /**
  * 反馈面板壳层。
@@ -17,13 +19,16 @@ const props = withDefaults(
   },
 )
 
-const slots = useSlots()
+const appStore = useAppStore()
 
 const activeSlotName = computed<FeedbackState>(() => props.state)
 </script>
 
 <template>
-  <section :class="['console-feedback-surface', `console-feedback-surface--${state}`]">
+  <section
+    :class="['console-feedback-surface', `console-feedback-surface--${state}`]"
+    :data-resolved-theme="appStore.resolvedTheme"
+  >
     <slot :name="activeSlotName">
       <slot />
     </slot>
@@ -53,6 +58,8 @@ const activeSlotName = computed<FeedbackState>(() => props.state)
 }
 
 .console-feedback-surface--error {
-  background: rgba(255, 255, 255, 0.8);
+  background:
+    linear-gradient(180deg, var(--app-tone-danger-surface), transparent),
+    var(--app-surface-glass-strong);
 }
 </style>

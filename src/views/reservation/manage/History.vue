@@ -53,6 +53,7 @@ async function handlePaginationChange(payload: { currentPage: number; pageSize: 
 }
 
 onMounted(() => {
+  reservationStore.resetListState()
   void loadHistoryPage(1)
 })
 </script>
@@ -135,9 +136,9 @@ onMounted(() => {
 }
 
 .reservation-manage-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+  box-shadow: var(--app-shadow-card);
 }
 
 .reservation-manage-view__hero-actions {
@@ -145,6 +146,22 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   align-self: flex-start;
+}
+
+.reservation-manage-view__table-shell {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+// 历史表格要长时间承载结果核对，页面层锁定表格壳层和单元格底色后，深色模式下才不会出现阅读断层。
+.reservation-manage-view__table-shell :deep(.console-table-section__body),
+.reservation-manage-view__table-shell :deep(.el-table),
+.reservation-manage-view__table-shell :deep(.el-table__inner-wrapper),
+.reservation-manage-view__table-shell :deep(.el-table th.el-table__cell),
+.reservation-manage-view__table-shell :deep(.el-table tr),
+.reservation-manage-view__table-shell :deep(.el-table td.el-table__cell) {
+  background: var(--app-surface-card-strong);
 }
 
 .reservation-manage-view__hero h1 {

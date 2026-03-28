@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
@@ -10,6 +13,10 @@ import { useUserStore } from '@/stores/modules/user'
 
 const pushMock = vi.fn()
 const userViewModules = import.meta.glob('../*.vue')
+
+function readUserViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -444,5 +451,19 @@ describe('user list view', () => {
     })
 
     expect(wrapper.get('[data-testid="user-freeze-trigger"]').text()).toBe('调整限制')
+  })
+
+  it('用户管理页源码改为消费主题 token，避免 hero 和用户卡在深色下残留浅色硬编码', () => {
+    const source = readUserViewSource('List.vue')
+
+    // 用户管理页同时包含 hero、摘要卡和表格壳层，这里直接锁定语义 token，避免后续把浅色卡片重新写回列表页。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-shadow-card)')
+    expect(source).toContain('var(--app-border-soft)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

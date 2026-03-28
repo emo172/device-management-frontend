@@ -264,20 +264,23 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .borrow-list-view__summary-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-list-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-brand-surface)
+  );
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-list-view__hero-actions,
@@ -303,11 +306,11 @@ onMounted(() => {
 }
 
 .borrow-list-view__eyebrow {
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
 }
 
 .borrow-list-view__filter-eyebrow {
-  color: #f97316;
+  color: var(--app-tone-warning-text);
 }
 
 .borrow-list-view__title,
@@ -325,7 +328,7 @@ onMounted(() => {
   max-width: 860px;
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-text-secondary);
 }
 
 .borrow-list-view__summary-grid {
@@ -340,7 +343,7 @@ onMounted(() => {
 .borrow-list-view__table-header span,
 .borrow-list-view__field span {
   margin: 0;
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .borrow-list-view__summary-card strong {
@@ -351,21 +354,24 @@ onMounted(() => {
 }
 
 .borrow-list-view__summary-card--amber strong {
-  color: #d97706;
+  color: var(--app-tone-warning-text);
 }
 
 .borrow-list-view__summary-card--emerald strong {
-  color: #059669;
+  color: var(--app-tone-success-text);
 }
 
 .borrow-list-view__summary-card--rose strong {
-  color: #e11d48;
+  color: var(--app-tone-danger-text);
 }
 
 .borrow-list-view__filter-panel {
   display: flex;
   justify-content: space-between;
   gap: 24px;
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-list-view__filter-form {
@@ -384,10 +390,16 @@ onMounted(() => {
   min-width: 220px;
   height: 42px;
   padding: 0 12px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--app-border-strong);
   border-radius: 14px;
-  background: #fff;
-  color: #1e293b;
+  background: var(--app-surface-card);
+  color: var(--app-text-primary);
+}
+
+.borrow-list-view__table-shell {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-list-view__table-header {
@@ -401,15 +413,22 @@ onMounted(() => {
   overflow: auto;
 }
 
+// 借还列表在深色模式下同时包住空态、原生表格和分页，页面层显式锁定壳层 token，避免局部区域退回浏览器默认白底。
+.borrow-list-view__table-shell :deep(.console-table-section__body),
+.borrow-list-view__table-shell :deep(.console-table-section__footer) {
+  background: var(--app-surface-card-strong);
+}
+
 .borrow-list-view__table {
   width: 100%;
   border-collapse: collapse;
+  color: var(--app-text-primary);
 }
 
 .borrow-list-view__table th,
 .borrow-list-view__table td {
   padding: 16px 12px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--app-border-soft);
   text-align: left;
   vertical-align: middle;
 }
@@ -419,7 +438,7 @@ onMounted(() => {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .borrow-list-view__link {
@@ -427,7 +446,12 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-family: 'Fira Code', monospace;
-  color: #2563eb;
+  color: var(--app-tone-brand-text);
   cursor: pointer;
+}
+
+.borrow-list-view__link:hover,
+.borrow-list-view__link:focus-visible {
+  color: var(--app-tone-brand-text-strong);
 }
 </style>

@@ -115,6 +115,7 @@ function canShowCancelHint(reservation: ReservationListItemResponse) {
 }
 
 onMounted(() => {
+  reservationStore.resetListState()
   void loadReservationList({ page: 1, size: 10 })
 })
 </script>
@@ -258,9 +259,13 @@ onMounted(() => {
 }
 
 .reservation-list-view__hero {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+  border: 1px solid var(--app-border-soft);
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-brand-surface)
+  );
+  box-shadow: var(--app-shadow-card);
 }
 
 .reservation-list-view__hero-actions,
@@ -280,6 +285,22 @@ onMounted(() => {
   line-height: 1.7;
 }
 
+.reservation-list-view__table-shell {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card-strong);
+  box-shadow: var(--app-shadow-card);
+}
+
+// 预约列表同时承载表格、空态和操作入口，页面层要再锁一次表面 token，避免深色下回退到组件库默认浅底。
+.reservation-list-view__table-shell :deep(.console-table-section__body),
+.reservation-list-view__table-shell :deep(.el-table),
+.reservation-list-view__table-shell :deep(.el-table__inner-wrapper),
+.reservation-list-view__table-shell :deep(.el-table th.el-table__cell),
+.reservation-list-view__table-shell :deep(.el-table tr),
+.reservation-list-view__table-shell :deep(.el-table td.el-table__cell) {
+  background: var(--app-surface-card-strong);
+}
+
 .reservation-list-view__hero-actions {
   align-self: flex-start;
 }
@@ -290,7 +311,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #0369a1;
+  color: var(--app-tone-brand-text);
 }
 
 .reservation-list-view__title,
@@ -317,11 +338,7 @@ onMounted(() => {
 
 .reservation-list-view__hint {
   font-size: 13px;
-  color: var(--app-text-secondary);
-}
-
-.reservation-list-view__hint {
-  color: #b45309;
+  color: var(--app-tone-warning-text);
 }
 
 .reservation-list-view__link {
@@ -330,7 +347,12 @@ onMounted(() => {
   background: transparent;
   font-size: 14px;
   font-weight: 600;
-  color: #1d4ed8;
+  color: var(--app-tone-brand-text);
   cursor: pointer;
+}
+
+.reservation-list-view__link:hover,
+.reservation-list-view__link:focus-visible {
+  color: var(--app-tone-brand-text-strong);
 }
 </style>

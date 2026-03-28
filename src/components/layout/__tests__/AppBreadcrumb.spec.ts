@@ -1,29 +1,18 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
-
-const routeState = {
-  matched: [
-    { path: '/dashboard', meta: { title: '仪表盘' } },
-    { path: '/statistics', meta: { title: '统计分析' } },
-    { path: '/statistics/overview', meta: { title: '总览', hidden: false } },
-    { path: '/statistics/hidden', meta: { title: '隐藏节点', hidden: true } },
-  ],
-}
-
-vi.mock('vue-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('vue-router')>()
-
-  return {
-    ...actual,
-    useRoute: () => routeState,
-  }
-})
+import { describe, expect, it } from 'vitest'
 
 const AppBreadcrumb = (await import('../AppBreadcrumb.vue')).default
 
 describe('AppBreadcrumb', () => {
-  it('渲染新的面包屑壳层并按标题链过滤隐藏节点', () => {
+  it('按传入顺序渲染面包屑项', () => {
     const wrapper = mount(AppBreadcrumb, {
+      props: {
+        items: [
+          { title: '设备与资产' },
+          { path: '/borrows', title: '借还管理' },
+          { path: '/borrows/confirm', title: '借用确认' },
+        ],
+      },
       global: {
         stubs: {
           ElBreadcrumb: {
@@ -38,10 +27,36 @@ describe('AppBreadcrumb', () => {
     })
 
     expect(wrapper.find('.app-breadcrumb__surface').exists()).toBe(true)
+    expect(wrapper.get('.app-breadcrumb__surface').attributes('data-surface-tone')).toBe('glass')
     expect(wrapper.findAll('.el-breadcrumb-item-stub')).toHaveLength(3)
-    expect(wrapper.text()).toContain('仪表盘')
-    expect(wrapper.text()).toContain('统计分析')
-    expect(wrapper.text()).toContain('总览')
-    expect(wrapper.text()).not.toContain('隐藏节点')
+    expect(wrapper.findAll('.el-breadcrumb-item-stub').map((item) => item.text())).toEqual([
+      '设备与资产',
+      '借还管理',
+      '借用确认',
+    ])
+  })
+
+  it('items 为空时不补默认文案', () => {
+    const wrapper = mount(AppBreadcrumb, {
+      props: {
+        items: [],
+      },
+      global: {
+        stubs: {
+          ElBreadcrumb: {
+            props: ['separator'],
+            template: '<nav class="el-breadcrumb-stub" :data-separator="separator"><slot /></nav>',
+          },
+          ElBreadcrumbItem: {
+            template: '<span class="el-breadcrumb-item-stub"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.find('.app-breadcrumb__surface').exists()).toBe(true)
+    expect(wrapper.get('.app-breadcrumb__surface').attributes('data-surface-tone')).toBe('glass')
+    expect(wrapper.findAll('.el-breadcrumb-item-stub')).toHaveLength(0)
+    expect(wrapper.text()).toBe('')
   })
 })

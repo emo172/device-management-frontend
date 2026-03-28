@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { defineComponent, reactive } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,8 +34,26 @@ vi.mock('../AdminDashboard.vue', () => ({
 }))
 
 describe('dashboard index view', () => {
+  const readDashboardSource = () => {
+    return readFileSync(resolve(process.cwd(), 'src/views/dashboard/index.vue'), 'utf-8')
+  }
+
   beforeEach(() => {
     authState.role = UserRole.USER
+  })
+
+  it('入口占位源码改为消费主题 token，避免角色恢复态在深色下残留浅色面板', () => {
+    const source = readDashboardSource()
+
+    // 角色恢复态是仪表盘首屏的一部分，必须直接锁定页面级 token，避免后续回退成浅色渐变占位卡。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-success-text)')
+    expect(source).toContain('var(--app-text-secondary)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 
   it('为普通用户渲染用户仪表盘', async () => {

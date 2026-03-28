@@ -43,11 +43,23 @@ function validateForm() {
   return !errors.account && !errors.password
 }
 
+/**
+ * 登录回跳只允许站内相对路径。
+ * 守卫通常会写入合法 redirect，但这里仍要兜底，避免手改 URL 或外部拼接参数把用户带到站外地址。
+ */
+function isSafeRedirectTarget(target: string) {
+  return target.startsWith('/') && !target.startsWith('//')
+}
+
 function resolveRedirectTarget() {
   const redirect = route.query.redirect
 
-  if (typeof redirect === 'string' && redirect.trim()) {
-    return redirect
+  if (typeof redirect === 'string') {
+    const normalizedRedirect = redirect.trim()
+
+    if (normalizedRedirect && isSafeRedirectTarget(normalizedRedirect)) {
+      return normalizedRedirect
+    }
   }
 
   return '/dashboard'
@@ -153,12 +165,12 @@ async function handleSubmit() {
 .auth-panel__link {
   font-size: 14px;
   font-weight: 600;
-  color: #0f766e;
+  color: var(--app-tone-brand-text);
   text-decoration: none;
 }
 
 .auth-panel__link:hover {
-  color: #115e59;
+  color: var(--app-tone-brand-text-strong);
 }
 
 @media (max-width: 640px) {

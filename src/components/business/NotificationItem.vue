@@ -178,11 +178,11 @@ function handleMarkRead() {
   gap: 18px;
   padding: 22px 24px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--app-surface-card);
 }
 
 .notification-item--read {
-  background: rgba(248, 250, 252, 0.96);
+  background: var(--app-tone-info-surface);
 }
 
 .notification-item__icon-shell {
@@ -198,8 +198,8 @@ function handleMarkRead() {
   width: 52px;
   height: 52px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.16), rgba(245, 158, 11, 0.14));
-  color: #0f766e;
+  background: linear-gradient(135deg, var(--app-tone-brand-surface), var(--app-tone-info-surface));
+  color: var(--app-tone-brand-text-strong);
   font-size: 22px;
 }
 

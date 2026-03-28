@@ -2,7 +2,6 @@
 import { reactive, watch } from 'vue'
 
 import type { CategoryTreeResponse } from '@/api/categories'
-import { DeviceStatus, DeviceStatusLabel } from '@/enums'
 
 type DeviceFormMode = 'create' | 'edit'
 
@@ -10,7 +9,6 @@ interface DeviceFormValue {
   name: string
   deviceNumber: string
   categoryName: string
-  status: string
   location: string
   description: string
 }
@@ -41,7 +39,6 @@ const formState = reactive<DeviceFormValue>({
   name: '',
   deviceNumber: '',
   categoryName: '',
-  status: DeviceStatus.AVAILABLE,
   location: '',
   description: '',
 })
@@ -92,21 +89,6 @@ function handleSubmit() {
         />
       </el-form-item>
 
-      <el-form-item label="状态">
-        <el-select
-          v-model="formState.status"
-          class="device-form__status"
-          placeholder="请选择设备状态"
-        >
-          <el-option
-            v-for="status in Object.values(DeviceStatus)"
-            :key="status"
-            :label="DeviceStatusLabel[status]"
-            :value="status"
-          />
-        </el-select>
-      </el-form-item>
-
       <el-form-item label="位置">
         <el-input
           v-model="formState.location"
@@ -142,9 +124,26 @@ function handleSubmit() {
 <style scoped lang="scss">
 .device-form {
   padding: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-solid);
+}
+
+// 设备表单包含输入、树选择与多行描述，统一抬到实体表面后深色主题才不会留下发灰的浅色控件底。
+.device-form :deep(.el-input__wrapper),
+.device-form :deep(.el-select__wrapper),
+.device-form :deep(.el-textarea__inner),
+.device-form :deep(.el-input-number) {
+  background: var(--app-surface-card-strong);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+}
+
+.device-form :deep(.el-input__wrapper:hover),
+.device-form :deep(.el-select__wrapper:hover),
+.device-form :deep(.el-textarea__inner:hover),
+.device-form :deep(.el-input-number:hover) {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
 .device-form__grid {

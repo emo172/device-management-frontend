@@ -366,8 +366,8 @@ onBeforeUnmount(() => {
 
 .user-list-view__hero {
   background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.92));
+    radial-gradient(circle at top right, var(--app-tone-brand-surface-strong), transparent 32%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-brand-surface));
 }
 
 .user-list-view__hero-actions,
@@ -391,10 +391,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 18px;
   padding: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .user-card__header {

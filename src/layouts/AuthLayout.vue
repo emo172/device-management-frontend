@@ -3,6 +3,8 @@ import { Bell, Connection, Monitor } from '@element-plus/icons-vue'
 import { computed, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { useAppStore } from '@/stores/modules/app'
+
 /**
  * 认证左栏能力项。
  * 每项都绑定图标与语气色，确保登录、注册、找回密码在共享母版中仍能表达不同的公开页意图。
@@ -38,6 +40,7 @@ interface AuthHeroContent {
  * 该母版按公开路由切换左栏说明，同时保持右侧只承载表单本体，方便后续认证页继续复用双栏画布。
  */
 const route = useRoute()
+const appStore = useAppStore()
 const AUTH_ROUTE_NAMES = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'] as const
 const DEFAULT_AUTH_ROUTE_NAME: AuthRouteName = 'Login'
 
@@ -161,7 +164,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
 </script>
 
 <template>
-  <main class="auth-layout auth-layout--compact">
+  <main class="auth-layout auth-layout--compact" :data-resolved-theme="appStore.resolvedTheme">
     <section class="auth-layout__shell">
       <section class="auth-layout__hero-panel">
         <p class="auth-layout__eyebrow">{{ heroContent.eyebrow }}</p>
@@ -212,9 +215,9 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   min-height: 100dvh;
   padding: 20px;
   background:
-    radial-gradient(circle at top left, rgba(245, 158, 11, 0.22), transparent 30%),
-    radial-gradient(circle at right bottom, rgba(15, 118, 110, 0.14), transparent 36%),
-    linear-gradient(135deg, #f7f4ec 0%, #eef5f7 100%);
+    radial-gradient(circle at top left, var(--app-page-accent-strong), transparent 30%),
+    radial-gradient(circle at right bottom, var(--app-page-accent), transparent 36%),
+    linear-gradient(135deg, var(--app-page-bg) 0%, var(--app-page-bg-elevated) 100%);
 }
 
 .auth-layout__shell {
@@ -237,8 +240,8 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   gap: 14px;
   padding: 40px 42px 36px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08)),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
+    linear-gradient(180deg, var(--app-surface-glass-strong), transparent),
+    linear-gradient(135deg, var(--app-surface-glass), transparent);
 }
 
 .auth-layout__hero-panel::after {
@@ -248,7 +251,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.12), transparent 68%);
+  background: radial-gradient(circle, var(--app-tone-brand-surface-strong), transparent 68%);
   pointer-events: none;
 }
 
@@ -268,7 +271,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   font-family: var(--app-font-family-display);
   font-size: clamp(30px, 3.3vw, 40px);
   line-height: 1.08;
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
   z-index: 1;
 }
 
@@ -290,8 +293,8 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
 
 .auth-layout__note {
   padding-top: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.22);
-  color: rgba(82, 98, 119, 0.92);
+  border-top: 1px solid var(--app-border-strong);
+  color: var(--app-text-secondary);
 }
 
 .auth-layout__feature-list {
@@ -310,7 +313,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  border-top: 1px solid var(--app-border-soft);
 }
 
 .auth-layout__feature-icon {
@@ -330,20 +333,20 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
 
 .auth-layout__feature-icon--blue {
   color: var(--app-accent-blue);
-  background: rgba(37, 99, 235, 0.1);
-  border-color: rgba(37, 99, 235, 0.16);
+  background: var(--app-tone-brand-surface);
+  border-color: var(--app-tone-brand-border);
 }
 
 .auth-layout__feature-icon--teal {
   color: var(--app-accent-teal);
-  background: rgba(15, 118, 110, 0.1);
-  border-color: rgba(15, 118, 110, 0.16);
+  background: var(--app-tone-success-surface);
+  border-color: var(--app-tone-success-border);
 }
 
 .auth-layout__feature-icon--amber {
   color: var(--app-accent-amber);
-  background: rgba(199, 123, 48, 0.12);
-  border-color: rgba(199, 123, 48, 0.18);
+  background: var(--app-tone-warning-surface);
+  border-color: var(--app-tone-warning-border);
 }
 
 .auth-layout__feature-copy {
@@ -354,7 +357,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
 .auth-layout__feature-copy strong {
   font-size: 15px;
   font-weight: 600;
-  color: var(--app-ink-950);
+  color: var(--app-text-primary);
 }
 
 .auth-layout__feature-copy span {
@@ -367,10 +370,10 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   display: flex;
   align-items: center;
   padding: 36px 42px;
-  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  border-left: 1px solid var(--app-border-soft);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.56)),
-    rgba(255, 255, 255, 0.4);
+    linear-gradient(180deg, var(--app-surface-overlay), var(--app-surface-glass)),
+    var(--app-surface-card);
 }
 
 .auth-layout__content-inner {
@@ -394,7 +397,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
 
   .auth-layout__content-panel {
     border-left: 0;
-    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    border-top: 1px solid var(--app-border-soft);
   }
 
   .auth-layout__title--single-line {

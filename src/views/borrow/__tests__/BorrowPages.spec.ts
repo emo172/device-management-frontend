@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,6 +41,10 @@ vi.mock('element-plus', async (importOriginal) => {
 })
 
 const borrowViewModules = import.meta.glob('../*.vue')
+
+function readBorrowViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/borrow/${fileName}`), 'utf-8')
+}
 
 async function loadBorrowView(componentName: string) {
   const loader = borrowViewModules[`../${componentName}.vue`]
@@ -233,6 +240,37 @@ describe('borrow pages', () => {
     expect(wrapper.text()).toContain('归还确认')
   })
 
+  it('借还域页面源码改为消费主题 token，避免列表、表单壳层和详情说明面板在深色下残留浅色硬编码', () => {
+    const listSource = readBorrowViewSource('List.vue')
+    const confirmSource = readBorrowViewSource('Confirm.vue')
+    const returnSource = readBorrowViewSource('Return.vue')
+    const detailSource = readBorrowViewSource('Detail.vue')
+
+    // 借还域页同时承载台账筛选、管理员确认和详情追溯，必须直接锁定页面级 token，避免深色主题下出现白底面板或固定强调色。
+    expect(listSource).toContain('var(--app-surface-card-strong)')
+    expect(listSource).toContain('var(--app-tone-brand-surface)')
+    expect(listSource).toContain('var(--app-shadow-card)')
+
+    expect(confirmSource).toContain('var(--app-surface-card)')
+    expect(confirmSource).toContain('var(--app-tone-warning-surface)')
+    expect(confirmSource).toContain('var(--app-border-soft)')
+
+    expect(returnSource).toContain('var(--app-surface-card)')
+    expect(returnSource).toContain('var(--app-tone-warning-border)')
+    expect(returnSource).toContain('var(--app-text-secondary)')
+
+    expect(detailSource).toContain('var(--app-surface-card)')
+    expect(detailSource).toContain('var(--app-tone-info-surface)')
+    expect(detailSource).toContain('var(--app-text-primary)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(listSource).not.toMatch(hardcodedColorPattern)
+    expect(confirmSource).not.toMatch(hardcodedColorPattern)
+    expect(returnSource).not.toMatch(hardcodedColorPattern)
+    expect(detailSource).not.toMatch(hardcodedColorPattern)
+  })
+
   it('普通用户访问借还列表页时不展示管理员确认入口', async () => {
     const { module, error } = await loadBorrowView('List')
 
@@ -288,10 +326,13 @@ describe('borrow pages', () => {
     })
 
     const reservationStore = useReservationStore()
-    reservationStore.list = [reservationCandidate, reservationNonCandidate]
-    const fetchReservationListSpy = vi
-      .spyOn(reservationStore, 'fetchReservationList')
-      .mockResolvedValue({ total: 2, records: [reservationCandidate, reservationNonCandidate] })
+    const fetchBorrowCandidatePageSpy = vi
+      .spyOn(reservationStore, 'fetchBorrowCandidatePage')
+      .mockImplementation(async () => {
+        reservationStore.list = [reservationCandidate]
+        reservationStore.total = 1
+        return { total: 1, records: [reservationCandidate] }
+      })
 
     const borrowStore = useBorrowStore()
     const confirmBorrowSpy = vi
@@ -300,7 +341,9 @@ describe('borrow pages', () => {
 
     const wrapper = mount(module.default, { global: commonGlobal })
 
-    expect(fetchReservationListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+    await flushPromises()
+
+    expect(fetchBorrowCandidatePageSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
     expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
     expect(wrapper.text()).toContain('热成像仪')
@@ -334,10 +377,14 @@ describe('borrow pages', () => {
     })
 
     const reservationStore = useReservationStore()
-    reservationStore.list = [reservationCandidate]
-    const fetchReservationListSpy = vi
-      .spyOn(reservationStore, 'fetchReservationList')
-      .mockResolvedValue({ total: 20, records: [reservationCandidate] })
+    const fetchBorrowCandidatePageSpy = vi
+      .spyOn(reservationStore, 'fetchBorrowCandidatePage')
+      .mockImplementation(async (payload: { page: number; size: number }) => {
+        reservationStore.list = [reservationCandidate]
+        reservationStore.total = 20
+        reservationStore.query = { page: payload.page, size: payload.size }
+        return { total: 20, records: [reservationCandidate] }
+      })
 
     const wrapper = mount(module.default, {
       global: {
@@ -353,9 +400,11 @@ describe('borrow pages', () => {
       },
     })
 
+    await flushPromises()
+
     await wrapper.get('.pagination-next').trigger('click')
 
-    expect(fetchReservationListSpy).toHaveBeenLastCalledWith({ page: 2, size: 10 })
+    expect(fetchBorrowCandidatePageSpy).toHaveBeenLastCalledWith({ page: 2, size: 10 })
   })
 
   it('借用确认页在缺少设备名和借用人姓名时会回退展示真实 ID', async () => {
@@ -382,13 +431,18 @@ describe('borrow pages', () => {
     })
 
     const reservationStore = useReservationStore()
-    reservationStore.list = [reservationCandidateWithOnlyIds]
-    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({
-      total: 1,
-      records: [reservationCandidateWithOnlyIds],
+    vi.spyOn(reservationStore, 'fetchBorrowCandidatePage').mockImplementation(async () => {
+      reservationStore.list = [reservationCandidateWithOnlyIds]
+      reservationStore.total = 1
+      return {
+        total: 1,
+        records: [reservationCandidateWithOnlyIds],
+      }
     })
 
     const wrapper = mount(module.default, { global: commonGlobal })
+
+    await flushPromises()
 
     expect(wrapper.text()).toContain(reservationCandidateWithOnlyIds.deviceId)
     expect(wrapper.text()).toContain(reservationCandidateWithOnlyIds.userId)
@@ -441,6 +495,49 @@ describe('borrow pages', () => {
     await wrapper.get('.borrow-return-view__submit').trigger('click')
 
     expect(confirmReturnSpy).toHaveBeenCalledWith(borrowedRecord.id, undefined)
+  })
+
+  it('归还确认页当前页只有逾期记录时会默认选中首条可归还记录', async () => {
+    const { module, error } = await loadBorrowView('Return')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    routeState.path = '/borrows/return'
+    routeState.query = {}
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const borrowStore = useBorrowStore()
+    borrowStore.list = [overdueRecord]
+    const fetchBorrowListSpy = vi
+      .spyOn(borrowStore, 'fetchBorrowList')
+      .mockResolvedValue({ total: 1, records: [overdueRecord] })
+    const confirmReturnSpy = vi
+      .spyOn(borrowStore, 'confirmReturn')
+      .mockResolvedValue(returnedRecord)
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+
+    await flushPromises()
+
+    expect(fetchBorrowListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+
+    await wrapper.get('.borrow-return-view__submit').trigger('click')
+
+    expect(confirmReturnSpy).toHaveBeenCalledWith(overdueRecord.id, undefined)
   })
 
   it('借还列表页会为已逾期记录继续开放归还确认入口', async () => {
@@ -621,8 +718,12 @@ describe('borrow pages', () => {
     const borrowStore = useBorrowStore()
     borrowStore.list = []
     vi.spyOn(borrowStore, 'fetchBorrowList').mockResolvedValue({ total: 0, records: [] })
-    const fetchBorrowDetailSpy = vi.spyOn(borrowStore, 'fetchBorrowDetail').mockResolvedValue(overdueRecord)
-    const confirmReturnSpy = vi.spyOn(borrowStore, 'confirmReturn').mockResolvedValue(returnedRecord)
+    const fetchBorrowDetailSpy = vi
+      .spyOn(borrowStore, 'fetchBorrowDetail')
+      .mockResolvedValue(overdueRecord)
+    const confirmReturnSpy = vi
+      .spyOn(borrowStore, 'confirmReturn')
+      .mockResolvedValue(returnedRecord)
 
     const wrapper = mount(module.default, { global: commonGlobal })
 

@@ -390,8 +390,7 @@ export function buildReservationTimelineItems(
      */
     items.push({
       key: 'system-approved',
-      title:
-        reservation.status === ReservationStatus.REJECTED ? '系统审批拒绝' : '系统审批通过',
+      title: reservation.status === ReservationStatus.REJECTED ? '系统审批拒绝' : '系统审批通过',
       time: reservation.systemApprovedAt,
       remark: reservation.systemApprovalRemark,
     })

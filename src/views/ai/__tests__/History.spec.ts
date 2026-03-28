@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +19,10 @@ const clearCurrentHistoryMock = vi.fn(() => {
   aiStoreState.currentHistory = null
 })
 
+function readAiSource(relativePath: string) {
+  return readFileSync(resolve(process.cwd(), relativePath), 'utf-8')
+}
+
 vi.mock('@/stores/modules/ai', () => ({
   useAiStore: () => ({
     get historyList() {
@@ -30,6 +37,12 @@ vi.mock('@/stores/modules/ai', () => ({
     clearCurrentHistory: clearCurrentHistoryMock,
     fetchHistoryList: fetchHistoryListMock,
     fetchHistoryDetail: fetchHistoryDetailMock,
+  }),
+}))
+
+vi.mock('@/stores/modules/app', () => ({
+  useAppStore: () => ({
+    resolvedTheme: 'light',
   }),
 }))
 
@@ -168,5 +181,181 @@ describe('Ai History view', () => {
     expect(clearCurrentHistoryMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).not.toContain('旧回复')
     expect(wrapper.text()).toContain('选择一条历史记录')
+  })
+
+  it('详情加载失败时保留上一条成功记录的高亮与详情，避免左右区域错位', async () => {
+    const module = await loadHistoryView()
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          RouterLink: defineComponent({
+            props: { to: { type: [String, Object], default: '' } },
+            template: '<a><slot /></a>',
+          }),
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElEmpty: { template: '<div><slot name="description" />空状态</div>' },
+          ElScrollbar: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-history-id="history-1"]').trigger('click')
+    await flushPromises()
+
+    fetchHistoryDetailMock.mockRejectedValueOnce(new Error('detail failed'))
+
+    await wrapper.get('[data-history-id="history-2"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-history-id="history-1"]').classes()).toContain(
+      'ai-history-view__history-item--active',
+    )
+    expect(wrapper.get('[data-history-id="history-2"]').classes()).not.toContain(
+      'ai-history-view__history-item--active',
+    )
+    expect(wrapper.text()).toContain('已为你整理预约建议。')
+  })
+
+  it('详情返回与当前点击不一致时，不覆盖最新选中态', async () => {
+    fetchHistoryDetailMock.mockResolvedValueOnce({
+      id: 'history-2',
+      sessionId: 'session-2',
+      userInput: '取消明天下午的热像仪预约',
+      aiResponse: '该预约已在 24 小时内，无法取消。',
+      intent: 'CANCEL',
+      extractedInfo: null,
+      executeResult: 'FAILED',
+      errorMessage: '开始前 24 小时内不可取消',
+      llmModel: 'mock-model',
+      responseTimeMs: 120,
+      createdAt: '2026-03-16T13:00:00',
+    })
+
+    const module = await loadHistoryView()
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          RouterLink: defineComponent({
+            props: { to: { type: [String, Object], default: '' } },
+            template: '<a><slot /></a>',
+          }),
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElEmpty: { template: '<div><slot name="description" />空状态</div>' },
+          ElScrollbar: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-history-id="history-1"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-history-id="history-1"]').classes()).not.toContain(
+      'ai-history-view__history-item--active',
+    )
+  })
+
+  it('连续点击两条历史时，只保留最后一次点击的高亮与详情', async () => {
+    const pendingResolvers = new Map<
+      string,
+      (value: Record<string, string | number | null>) => void
+    >()
+
+    fetchHistoryDetailMock.mockImplementation(
+      (historyId: string) =>
+        new Promise<Record<string, string | number | null>>((resolve) => {
+          pendingResolvers.set(historyId, resolve)
+        }),
+    )
+
+    const module = await loadHistoryView()
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          RouterLink: defineComponent({
+            props: { to: { type: [String, Object], default: '' } },
+            template: '<a><slot /></a>',
+          }),
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElEmpty: { template: '<div><slot name="description" />空状态</div>' },
+          ElScrollbar: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-history-id="history-1"]').trigger('click')
+    await wrapper.get('[data-history-id="history-2"]').trigger('click')
+
+    const historyTwoDetail = {
+      id: 'history-2',
+      sessionId: 'session-2',
+      userInput: '取消明天下午的热像仪预约',
+      aiResponse: '该预约已在 24 小时内，无法取消。',
+      intent: 'CANCEL',
+      extractedInfo: null,
+      executeResult: 'FAILED',
+      errorMessage: '开始前 24 小时内不可取消',
+      llmModel: 'mock-model',
+      responseTimeMs: 120,
+      createdAt: '2026-03-16T13:00:00',
+    }
+
+    aiStoreState.currentHistory = historyTwoDetail
+    pendingResolvers.get('history-2')?.(historyTwoDetail)
+    await flushPromises()
+
+    const historyOneDetail = {
+      id: 'history-1',
+      sessionId: 'session-1',
+      userInput: '帮我预约明天上午的示波器',
+      aiResponse: '已为你整理预约建议。',
+      intent: 'RESERVE',
+      extractedInfo: '{"deviceName":"示波器"}',
+      executeResult: 'SUCCESS',
+      errorMessage: null,
+      llmModel: 'mock-model',
+      responseTimeMs: 120,
+      createdAt: '2026-03-17T08:00:00',
+    }
+
+    aiStoreState.currentHistory = historyOneDetail
+    pendingResolvers.get('history-1')?.(historyOneDetail)
+    await flushPromises()
+
+    expect(wrapper.get('[data-history-id="history-2"]').classes()).toContain(
+      'ai-history-view__history-item--active',
+    )
+    expect(wrapper.get('[data-history-id="history-1"]').classes()).not.toContain(
+      'ai-history-view__history-item--active',
+    )
+  })
+
+  it('历史页源码改为消费主题 token，避免时间轴与详情面板写死浅色背景', () => {
+    const source = readAiSource('src/views/ai/History.vue')
+
+    // 历史页左侧列表、选中态和右侧详情卡都需要走语义 token，才能跟随全站主题统一切换。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-surface-muted)')
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-brand-border)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

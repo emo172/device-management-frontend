@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import OverdueHandleTypeTag from '@/components/business/OverdueHandleTypeTag.vue'
@@ -47,11 +47,18 @@ function handleGoHandle() {
   void router.push(`/overdue/${currentRecord.value.id}/handle`)
 }
 
-onMounted(() => {
-  if (overdueRecordId.value) {
-    void overdueStore.fetchOverdueDetail(overdueRecordId.value)
-  }
-})
+watch(
+  overdueRecordId,
+  (value) => {
+    if (!value) {
+      overdueStore.resetCurrentRecord()
+      return
+    }
+
+    void overdueStore.fetchOverdueDetail(value)
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   overdueStore.resetCurrentRecord()
@@ -176,17 +183,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .overdue-detail-view__hero,
 .overdue-detail-view__status-card,
 .overdue-detail-view__panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
   padding: 24px 28px;
+}
+
+.overdue-detail-view__hero {
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-danger-surface)
+  );
 }
 
 .overdue-detail-view__hero,
@@ -201,6 +215,7 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
+.overdue-detail-view__hero :deep(.console-page-hero__eyebrow),
 .overdue-detail-view__eyebrow {
   margin: 0;
   font-family: 'Fira Code', monospace;
@@ -208,21 +223,25 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #e11d48;
+  color: var(--app-tone-danger-text);
 }
 
-.overdue-detail-view__hero h1,
+.overdue-detail-view__hero :deep(.console-page-hero__title),
 .overdue-detail-view__status-card h2,
 .overdue-detail-view__panel h3 {
   margin: 10px 0 0;
   font-family: 'Fira Code', monospace;
 }
 
-.overdue-detail-view__hero p:not(.overdue-detail-view__eyebrow) {
+.overdue-detail-view__hero :deep(.console-page-hero__title) {
+  color: var(--app-tone-danger-text-strong);
+}
+
+.overdue-detail-view__hero :deep(.console-page-hero__description) {
   max-width: 760px;
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-tone-danger-text);
 }
 
 .overdue-detail-view__grid {
@@ -243,12 +262,20 @@ onBeforeUnmount(() => {
 
 .overdue-detail-view__panel dt,
 .overdue-detail-view__panel small {
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .overdue-detail-view__panel dd,
 .overdue-detail-view__panel p {
   margin: 6px 0 0;
   line-height: 1.7;
+  color: var(--app-text-primary);
+}
+
+// 详情侧栏需要和主详情卡共享同一层表面语义，否则深色模式下状态快照会比主内容更亮，破坏风险信息的阅读连续性。
+.overdue-detail-view__grid :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

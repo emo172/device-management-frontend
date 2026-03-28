@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const businessComponentModules = import.meta.glob('../*.vue')
@@ -26,7 +28,25 @@ async function loadComponent(componentName: string) {
   }
 }
 
+function readComponentSource(componentName: string) {
+  return readFileSync(
+    resolve(process.cwd(), `src/components/business/${componentName}.vue`),
+    'utf-8',
+  )
+}
+
 describe('ReservationTimeline', () => {
+  it('预约时间线节点只消费 tone token，不再依赖默认时间线节点硬编码颜色', () => {
+    const source = readComponentSource('ReservationTimeline')
+
+    expect(source).toContain('var(--app-tone-brand-solid)')
+    expect(source).toContain('var(--app-tone-success-solid)')
+    expect(source).toContain('var(--app-tone-danger-solid)')
+    expect(source).toContain('item.key')
+    expect(source).not.toContain('title.includes')
+    expect(source).not.toContain('border-color="#')
+  })
+
   it('基于预约详情关键时间渲染状态流转节点', async () => {
     const { module, error } = await loadComponent('ReservationTimeline')
 

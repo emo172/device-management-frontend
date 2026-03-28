@@ -24,14 +24,20 @@ import ViewPlaceholder from '@/views/common/ViewPlaceholder.vue'
 </template>
 
 <style scoped lang="scss">
+.error-view__surface {
+  color: var(--app-text-primary);
+}
+
 .error-view__action {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
   padding: 0 18px;
+  border: 1px solid var(--app-color-primary);
   border-radius: 999px;
   text-decoration: none;
-  color: #fff;
+  color: var(--app-color-primary-contrast);
   background: var(--app-color-primary);
+  box-shadow: var(--app-shadow-solid);
 }
 </style>

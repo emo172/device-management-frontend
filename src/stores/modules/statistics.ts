@@ -41,6 +41,32 @@ export const useStatisticsStore = defineStore('statistics', {
 
   actions: {
     /**
+     * 仪表盘首页只需要概览接口，不应被整套统计页数据拖慢。
+     * 这里单独提供 overview 加载动作，避免任一图表接口失败时把首页一起拖进不可用状态。
+     */
+    async fetchOverview(query: statisticsApi.StatisticsDateQuery = {}) {
+      const requestToken = this.requestToken + 1
+      this.requestToken = requestToken
+      this.loading = true
+      this.query = { ...query }
+      this.overview = null
+
+      try {
+        const overview = await statisticsApi.getStatisticsOverview(query)
+
+        if (requestToken === this.requestToken) {
+          this.overview = overview
+        }
+
+        return overview
+      } finally {
+        if (requestToken === this.requestToken) {
+          this.loading = false
+        }
+      }
+    },
+
+    /**
      * 统计接口当前都只接受可选 `date` 参数，因此统一使用同一份查询条件发起批量加载。
      */
     async fetchAll(query: statisticsApi.StatisticsDateQuery = {}) {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +16,10 @@ const pushMock = vi.fn()
 const successMock = vi.fn()
 const warningMock = vi.fn()
 const reservationViewModules = import.meta.glob('../*.vue')
+
+function readReservationViewSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/reservation/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -155,7 +161,9 @@ describe('reservation create view', () => {
         },
       ],
     })
-    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue(createReservationActionResponse())
+    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue(
+      createReservationActionResponse(),
+    )
 
     const wrapper = mount(module.default, {
       global: {
@@ -459,5 +467,19 @@ describe('reservation create view', () => {
     expect(warningMock).toHaveBeenCalledWith('代预约必须先选择目标用户')
     expect(createProxyReservationSpy).not.toHaveBeenCalled()
     expect(wrapper.find('.confirm-submit').exists()).toBe(false)
+  })
+
+  it('创建页源码改为消费主题 token，避免模式卡片和约束侧栏在深色下退回默认白底', () => {
+    const source = readReservationViewSource('Create.vue')
+
+    // 创建页同时承接模式切换和约束说明，必须锁定主卡片与侧栏 token，避免深色下出现两块脱离主题的浅色面板。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

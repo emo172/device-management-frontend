@@ -65,6 +65,34 @@ describe('status tags', () => {
     expect(wrapper.get('.device-status').attributes('data-type')).toBe('info')
   })
 
+  it('DeviceStatusTag 兼容后端已落库但前端枚举尚未全量收口的设备状态', async () => {
+    const { module, error } = await loadComponent('DeviceStatusTag')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        status: 'RETIRED',
+      },
+      global: {
+        stubs: {
+          ElTag: {
+            props: ['type'],
+            template: '<span class="device-status-retired" :data-type="type"><slot /></span>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('已退役')
+    expect(wrapper.get('.device-status-retired').attributes('data-type')).toBe('info')
+  })
+
   it('FreezeStatusTag 渲染账户冻结状态中文与标签类型', async () => {
     const { module, error } = await loadComponent('FreezeStatusTag')
 

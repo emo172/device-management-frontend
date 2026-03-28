@@ -1,11 +1,23 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 import { useAppStore } from '../modules/app'
+import { THEME_STORAGE_KEY } from '../../utils/themeMode'
 
 describe('app store', () => {
+  const originalMatchMedia = window.matchMedia
+
   beforeEach(() => {
     setActivePinia(createPinia())
+    window.localStorage.clear()
+    window.localStorage.removeItem(THEME_STORAGE_KEY)
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.style.colorScheme = ''
+  })
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+    vi.restoreAllMocks()
   })
 
   it('manages sidebar collapse and page loading state', () => {
@@ -82,5 +94,101 @@ describe('app store', () => {
     expect(store.sidebarCollapsed).toBe(false)
     expect(store.loading).toBe(false)
     expect(store.fatalError).toBeNull()
+  })
+
+  it('tracks theme preference and resolves light mode immediately', () => {
+    const store = useAppStore()
+
+    store.setThemePreference('light')
+
+    expect(store.themePreference).toBe('light')
+    expect(store.resolvedTheme).toBe('light')
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+  })
+
+  it('resolves system theme from current media query result', () => {
+    const store = useAppStore()
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system')
+    window.matchMedia = ((query: string) => ({
+      addEventListener: () => undefined,
+      addListener: () => undefined,
+      matches: query === '(prefers-color-scheme: dark)',
+      media: query,
+      onchange: null,
+      removeEventListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+
+    store.initializeThemeState()
+
+    expect(store.themePreference).toBe('system')
+    expect(store.resolvedTheme).toBe('dark')
+  })
+
+  it('falls back to system when stored theme preference is dirty', () => {
+    const store = useAppStore()
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'sepia')
+
+    store.initializeThemeState()
+
+    expect(store.themePreference).toBe('system')
+  })
+
+  it('falls back to light when matchMedia is unavailable', () => {
+    const store = useAppStore()
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system')
+    window.matchMedia = undefined as unknown as typeof window.matchMedia
+
+    store.initializeThemeState()
+
+    expect(store.resolvedTheme).toBe('light')
+  })
+
+  it('falls back to light when matchMedia throws', () => {
+    const store = useAppStore()
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system')
+    window.matchMedia = vi.fn(() => {
+      throw new Error('matchMedia blocked')
+    }) as unknown as typeof window.matchMedia
+
+    store.initializeThemeState()
+
+    expect(store.resolvedTheme).toBe('light')
+  })
+
+  it('keeps theme initialization stable when localStorage access throws', () => {
+    const store = useAppStore()
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked')
+    })
+
+    expect(() => store.initializeThemeState()).not.toThrow()
+    expect(() => store.setThemePreference('dark')).not.toThrow()
+    expect(store.themePreference).toBe('dark')
+    expect(store.resolvedTheme).toBe('dark')
+  })
+
+  it('resetState keeps persisted theme preference while clearing transient ui state', () => {
+    const store = useAppStore()
+
+    store.setThemePreference('dark')
+    store.setSidebarCollapsed(true)
+    store.setLoading(true)
+
+    store.resetState()
+
+    expect(store.themePreference).toBe('dark')
+    expect(store.resolvedTheme).toBe('dark')
+    expect(store.sidebarCollapsed).toBe(false)
+    expect(store.loading).toBe(false)
   })
 })

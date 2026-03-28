@@ -263,7 +263,8 @@ onBeforeUnmount(() => {
 
 .auth-panel__helper-block {
   padding-left: 12px;
-  border-left: 2px solid rgba(13, 148, 136, 0.18);
+  // 辅助提示边线改走全局弱边框 token，避免深色主题下继续保留浅色透明描边。
+  border-left: 2px solid var(--app-border-soft);
 }
 
 .auth-panel__helper {

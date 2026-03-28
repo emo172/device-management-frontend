@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { defineComponent, h, provide, inject } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
@@ -13,6 +15,10 @@ const pushMock = vi.fn()
 const promptMock = vi.fn()
 const successMock = vi.fn()
 const pendingViewModules = import.meta.glob('../*.vue')
+
+function readReservationManageSource(fileName: string) {
+  return readFileSync(resolve(process.cwd(), `src/views/reservation/manage/${fileName}`), 'utf-8')
+}
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -185,7 +191,11 @@ describe('reservation pending manage view', () => {
         },
         'fetchManagedReservationPage',
       )
-      .mockResolvedValue({ total: 1, records: reservationStore.list })
+      .mockImplementation(async () => {
+        reservationStore.list = [createPendingRecord('PENDING_DEVICE_APPROVAL')]
+        reservationStore.total = 1
+        return { total: 1, records: reservationStore.list }
+      })
     const deviceAuditReservationSpy = vi
       .spyOn(reservationStore, 'deviceAuditReservation')
       .mockResolvedValue(
@@ -283,6 +293,61 @@ describe('reservation pending manage view', () => {
     })
   })
 
+  it('进入待审页时先清空共享列表上下文，避免上一页面数据短暂闪出', async () => {
+    const { module, error } = await loadPendingView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const reservationStore = useReservationStore()
+    const resetListStateSpy = vi.spyOn(reservationStore, 'resetListState')
+    vi.spyOn(
+      reservationStore as typeof reservationStore & {
+        fetchManagedReservationPage?: (payload: unknown) => Promise<unknown>
+      },
+      'fetchManagedReservationPage',
+    ).mockResolvedValue({ total: 0, records: [] })
+
+    mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ManualProcessDialog: { template: '<div></div>' },
+          ElButton: {
+            props: ['type'],
+            emits: ['click'],
+            template: '<button :data-type="type" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+          ElCard: { template: '<section><slot name="header" /><slot /></section>' },
+          ElTable: ElTableStub,
+          ElTableColumn: ElTableColumnStub,
+        },
+        directives: {
+          loading: { mounted() {}, updated() {} },
+        },
+      },
+    })
+
+    expect(resetListStateSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('系统管理员即使拿到待人工处理记录也不显示人工处理入口', async () => {
     const { module, error } = await loadPendingView()
 
@@ -359,5 +424,19 @@ describe('reservation pending manage view', () => {
     expect(wrapper.text()).not.toContain('人工处理')
     expect(wrapper.find('.manual-submit').exists()).toBe(false)
     expect(manualProcessReservationSpy).not.toHaveBeenCalled()
+  })
+
+  it('待审页源码改为消费主题 token，避免审核卡片和操作区在深色下残留浅色渐变', () => {
+    const source = readReservationManageSource('Pending.vue')
+
+    // 待审页承载通过、拒绝和人工处理三类高风险动作，必须锁定审核壳层与按钮邻近区域 token，避免深色下误判状态层级。
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-tone-info-surface)')
+    expect(source).toContain('var(--app-border-soft)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

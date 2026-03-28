@@ -1,26 +1,48 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+type MainModule = typeof import('../main')
+
+const DEFAULT_ROUTE = {
+  fullPath: '/devices/device-1',
+  path: '/devices/device-1',
+}
+
+const indexHtmlContent = readFileSync(resolve(process.cwd(), 'index.html'), 'utf-8')
+const indexThemeBootstrapScript =
+  indexHtmlContent.match(/<script>\s*([\s\S]*?)\s*<\/script>/)?.[1] ?? ''
 
 const {
   authStoreMock,
   appMock,
+  applyResolvedThemeMock,
   clearAuthStateMock,
   createAppMock,
   fetchCurrentUserMock,
   initializeAuthMock,
   installElementPlusMock,
+  registerResolvedThemeDomSyncMock,
+  registerSystemThemeListenerMock,
   piniaMock,
   registeredFatalErrorHandlerRef,
+  registeredResolvedThemeSyncRef,
   registerDirectivesMock,
   registerFatalErrorHandlerMock,
   registeredSessionResetHandlerRef,
   registerSessionResetHandlerMock,
   registeredUnauthorizedHandlerRef,
   registerUnauthorizedHandlerMock,
+  refreshResolvedThemeMock,
   resetAppStateMock,
   resetNotificationStateMock,
+  resetThemeListenerMock,
+  registeredSystemThemeListenerRef,
   routerInstallEffectRef,
   routerInstallMock,
   runFatalErrorHandlerMock,
+  initializeThemeStateMock,
   setFatalErrorMock,
   routerMock,
   routerPushMock,
@@ -31,10 +53,12 @@ const {
     mount: vi.fn(),
   }
 
-  app.use.mockImplementation((dependency: { id?: string; install?: () => void | Promise<void> }) => {
-    void dependency?.install?.()
-    return app
-  })
+  app.use.mockImplementation(
+    (dependency: { id?: string; install?: () => void | Promise<void> }) => {
+      void dependency?.install?.()
+      return app
+    },
+  )
 
   const clearAuthState = vi.fn()
   const fetchCurrentUser = vi.fn()
@@ -47,16 +71,34 @@ const {
     initialized: false,
   }
 
+  const resetThemeListener = vi.fn()
+  const registeredResolvedThemeSync = { current: null as null | (() => 'light' | 'dark') }
+  const registeredSystemThemeListener = { current: null as null | ((matches: boolean) => void) }
+
   return {
     authStoreMock: authStore,
     appMock: app,
+    applyResolvedThemeMock: vi.fn(),
     clearAuthStateMock: clearAuthState,
     createAppMock: vi.fn(() => app),
     fetchCurrentUserMock: fetchCurrentUser,
     initializeAuthMock: initializeAuth,
     installElementPlusMock: vi.fn(),
+    registerResolvedThemeDomSyncMock: vi.fn((themeSource: () => 'light' | 'dark') => {
+      registeredResolvedThemeSync.current = themeSource
+      applyResolvedThemeMock(themeSource())
+
+      return () => {
+        registeredResolvedThemeSync.current = null
+      }
+    }),
+    registerSystemThemeListenerMock: vi.fn((handler: (matches: boolean) => void) => {
+      registeredSystemThemeListener.current = handler
+      return resetThemeListener
+    }),
     piniaMock: { id: 'pinia' },
     registeredFatalErrorHandlerRef: { current: null as null | ((error: unknown) => Promise<void>) },
+    registeredResolvedThemeSyncRef: registeredResolvedThemeSync,
     registerDirectivesMock: vi.fn(),
     registerFatalErrorHandlerMock: vi.fn(),
     registeredSessionResetHandlerRef: { current: null as null | (() => Promise<void>) },
@@ -65,11 +107,15 @@ const {
     },
     registerSessionResetHandlerMock: vi.fn(),
     registerUnauthorizedHandlerMock: vi.fn(),
+    refreshResolvedThemeMock: vi.fn(),
     resetAppStateMock: vi.fn(),
     resetNotificationStateMock: vi.fn(),
+    resetThemeListenerMock: resetThemeListener,
+    registeredSystemThemeListenerRef: registeredSystemThemeListener,
     routerInstallEffectRef: { current: null as null | (() => void | Promise<void>) },
     routerInstallMock: vi.fn(),
     runFatalErrorHandlerMock: vi.fn(),
+    initializeThemeStateMock: vi.fn(),
     setFatalErrorMock: vi.fn(),
     routerMock: { id: 'router' },
     routerPushMock: vi.fn(),
@@ -105,10 +151,7 @@ vi.mock('../router', () => ({
       },
     },
     currentRoute: {
-      value: {
-        fullPath: '/devices/device-1',
-        path: '/devices/device-1',
-      },
+      value: { ...DEFAULT_ROUTE },
     },
     resolve: vi.fn((to: string | { path?: string }) => {
       const raw = typeof to === 'string' ? to : (to.path ?? '/')
@@ -133,6 +176,9 @@ vi.mock('../stores/modules/auth', () => ({
 
 vi.mock('../stores/modules/app', () => ({
   useAppStore: vi.fn(() => ({
+    initializeThemeState: initializeThemeStateMock,
+    refreshResolvedTheme: refreshResolvedThemeMock,
+    resolvedTheme: 'dark',
     resetState: resetAppStateMock,
     setFatalError: setFatalErrorMock,
   })),
@@ -162,8 +208,33 @@ vi.mock('../stores/sessionBridge', () => ({
   runFatalErrorHandler: runFatalErrorHandlerMock,
 }))
 
+vi.mock('../utils/themeMode', () => ({
+  applyResolvedTheme: applyResolvedThemeMock,
+  registerResolvedThemeDomSync: registerResolvedThemeDomSyncMock,
+  registerSystemThemeListener: registerSystemThemeListenerMock,
+}))
+
 describe('main bootstrap', () => {
-  beforeEach(() => {
+  let cleanupBootstrap: (() => void) | undefined
+  const originalMatchMedia = window.matchMedia
+
+  async function resetRouterCurrentRoute(route = DEFAULT_ROUTE) {
+    ;((await import('../router')).default.currentRoute as { value: unknown }).value = { ...route }
+  }
+
+  function runIndexThemeBootstrapScript() {
+    const executeScript = new Function(indexThemeBootstrapScript)
+    executeScript()
+  }
+
+  async function bootstrapMainForTest() {
+    const mainModule = (await import('../main')) as MainModule
+    cleanupBootstrap = await mainModule.bootstrapApp()
+
+    return mainModule
+  }
+
+  beforeEach(async () => {
     vi.resetModules()
     appMock.config = {}
     appMock.use.mockClear()
@@ -175,20 +246,91 @@ describe('main bootstrap', () => {
     fetchCurrentUserMock.mockReset()
     initializeAuthMock.mockReset()
     installElementPlusMock.mockReset()
+    applyResolvedThemeMock.mockReset()
+    registerResolvedThemeDomSyncMock.mockClear()
     registerFatalErrorHandlerMock.mockReset()
+    registerSystemThemeListenerMock.mockReset()
     registerSessionResetHandlerMock.mockReset()
     registerUnauthorizedHandlerMock.mockReset()
     registeredFatalErrorHandlerRef.current = null
+    registeredResolvedThemeSyncRef.current = null
     registeredSessionResetHandlerRef.current = null
     registeredUnauthorizedHandlerRef.current = null
+    registeredSystemThemeListenerRef.current = null
     resetAppStateMock.mockReset()
     resetNotificationStateMock.mockReset()
+    resetThemeListenerMock.mockReset()
     routerInstallEffectRef.current = null
     routerInstallMock.mockImplementation(() => routerInstallEffectRef.current?.())
     routerInstallMock.mockClear()
     routerPushMock.mockReset()
     runFatalErrorHandlerMock.mockReset()
+    initializeThemeStateMock.mockReset()
+    refreshResolvedThemeMock.mockReset()
+    refreshResolvedThemeMock.mockImplementation(() => {
+      const currentThemeSource = registeredResolvedThemeSyncRef.current
+
+      if (currentThemeSource) {
+        applyResolvedThemeMock(currentThemeSource())
+      }
+    })
     setFatalErrorMock.mockReset()
+    window.localStorage.clear()
+    window.history.replaceState({}, '', '/')
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.style.colorScheme = ''
+    window.matchMedia = originalMatchMedia
+    await resetRouterCurrentRoute()
+  })
+
+  afterEach(async () => {
+    cleanupBootstrap?.()
+    cleanupBootstrap = undefined
+    window.localStorage.clear()
+    window.history.replaceState({}, '', '/')
+    document.documentElement.removeAttribute('data-theme')
+    document.documentElement.style.colorScheme = ''
+    window.matchMedia = originalMatchMedia
+    await resetRouterCurrentRoute()
+  })
+
+  it('falls back to light when index preload script matchMedia throws', () => {
+    window.localStorage.setItem('theme_preference', 'system')
+    window.matchMedia = vi.fn(() => {
+      throw new Error('matchMedia blocked')
+    }) as unknown as typeof window.matchMedia
+
+    expect(() => runIndexThemeBootstrapScript()).not.toThrow()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(document.documentElement.style.colorScheme).toBe('light')
+  })
+
+  it('restores browser history and mocked router route before each test', async () => {
+    expect(window.location.pathname).toBe('/')
+    expect(
+      ((await import('../router')).default.currentRoute as { value: typeof DEFAULT_ROUTE }).value,
+    ).toEqual(DEFAULT_ROUTE)
+  })
+
+  it('initializes theme state and takes over dom theme sync during bootstrap', async () => {
+    await bootstrapMainForTest()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(initializeThemeStateMock).toHaveBeenCalledTimes(1)
+    expect(applyResolvedThemeMock).toHaveBeenCalledWith('dark')
+    expect(registerSystemThemeListenerMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-applies resolved theme when system theme listener reports a change', async () => {
+    await bootstrapMainForTest()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    registeredSystemThemeListenerRef.current?.(true)
+
+    expect(refreshResolvedThemeMock).toHaveBeenCalledWith(true)
+    expect(applyResolvedThemeMock).toHaveBeenLastCalledWith('dark')
   })
 
   it('waits for auth initialization before mounting the app', async () => {
@@ -201,29 +343,29 @@ describe('main bootstrap', () => {
         }),
     )
 
-    await import('../main')
+    const mainModule = (await import('../main')) as MainModule
+    const bootstrapPromise = mainModule.bootstrapApp()
 
     expect(createAppMock).toHaveBeenCalledTimes(1)
     expect(initializeAuthMock).toHaveBeenCalledTimes(1)
     expect(installElementPlusMock).not.toHaveBeenCalled()
-    expect(registerDirectivesMock).not.toHaveBeenCalled()
     expect(registerSessionResetHandlerMock).toHaveBeenCalledTimes(1)
     expect(registerUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
     expect(registerFatalErrorHandlerMock).toHaveBeenCalledTimes(1)
     expect(appMock.mount).not.toHaveBeenCalled()
 
     resolveInitialize?.()
+    cleanupBootstrap = await bootstrapPromise
     await Promise.resolve()
     await Promise.resolve()
 
     expect(installElementPlusMock).toHaveBeenCalledTimes(1)
-    expect(registerDirectivesMock).toHaveBeenCalledTimes(1)
     expect(registerDirectivesMock).toHaveBeenCalledWith(appMock)
     expect(appMock.mount).toHaveBeenCalledWith('#app')
   })
 
   it('registers session bridge handlers before router installation starts navigation', async () => {
-    await import('../main')
+    await bootstrapMainForTest()
 
     const routerUseCallOrder = appMock.use.mock.calls
       .map((args, index) => ({
@@ -261,7 +403,7 @@ describe('main bootstrap', () => {
       authStoreMock.initialized = true
     })
 
-    await import('../main')
+    await bootstrapMainForTest()
     await Promise.resolve()
     await Promise.resolve()
 
@@ -285,7 +427,7 @@ describe('main bootstrap', () => {
       authStoreMock.initialized = true
     })
 
-    await import('../main')
+    await bootstrapMainForTest()
     await Promise.resolve()
     await Promise.resolve()
 
@@ -297,7 +439,7 @@ describe('main bootstrap', () => {
   })
 
   it('normalizes redirect in unauthorized handler and resets stores through the registered bridge', async () => {
-    await import('../main')
+    await bootstrapMainForTest()
 
     await registeredSessionResetHandlerRef.current?.()
 
@@ -320,12 +462,12 @@ describe('main bootstrap', () => {
    */
   it('preserves browser location as redirect when bootstrap 401 happens before router install', async () => {
     window.history.replaceState({}, '', '/statistics?tab=usage')
-    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+    await resetRouterCurrentRoute({
       fullPath: '/',
       path: '/',
-    }
+    })
 
-    await import('../main')
+    await bootstrapMainForTest()
 
     await registeredUnauthorizedHandlerRef.current?.({})
 
@@ -341,12 +483,12 @@ describe('main bootstrap', () => {
    */
   it('normalizes base-prefixed browser location before using it as bootstrap redirect', async () => {
     window.history.replaceState({}, '', '/base/statistics?tab=usage')
-    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+    await resetRouterCurrentRoute({
       fullPath: '/',
       path: '/',
-    }
+    })
 
-    await import('../main')
+    await bootstrapMainForTest()
 
     await registeredUnauthorizedHandlerRef.current?.({})
 
@@ -357,7 +499,7 @@ describe('main bootstrap', () => {
   })
 
   it('writes fatal error snapshot and avoids duplicate /500 navigation when already there', async () => {
-    await import('../main')
+    await bootstrapMainForTest()
 
     await registeredFatalErrorHandlerRef.current?.({
       source: 'auth',
@@ -376,10 +518,10 @@ describe('main bootstrap', () => {
 
     routerPushMock.mockClear()
     setFatalErrorMock.mockClear()
-    ;((await import('../router')).default.currentRoute as { value: unknown }).value = {
+    await resetRouterCurrentRoute({
       fullPath: '/500',
       path: '/500',
-    }
+    })
 
     await registeredFatalErrorHandlerRef.current?.({
       source: 'router',
@@ -394,8 +536,9 @@ describe('main bootstrap', () => {
 
   it('registers runtime error handlers that delegate to the fatal error bridge', async () => {
     const addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
 
-    await import('../main')
+    await bootstrapMainForTest()
 
     expect(typeof appMock.config.errorHandler).toBe('function')
     expect(addEventListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
@@ -422,6 +565,12 @@ describe('main bootstrap', () => {
 
     expect(runFatalErrorHandlerMock).toHaveBeenCalledTimes(3)
 
+    cleanupBootstrap?.()
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('error', expect.any(Function))
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function))
+
     addEventListenerSpy.mockRestore()
+    removeEventListenerSpy.mockRestore()
   })
 })

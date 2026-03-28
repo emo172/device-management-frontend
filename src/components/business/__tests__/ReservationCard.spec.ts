@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const businessComponentModules = import.meta.glob('../*.vue')
@@ -24,6 +26,13 @@ async function loadComponent(componentName: string) {
       error,
     }
   }
+}
+
+function readComponentSource(componentName: string) {
+  return readFileSync(
+    resolve(process.cwd(), `src/components/business/${componentName}.vue`),
+    'utf-8',
+  )
 }
 
 function createReservationRecord(overrides?: Record<string, unknown>) {
@@ -57,6 +66,17 @@ describe('ReservationCard', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('预约卡片只消费 brand 和 warning 语义 token，不保留浅色径向高亮硬编码', () => {
+    const source = readComponentSource('ReservationCard')
+
+    expect(source).toContain('var(--app-tone-brand-surface)')
+    expect(source).toContain('var(--app-tone-brand-text)')
+    expect(source).toContain('var(--app-tone-warning-text)')
+    expect(source).not.toContain('rgba(255, 255, 255, 0.96)')
+    expect(source).not.toContain('rgba(14, 165, 233, 0.12)')
+    expect(source).not.toContain('#0369a1')
   })
 
   it('普通用户在签到窗口内看到签到动作', async () => {

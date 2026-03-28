@@ -96,7 +96,7 @@ async function loadBorrowedRecords(overrides?: { page: number; size: number }) {
 
   if (!borrowedCandidates.value.some((item) => item.id === selectedRecordId.value)) {
     selectedRecordId.value =
-      result.records.find((item) => item.status === BorrowStatus.BORROWED)?.id ?? ''
+      result.records.find((item) => isReturnEligibleStatus(item.status))?.id ?? ''
   }
 }
 
@@ -235,7 +235,9 @@ onMounted(() => {
                 </div>
                 <div>
                   <dt>设备</dt>
-                  <dd>{{ displayIdentityName(selectedRecord.deviceName, selectedRecord.deviceId) }}</dd>
+                  <dd>
+                    {{ displayIdentityName(selectedRecord.deviceName, selectedRecord.deviceId) }}
+                  </dd>
                 </div>
                 <div>
                   <dt>借用人</dt>
@@ -270,17 +272,24 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: #1e293b;
 }
 
 .borrow-return-view__hero,
 .borrow-return-view__candidate-panel,
 .borrow-return-view__detail-panel {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
   padding: 24px 28px;
+}
+
+.borrow-return-view__hero {
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-warning-surface)
+  );
 }
 
 .borrow-return-view__hero,
@@ -304,7 +313,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #f97316;
+  color: var(--app-tone-warning-text);
 }
 
 .borrow-return-view__hero h1,
@@ -317,7 +326,7 @@ onMounted(() => {
 .borrow-return-view__empty-tip {
   margin: 14px 0 0;
   line-height: 1.8;
-  color: #475569;
+  color: var(--app-text-secondary);
 }
 
 .borrow-return-view__candidate-list {
@@ -330,17 +339,17 @@ onMounted(() => {
   display: grid;
   gap: 8px;
   padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--app-border-soft);
   border-radius: 20px;
-  background: #fff;
+  background: var(--app-surface-card-strong);
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .borrow-return-view__candidate-card--active {
-  border-color: rgba(249, 115, 22, 0.45);
-  box-shadow: 0 16px 36px rgba(249, 115, 22, 0.14);
+  border-color: var(--app-tone-warning-border);
+  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-return-view__candidate-card strong,
@@ -351,7 +360,7 @@ onMounted(() => {
 .borrow-return-view__candidate-card span,
 .borrow-return-view__detail-list dt,
 .borrow-return-view__remark-field span {
-  color: #64748b;
+  color: var(--app-text-secondary);
 }
 
 .borrow-return-view__detail-list {
@@ -374,9 +383,18 @@ onMounted(() => {
 .borrow-return-view__remark-field textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  border: 1px solid var(--app-border-strong);
   border-radius: 16px;
+  background: var(--app-surface-card-strong);
+  color: var(--app-text-primary);
   resize: vertical;
   font: inherit;
+}
+
+// 归还确认需要在候选列表、空态和侧栏说明之间快速切换，页面层固定同一组表面 token，才能保证深色下归还链路始终可读。
+.borrow-return-view__layout :deep(.console-aside-panel) {
+  border: 1px solid var(--app-border-soft);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 </style>

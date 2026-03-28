@@ -94,8 +94,8 @@ const emit = defineEmits<{
   padding: 20px;
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92)),
-    linear-gradient(135deg, rgba(217, 119, 6, 0.08), transparent 45%);
+    linear-gradient(180deg, var(--app-surface-card), var(--app-surface-card-strong)),
+    linear-gradient(135deg, var(--app-tone-warning-surface), transparent 45%);
 }
 
 .device-card__top,
@@ -129,7 +129,7 @@ const emit = defineEmits<{
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #b45309;
+  color: var(--app-tone-warning-text);
 }
 
 .device-card__title {

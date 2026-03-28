@@ -1,42 +1,546 @@
-// 先在全局层覆写 Element Plus 主题变量，确保后续所有业务组件共享同一视觉基线。
+// Element Plus 统一从应用语义 token 取值，避免页面与组件库在深色下出现两套视觉体系。
 :root {
-  --el-color-primary: var(--app-accent-blue);
+  --el-color-primary: var(--app-tone-brand-solid);
+  --el-color-success: var(--app-tone-success-solid);
+  --el-color-warning: var(--app-tone-warning-solid);
+  --el-color-danger: var(--app-tone-danger-solid);
+  --el-color-info: var(--app-tone-info-solid);
+
+  --el-bg-color: var(--app-surface-card-strong);
+  --el-bg-color-page: var(--app-page-bg);
+  --el-fill-color-blank: var(--app-surface-card-strong);
+  --el-fill-color-light: var(--app-surface-muted);
+  --el-fill-color-lighter: var(--app-surface-card);
+  --el-fill-color-dark: var(--app-shell-bg-strong);
+  --el-fill-color-darker: var(--app-surface-overlay-strong);
+  --el-text-color-primary: var(--app-text-primary);
+  --el-text-color-regular: var(--app-text-secondary);
+  --el-text-color-secondary: var(--app-text-tertiary);
+  --el-text-color-placeholder: var(--app-text-placeholder);
+  --el-disabled-text-color: var(--app-text-disabled);
+  --el-border-color: var(--app-border-color);
+  --el-border-color-light: var(--app-border-soft);
+  --el-border-color-lighter: var(--app-border-soft);
+  --el-border-color-extra-light: var(--app-border-soft);
+  --el-border-color-dark: var(--app-border-strong);
   --el-border-radius-base: var(--app-radius-sm);
+  --el-border-radius-small: var(--app-radius-sm);
+  --el-border-radius-round: 999px;
   --el-font-family: var(--app-font-family-sans);
+  --el-box-shadow-light: var(--app-shadow-solid);
+  --el-box-shadow: var(--app-shadow-card);
+  --el-overlay-color-lighter: rgba(15, 23, 34, 0.56);
+  --el-mask-color: rgba(15, 23, 34, 0.5);
+  --el-disabled-bg-color: var(--app-surface-muted);
 }
 
-// Element Plus 的交互控件保持清晰边界，玻璃感只放在外层容器，不把输入内容区做成重毛玻璃。
+// 焦点环需要和主题同步，否则浅色 ring 会在深色输入控件上显得像脏边。
 .el-button:focus-visible,
 .el-input__wrapper:focus-within,
 .el-select__wrapper.is-focused,
-.el-pagination button:focus-visible {
+.el-pagination button:focus-visible,
+.el-radio-button__inner:focus-visible,
+.el-date-editor:focus-within {
   box-shadow: var(--app-focus-ring);
+}
+
+.el-aside,
+.el-card,
+.el-dialog,
+.el-dropdown-menu,
+.el-message-box,
+.el-message,
+.el-picker-panel,
+.el-select-dropdown,
+.el-table,
+.el-upload-dragger {
+  background: var(--app-surface-card);
+  border-color: var(--app-border-soft);
+  color: var(--app-text-primary);
+}
+
+.el-aside,
+.el-card,
+.el-dialog,
+.el-dropdown-menu,
+.el-message-box,
+.el-message,
+.el-picker-panel,
+.el-select-dropdown {
+  box-shadow: var(--app-shadow-solid);
+}
+
+.el-avatar {
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-badge__content {
+  border-color: var(--app-surface-card-strong);
 }
 
 .el-button {
   border-radius: var(--app-radius-sm);
 }
 
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--danger
+  ):not(.el-button--info) {
+  border-color: var(--app-border-color);
+  background: var(--app-surface-card);
+  color: var(--app-text-primary);
+}
+
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--danger
+  ):not(.el-button--info):hover,
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(
+    .el-button--danger
+  ):not(.el-button--info):focus-visible {
+  border-color: var(--app-tone-brand-border);
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-button.is-disabled,
+.el-button.is-disabled:hover {
+  background: var(--el-disabled-bg-color);
+  border-color: var(--app-border-soft);
+  color: var(--el-disabled-text-color);
+}
+
+// 语义按钮按变体分别承接 token，避免全局按钮覆写把 success/warning/danger 全压成一种 brand 语义。
+.el-button--primary {
+  border-color: var(--app-tone-brand-solid);
+  background: var(--app-tone-brand-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--primary.is-plain,
+.el-button--primary.is-text,
+.el-button--primary.is-link {
+  border-color: var(--app-tone-brand-border);
+  background: transparent;
+  color: var(--app-tone-brand-text);
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus-visible {
+  border-color: var(--app-tone-brand-text-strong);
+  background: var(--app-tone-brand-text);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--primary.is-plain:hover,
+.el-button--primary.is-plain:focus-visible,
+.el-button--primary.is-text:hover,
+.el-button--primary.is-text:focus-visible,
+.el-button--primary.is-link:hover,
+.el-button--primary.is-link:focus-visible {
+  border-color: var(--app-tone-brand-border);
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-button--success {
+  border-color: var(--app-tone-success-solid);
+  background: var(--app-tone-success-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--success.is-plain,
+.el-button--success.is-text,
+.el-button--success.is-link {
+  border-color: var(--app-tone-success-border);
+  background: transparent;
+  color: var(--app-tone-success-text);
+}
+
+.el-button--success:hover,
+.el-button--success:focus-visible {
+  border-color: var(--app-tone-success-text-strong);
+  background: var(--app-tone-success-text);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--success.is-plain:hover,
+.el-button--success.is-plain:focus-visible,
+.el-button--success.is-text:hover,
+.el-button--success.is-text:focus-visible,
+.el-button--success.is-link:hover,
+.el-button--success.is-link:focus-visible {
+  border-color: var(--app-tone-success-border);
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text-strong);
+}
+
+.el-button--warning {
+  border-color: var(--app-tone-warning-solid);
+  background: var(--app-tone-warning-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--warning.is-plain,
+.el-button--warning.is-text,
+.el-button--warning.is-link {
+  border-color: var(--app-tone-warning-border);
+  background: transparent;
+  color: var(--app-tone-warning-text);
+}
+
+.el-button--warning:hover,
+.el-button--warning:focus-visible {
+  border-color: var(--app-tone-warning-text-strong);
+  background: var(--app-tone-warning-text);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--warning.is-plain:hover,
+.el-button--warning.is-plain:focus-visible,
+.el-button--warning.is-text:hover,
+.el-button--warning.is-text:focus-visible,
+.el-button--warning.is-link:hover,
+.el-button--warning.is-link:focus-visible {
+  border-color: var(--app-tone-warning-border);
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text-strong);
+}
+
+.el-button--danger {
+  border-color: var(--app-tone-danger-solid);
+  background: var(--app-tone-danger-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--danger.is-plain,
+.el-button--danger.is-text,
+.el-button--danger.is-link {
+  border-color: var(--app-tone-danger-border);
+  background: transparent;
+  color: var(--app-tone-danger-text);
+}
+
+.el-button--danger:hover,
+.el-button--danger:focus-visible {
+  border-color: var(--app-tone-danger-text-strong);
+  background: var(--app-tone-danger-text);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--danger.is-plain:hover,
+.el-button--danger.is-plain:focus-visible,
+.el-button--danger.is-text:hover,
+.el-button--danger.is-text:focus-visible,
+.el-button--danger.is-link:hover,
+.el-button--danger.is-link:focus-visible {
+  border-color: var(--app-tone-danger-border);
+  background: var(--app-tone-danger-surface);
+  color: var(--app-tone-danger-text-strong);
+}
+
+.el-button--info {
+  border-color: var(--app-tone-info-solid);
+  background: var(--app-tone-info-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--info.is-plain,
+.el-button--info.is-text,
+.el-button--info.is-link {
+  border-color: var(--app-tone-info-border);
+  background: transparent;
+  color: var(--app-tone-info-text);
+}
+
+.el-button--info:hover,
+.el-button--info:focus-visible {
+  border-color: var(--app-tone-info-text-strong);
+  background: var(--app-tone-info-text);
+  color: var(--app-surface-card-strong);
+}
+
+.el-button--info.is-plain:hover,
+.el-button--info.is-plain:focus-visible,
+.el-button--info.is-text:hover,
+.el-button--info.is-text:focus-visible,
+.el-button--info.is-link:hover,
+.el-button--info.is-link:focus-visible {
+  border-color: var(--app-tone-info-border);
+  background: var(--app-tone-info-surface);
+  color: var(--app-tone-info-text-strong);
+}
+
+.el-alert {
+  border-color: var(--app-border-soft);
+}
+
+.el-alert--info {
+  background: var(--app-tone-info-surface);
+  color: var(--app-tone-info-text);
+}
+
+.el-alert--success {
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text);
+}
+
+.el-alert--warning {
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text);
+}
+
+.el-alert--error {
+  background: var(--app-tone-danger-surface);
+  color: var(--app-tone-danger-text);
+}
+
 .el-card {
   border-color: var(--app-border-soft);
+  border-radius: var(--app-radius-md);
   box-shadow: var(--app-shadow-solid);
+}
+
+.el-descriptions,
+.el-descriptions__body,
+.el-descriptions__cell,
+.el-descriptions-item__container {
+  color: var(--app-text-primary);
+}
+
+.el-descriptions__label,
+.el-form-item__label,
+.el-empty__description,
+.el-input__count,
+.el-pagination__total,
+.el-pagination__jump,
+.el-breadcrumb__inner,
+.el-breadcrumb__separator {
+  color: var(--app-text-secondary);
+}
+
+.el-empty,
+.el-image,
+.el-scrollbar,
+.el-upload,
+.el-tree {
+  color: var(--app-text-primary);
+}
+
+.el-empty__image svg,
+.el-empty__image path {
+  fill: var(--app-tone-info-surface-strong);
+}
+
+.el-icon,
+.el-breadcrumb__inner a,
+.el-dropdown-menu__item,
+.el-menu-item,
+.el-option,
+.el-radio-button__inner,
+.el-timeline-item__content {
+  color: var(--app-text-primary);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-input-number,
+.el-date-editor {
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-card-strong);
+  border-color: var(--app-border-soft);
+  box-shadow: inset 0 0 0 1px var(--app-border-soft);
+  color: var(--app-text-primary);
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-input-number:hover,
+.el-date-editor:hover {
+  box-shadow: inset 0 0 0 1px var(--app-border-strong);
+}
+
+.el-input.is-disabled .el-input__wrapper,
+.el-select.is-disabled .el-select__wrapper,
+.el-input-number.is-disabled,
+.el-textarea.is-disabled .el-textarea__inner {
+  background: var(--el-disabled-bg-color);
+  color: var(--el-disabled-text-color);
+}
+
+.el-option {
+  background: transparent;
+}
+
+.el-option.is-selected {
+  color: var(--app-tone-brand-text-strong);
+  background: var(--app-tone-brand-surface);
+}
+
+.el-option:hover,
+.el-dropdown-menu__item:hover,
+.el-dropdown-menu__item:focus,
+.el-menu-item:hover,
+.el-tree-node__content:hover,
+.el-pagination button:hover {
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-radio-group {
+  gap: 8px;
+}
+
+.el-radio-button__inner {
+  background: var(--app-surface-card);
+  border-color: var(--app-border-soft);
+}
+
+.el-radio-button.is-active .el-radio-button__inner {
+  background: var(--app-tone-brand-solid);
+  border-color: var(--app-tone-brand-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-table {
+  --el-table-border-color: var(--app-border-soft);
+  --el-table-header-bg-color: var(--app-surface-muted);
+  --el-table-tr-bg-color: transparent;
+  --el-table-row-hover-bg-color: var(--app-tone-brand-surface);
+  background: transparent;
+  color: var(--app-text-primary);
+}
+
+.el-table th.el-table__cell,
+.el-table tr,
+.el-table td.el-table__cell,
+.el-table__inner-wrapper::before {
+  background: transparent;
+  border-color: var(--app-border-soft);
 }
 
 .el-dialog {
   border: 1px solid var(--app-border-glass);
   border-radius: var(--app-radius-lg);
-  background: var(--app-surface-glass-strong);
+  background: var(--app-surface-overlay);
   box-shadow: var(--app-shadow-glass);
+  color: var(--app-text-primary);
   backdrop-filter: blur(var(--app-glass-blur));
 }
 
-.el-table {
-  --el-table-border-color: var(--app-border-soft);
-  --el-table-header-bg-color: rgba(17, 38, 54, 0.04);
+.el-dropdown-menu,
+.el-message,
+.el-message-box,
+.el-picker-panel,
+.el-select-dropdown {
+  border-radius: var(--app-radius-md);
 }
 
-.el-input__wrapper,
-.el-select__wrapper,
-.el-textarea__inner {
-  border-radius: var(--app-radius-sm);
+.el-tooltip__popper,
+.el-popper.is-dark,
+.el-popper.is-light,
+.el-dropdown-menu,
+.el-message,
+.el-message-box,
+.el-picker-panel,
+.el-select-dropdown,
+.el-tree-select__popper {
+  border: 1px solid var(--app-border-soft);
+}
+
+.el-menu,
+.el-menu-item {
+  background: transparent;
+  border-color: transparent;
+}
+
+.el-menu-item.is-active {
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-tooltip__popper,
+.el-popper.is-dark,
+.el-popper.is-light,
+.el-message,
+.el-message-box,
+.el-loading-mask,
+.el-overlay-dialog,
+.el-overlay {
+  color: var(--app-text-primary);
+}
+
+.el-tree-node:focus > .el-tree-node__content,
+.el-tree-node.is-current > .el-tree-node__content {
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-timeline-item__node {
+  background: var(--app-tone-brand-solid);
+  border-color: var(--app-tone-brand-border);
+}
+
+.el-date-editor,
+.el-picker-panel,
+.el-date-picker,
+.el-date-table td.available:hover {
+  color: var(--app-text-primary);
+}
+
+.el-date-table td.today .el-date-table-cell__text,
+.el-date-table td.current:not(.disabled) .el-date-table-cell__text {
+  background: var(--app-tone-brand-solid);
+  color: var(--app-surface-card-strong);
+}
+
+.el-pagination {
+  color: var(--app-text-secondary);
+}
+
+.el-pagination button,
+.el-pagination .btn-next,
+.el-pagination .btn-prev,
+.el-pagination .el-pager li {
+  background: var(--app-surface-card);
+  color: var(--app-text-primary);
+}
+
+.el-pagination .el-pager li.is-active {
+  background: var(--app-tone-brand-surface-strong);
+  color: var(--app-tone-brand-text-strong);
+}
+
+.el-tag {
+  border-color: var(--app-border-soft);
+}
+
+.el-tag--primary {
+  background: var(--app-tone-brand-surface);
+  color: var(--app-tone-brand-text);
+}
+
+.el-tag--success {
+  background: var(--app-tone-success-surface);
+  color: var(--app-tone-success-text);
+}
+
+.el-tag--warning {
+  background: var(--app-tone-warning-surface);
+  color: var(--app-tone-warning-text);
+}
+
+.el-tag--danger {
+  background: var(--app-tone-danger-surface);
+  color: var(--app-tone-danger-text);
+}
+
+.el-upload,
+.el-upload-dragger {
+  border-radius: var(--app-radius-md);
+}
+
+.el-loading-mask {
+  background: var(--el-mask-color);
+  backdrop-filter: blur(4px);
 }

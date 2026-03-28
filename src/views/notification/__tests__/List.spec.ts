@@ -1,6 +1,8 @@
 import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { createAppPinia } from '@/stores'
 import { useNotificationStore } from '@/stores/modules/notification'
@@ -28,6 +30,10 @@ async function loadNotificationListView() {
       error,
     }
   }
+}
+
+function readNotificationViewSource() {
+  return readFileSync(resolve(process.cwd(), 'src/views/notification/List.vue'), 'utf-8')
 }
 
 const notifications = [
@@ -141,5 +147,21 @@ describe('notification list view', () => {
     expect(wrapper.findAll('.notification-item-stub')).toHaveLength(1)
     const titles = wrapper.findAll('.notification-item-title').map((node) => node.text())
     expect(titles).toEqual(['逾期提醒'])
+  })
+
+  it('通知页源码改为消费主题 token，避免暗色主题下残留浅色底与浅色文案', () => {
+    const source = readNotificationViewSource()
+
+    // 通知中心既要承载筛选侧栏，也要承载通知列表和空态，页面层必须直接锁定表面与文字 token，避免深色模式回退成浅色孤岛。
+    expect(source).toContain('var(--app-surface-card-strong)')
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-text-primary)')
+    expect(source).toContain('var(--app-text-secondary)')
+    expect(source).toContain(':deep(.console-page-hero__title)')
+    expect(source).toContain(':deep(.console-page-hero__description)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

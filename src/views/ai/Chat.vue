@@ -134,12 +134,11 @@ watch(
 }
 
 .ai-chat-view__hero,
-.ai-chat-view__summary-card,
-.ai-chat-view__conversation {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+.ai-chat-view__summary-card {
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 22px 56px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .ai-chat-view__hero {
@@ -148,9 +147,9 @@ watch(
   gap: 24px;
   padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(13, 148, 136, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+    radial-gradient(circle at top right, var(--app-tone-success-surface-strong), transparent 34%),
+    radial-gradient(circle at bottom left, var(--app-tone-warning-surface), transparent 28%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-surface-card));
 }
 
 .ai-chat-view__eyebrow {
@@ -159,7 +158,7 @@ watch(
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
 }
 
 .ai-chat-view__title {
@@ -189,9 +188,10 @@ watch(
   padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
-  color: #0f766e;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(15, 118, 110, 0.14);
+  color: var(--app-tone-success-text);
+  background: var(--app-surface-overlay);
+  border: 1px solid var(--app-tone-success-border);
+  box-shadow: var(--app-shadow-solid);
 }
 
 .ai-chat-view__shell,
@@ -204,11 +204,22 @@ watch(
   display: grid;
   gap: 8px;
   padding: 20px 22px;
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(255, 255, 255, 0.98));
+  // 摘要卡直接消费 tone token，才能让深色主题下的状态层级继续可读，而不是残留浅色玻璃底。
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-success-surface),
+    var(--app-surface-card-strong)
+  );
+  border-color: var(--app-tone-success-border);
 }
 
 .summary-card--amber {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-warning-surface),
+    var(--app-surface-card-strong)
+  );
+  border-color: var(--app-tone-warning-border);
 }
 
 .ai-chat-view__summary-card p,
@@ -224,8 +235,15 @@ watch(
 
 .ai-chat-view__messages {
   min-height: 420px;
+  // AI 长会话需要在消息区内部保留滚动，否则整段消息会把页面主滚动完全挤占，破坏默认布局的滚动边界分工。
+  max-height: min(72vh, 720px);
   overflow-y: auto;
+  padding: 18px;
   padding-right: 6px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-md);
+  background:
+    linear-gradient(180deg, var(--app-tone-info-surface), transparent), var(--app-surface-card);
 }
 
 .ai-chat-view__message-list {
@@ -235,7 +253,7 @@ watch(
 
 .ai-chat-view__error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--app-tone-danger-text);
   font-size: 14px;
 }
 </style>

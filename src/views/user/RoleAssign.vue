@@ -219,10 +219,10 @@ async function handleSubmit() {
 <style scoped lang="scss">
 .user-role-dialog__panel {
   padding: 24px 28px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .user-role-dialog__header {
@@ -240,7 +240,7 @@ async function handleSubmit() {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #1d4ed8;
+  color: var(--app-tone-brand-text);
 }
 
 .user-role-dialog__header h2 {

@@ -38,18 +38,18 @@ const currentDashboard = computed(() => {
 
 <style scoped lang="scss">
 .dashboard-entry-pending {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-md);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)),
-    linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(249, 115, 22, 0.08));
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    radial-gradient(circle at top right, var(--app-tone-success-surface-strong), transparent 36%),
+    linear-gradient(180deg, var(--app-surface-card-strong), var(--app-surface-card));
+  box-shadow: var(--app-shadow-card);
   padding: 28px;
 }
 
 .dashboard-entry-pending__eyebrow {
   margin: 0;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -58,13 +58,13 @@ const currentDashboard = computed(() => {
 
 .dashboard-entry-pending h1 {
   margin: 10px 0 0;
-  color: #172033;
+  color: var(--app-text-primary);
   font-size: 28px;
 }
 
 .dashboard-entry-pending p:last-child {
   margin: 12px 0 0;
-  color: #52607a;
+  color: var(--app-text-secondary);
   line-height: 1.6;
 }
 </style>
