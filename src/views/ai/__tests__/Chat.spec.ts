@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { computed, defineComponent, reactive } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -37,6 +40,10 @@ const aiChatState = reactive({
 const sendMessageMock = vi.fn()
 const resetConversationMock = vi.fn()
 
+function readAiSource(relativePath: string) {
+  return readFileSync(resolve(process.cwd(), relativePath), 'utf-8')
+}
+
 vi.mock('@/composables/useAiChat', () => ({
   useAiChat: () => ({
     loading: computed(() => aiChatState.loading),
@@ -45,6 +52,12 @@ vi.mock('@/composables/useAiChat', () => ({
     latestResult: computed(() => aiChatState.latestResult),
     sendMessage: sendMessageMock,
     resetConversation: resetConversationMock,
+  }),
+}))
+
+vi.mock('@/stores/modules/app', () => ({
+  useAppStore: () => ({
+    resolvedTheme: 'light',
   }),
 }))
 
@@ -317,5 +330,20 @@ describe('Ai Chat view', () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
     expect(wrapper.get('.draft-value').text()).toBe('帮我看明天可借设备')
+  })
+
+  it('聊天页源码改为消费主题 token，避免消息区在深色下残留浅色硬编码', () => {
+    const source = readAiSource('src/views/ai/Chat.vue')
+
+    // 这里直接锁定页面层主题 token，避免后续把浅色玻璃底色重新写回消息区与状态提示区域。
+    expect(source).toContain('var(--app-surface-card)')
+    expect(source).toContain('var(--app-tone-success-surface)')
+    expect(source).toContain('var(--app-tone-warning-surface)')
+    expect(source).toContain('var(--app-tone-danger-text)')
+    expect(source).toContain('var(--app-shadow-card)')
+
+    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+
+    expect(source).not.toMatch(hardcodedColorPattern)
   })
 })

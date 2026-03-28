@@ -13,6 +13,7 @@ import { formatDateTime } from '@/utils/date'
  */
 const aiStore = useAiStore()
 const activeHistoryId = ref<string | null>(null)
+let historySelectionToken = 0
 
 async function loadHistoryList() {
   try {
@@ -23,12 +24,34 @@ async function loadHistoryList() {
 }
 
 async function handleSelectHistory(historyId: string) {
-  activeHistoryId.value = historyId
+  const previousHistoryId = activeHistoryId.value
+  const currentSelectionToken = historySelectionToken + 1
+  historySelectionToken = currentSelectionToken
 
   try {
-    await aiStore.fetchHistoryDetail(historyId)
+    const historyDetail = await aiStore.fetchHistoryDetail(historyId)
+
+    /**
+     * 历史详情请求可能因为连续点击被新请求覆盖。
+     * 页面层再用一次选择令牌兜底，确保旧请求即使返回了自己的详情，也不会把最新一次点击的高亮抢回去。
+     */
+    if (currentSelectionToken !== historySelectionToken) {
+      return
+    }
+
+    if (historyDetail?.id === historyId) {
+      activeHistoryId.value = historyId
+      return
+    }
+
+    activeHistoryId.value = previousHistoryId
   } catch {
-    // 请求层已经统一提示，这里避免点击历史摘要时抛出未处理拒绝。
+    if (currentSelectionToken !== historySelectionToken) {
+      return
+    }
+
+    // 请求层已经统一提示，这里只回退高亮，避免详情请求失败后左侧选中态先跳走、右侧却仍停留旧内容。
+    activeHistoryId.value = previousHistoryId
   }
 }
 
@@ -147,10 +170,10 @@ onMounted(() => {
 .ai-history-view__hero,
 .ai-history-view__list-card,
 .ai-history-view__detail-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .ai-history-view__hero {
@@ -159,9 +182,9 @@ onMounted(() => {
   gap: 24px;
   padding: 28px;
   background:
-    radial-gradient(circle at top right, rgba(13, 148, 136, 0.16), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+    radial-gradient(circle at top right, var(--app-tone-success-surface-strong), transparent 34%),
+    radial-gradient(circle at bottom left, var(--app-tone-warning-surface), transparent 28%),
+    linear-gradient(135deg, var(--app-surface-card-strong), var(--app-surface-card));
 }
 
 .ai-history-view__eyebrow {
@@ -170,7 +193,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--app-tone-success-text);
 }
 
 .ai-history-view__title,
@@ -205,10 +228,11 @@ onMounted(() => {
   min-height: 38px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid rgba(15, 118, 110, 0.14);
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f766e;
+  border: 1px solid var(--app-tone-success-border);
+  background: var(--app-surface-overlay);
+  color: var(--app-tone-success-text);
   text-decoration: none;
+  box-shadow: var(--app-shadow-solid);
 }
 
 .ai-history-view__shell {
@@ -243,15 +267,20 @@ onMounted(() => {
   gap: 6px;
   padding: 16px 18px;
   text-align: left;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--app-border-soft);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--app-surface-overlay);
   cursor: pointer;
 }
 
 .ai-history-view__history-item--active {
-  border-color: rgba(15, 118, 110, 0.28);
-  background: linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(255, 255, 255, 0.98));
+  // 历史选中态需要和会话详情形成同一条视觉线索，所以这里把边框与底色都映射到主题 token。
+  border-color: var(--app-tone-brand-border);
+  background: linear-gradient(
+    135deg,
+    var(--app-tone-success-surface),
+    var(--app-surface-card-strong)
+  );
 }
 
 .ai-history-view__history-item strong,
@@ -268,8 +297,8 @@ onMounted(() => {
 .ai-history-view__detail-list div {
   padding: 16px 18px;
   border-radius: 20px;
-  background: rgba(248, 250, 252, 0.86);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border-soft);
 }
 
 .ai-history-view__detail-list dt,
