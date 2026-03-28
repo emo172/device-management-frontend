@@ -106,7 +106,6 @@ function handleSelect(path: string) {
                     v-if="appStore.sidebarCollapsed"
                     :content="`${group.title} · ${item.title}`"
                     placement="right"
-                    :teleported="false"
                   >
                     <span class="app-sidebar__menu-tooltip-trigger">
                       <el-icon class="app-sidebar__menu-icon">

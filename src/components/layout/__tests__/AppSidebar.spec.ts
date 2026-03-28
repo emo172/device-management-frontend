@@ -48,8 +48,8 @@ function mountSidebar() {
         },
         ElScrollbar: { template: '<div><slot /></div>' },
         ElTooltip: {
-          props: ['content'],
-          template: '<div class="tooltip-stub" :data-content="content"><slot /></div>',
+          props: ['content', 'teleported'],
+          template: `<div class="tooltip-stub" :data-content="content" :data-teleported="teleported === undefined ? 'default' : String(teleported)"><slot /></div>`,
         },
       },
     },
@@ -158,6 +158,21 @@ describe('AppSidebar', () => {
     ).toBe(true)
     expect(wrapper.find('.menu-stub > .menu-item-stub').exists()).toBe(true)
     expect(wrapper.find('.menu-stub > .tooltip-stub').exists()).toBe(false)
+  })
+
+  it('折叠态 tooltip 不禁用 teleport，避免右侧提示被侧栏裁切', () => {
+    const appStore = useAppStore()
+    appStore.setSidebarCollapsed(true)
+    setCurrentUserRole(UserRole.DEVICE_ADMIN)
+
+    const wrapper = mountSidebar()
+
+    expect(wrapper.findAll('.tooltip-stub').length).toBeGreaterThan(0)
+    expect(
+      wrapper
+        .findAll('.tooltip-stub')
+        .every((tooltip) => tooltip.attributes('data-teleported') !== 'false'),
+    ).toBe(true)
   })
 
   it('侧栏壳层暴露当前解析后的主题态，供布局联动样式消费', () => {
