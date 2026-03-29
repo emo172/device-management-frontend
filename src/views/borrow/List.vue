@@ -410,6 +410,8 @@ onMounted(() => {
 }
 
 .borrow-list-view__table-wrapper {
+  width: 100%;
+  max-width: 100%;
   overflow: auto;
 }
 

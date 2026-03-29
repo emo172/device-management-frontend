@@ -233,4 +233,14 @@ describe('ReservationCard', () => {
       vi.setSystemTime(new Date('2026-03-16T08:00:00'))
     }
   })
+
+  it('预约卡片对超长设备号和设备名开启收缩与断行，避免把父级三列网格整体撑宽', () => {
+    const source = readComponentSource('ReservationCard')
+
+    expect(source).toMatch(/\.reservation-card\s*\{[\s\S]*?min-width:\s*0;/)
+    expect(source).toMatch(/\.reservation-card__top\s*>\s*div\s*\{[\s\S]*?min-width:\s*0;/)
+    expect(source).toMatch(
+      /\.reservation-card__eyebrow,[\s\S]*?\.reservation-card__title,[\s\S]*?overflow-wrap:\s*anywhere;/,
+    )
+  })
 })

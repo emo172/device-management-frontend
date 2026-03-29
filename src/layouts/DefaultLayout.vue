@@ -69,8 +69,9 @@ const appStore = useAppStore()
 
 .default-layout__main-shell {
   min-height: 100%;
-  // 主内容壳至少铺满可视宽度，但内容比容器更宽时允许撑开，交给上一层滚动容器承接横向滚动。
-  min-width: 100%;
-  width: fit-content;
+  // 主内容壳需要锁在主滚动容器的可用宽度内，避免局部宽表格把横向滚动冒泡到整页。
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 </style>

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,6 +30,10 @@ vi.mock('vue-router', async (importOriginal) => {
 })
 
 const AppSidebar = (await import('../AppSidebar.vue')).default
+
+function readComponentSource() {
+  return readFileSync(resolve(process.cwd(), 'src/components/layout/AppSidebar.vue'), 'utf-8')
+}
 
 function mountSidebar() {
   return mount(AppSidebar, {
@@ -146,11 +152,14 @@ describe('AppSidebar', () => {
 
     const wrapper = mountSidebar()
 
+    expect(wrapper.get('aside').attributes('width')).toBe('96px')
+    expect(wrapper.get('aside').classes()).toContain('is-collapsed')
     expect(wrapper.find('.app-sidebar__brand-text').exists()).toBe(false)
     expect(wrapper.find('.app-sidebar__group-title').exists()).toBe(false)
     expect(wrapper.find('.app-sidebar__role-panel--collapsed').exists()).toBe(true)
     expect(wrapper.findAll('.icon-stub').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.tooltip-stub').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.tooltip-stub > .icon-stub').length).toBeGreaterThan(0)
     expect(
       wrapper
         .findAll('.tooltip-stub')
@@ -183,6 +192,47 @@ describe('AppSidebar', () => {
     const wrapper = mountSidebar()
 
     expect(wrapper.get('.app-sidebar').attributes('data-resolved-theme')).toBe('dark')
+  })
+
+  it('侧栏外层壳使用四角一致的圆角，避免右侧出现直角切边', () => {
+    const componentSource = readComponentSource()
+
+    expect(componentSource).toMatch(/border-radius:\s*var\(--app-radius-lg\);/)
+    expect(componentSource).not.toMatch(
+      /border-radius:\s*var\(--app-radius-lg\)\s+0\s+0\s+var\(--app-radius-lg\);/,
+    )
+  })
+
+  it('折叠态 tooltip 直接渲染图标触发节点，避免额外包裹层打断收起态居中规则', () => {
+    const appStore = useAppStore()
+    appStore.setSidebarCollapsed(true)
+    setCurrentUserRole(UserRole.DEVICE_ADMIN)
+
+    const wrapper = mountSidebar()
+
+    expect(wrapper.findAll('.tooltip-stub > .icon-stub').length).toBeGreaterThan(0)
+    expect(wrapper.find('.tooltip-stub .app-sidebar__menu-tooltip-trigger').exists()).toBe(false)
+  })
+
+  it('折叠态收紧滚动区横向留白，避免 64px 折叠菜单挤出横向滚动', () => {
+    const componentSource = readComponentSource()
+
+    expect(componentSource).toMatch(
+      /\.app-sidebar\.is-collapsed\s+\.app-sidebar__scrollbar\s*\{[\s\S]*?padding:\s*0 10px 18px;/,
+    )
+    expect(componentSource).toMatch(
+      /\.app-sidebar\.is-collapsed\s+\.app-sidebar__brand\s*\{[\s\S]*?padding:\s*18px 10px 14px;/,
+    )
+    expect(componentSource).toMatch(
+      /\.app-sidebar\.is-collapsed\s+\.app-sidebar__role-panel\s*\{[\s\S]*?padding:\s*14px 10px 16px;/,
+    )
+  })
+
+  it('侧栏根节点收起时阻断横向滚动并切换到 96px 宽度预算', () => {
+    const componentSource = readComponentSource()
+
+    expect(componentSource).toContain(":width=\"appStore.sidebarCollapsed ? '96px' : '248px'\"")
+    expect(componentSource).toMatch(/\.app-sidebar\s*\{[\s\S]*?overflow:\s*hidden;/)
   })
 
   it('分类管理仅对设备管理员可见', () => {

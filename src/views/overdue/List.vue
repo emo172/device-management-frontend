@@ -376,6 +376,9 @@ onMounted(() => {
 }
 
 .overdue-list-view__table-wrapper {
+  // 逾期记录可能出现超长主键与设备名称，横向预算必须留在表格区内，不能把主内容壳整体撑宽。
+  width: 100%;
+  max-width: 100%;
   overflow: auto;
 }
 

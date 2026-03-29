@@ -149,6 +149,15 @@ describe('Console shell components', () => {
     expect(wrapper.text()).not.toContain('12 条 / 3 批 条')
   })
 
+  it('ConsoleTableSection 主体区必须限制横向预算，避免内部宽内容把主布局整体撑宽', () => {
+    const tableSource = readLayoutSource('ConsoleTableSection')
+
+    expect(tableSource).toContain('.console-table-section__body')
+    expect(tableSource).toMatch(
+      /\.console-table-section__body\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?max-width:\s*100%;/,
+    )
+  })
+
   it('ConversationShell 支持 footer 插槽', async () => {
     const ConversationShell = (await import('../ConversationShell.vue')).default
     const wrapper = mount(ConversationShell, {

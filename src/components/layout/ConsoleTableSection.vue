@@ -74,6 +74,12 @@ const countText = computed(() => {
   color: var(--app-text-primary);
 }
 
+.console-table-section__body {
+  // 表格与复杂内容区必须把横向预算锁在区块内部，避免超宽内容沿着默认布局一直把主区撑宽。
+  min-width: 0;
+  max-width: 100%;
+}
+
 .console-table-section__count {
   margin-top: 6px;
   font-size: 13px;

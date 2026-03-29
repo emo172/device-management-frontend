@@ -96,6 +96,7 @@ const showCancelHint = computed(
 .reservation-card {
   @include shell.console-solid-surface;
 
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -118,6 +119,16 @@ const showCancelHint = computed(
   justify-content: space-between;
 }
 
+.reservation-card__top {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.reservation-card__top > div {
+  min-width: 0;
+  flex: 1;
+}
+
 .reservation-card__meta,
 .reservation-card__actions {
   gap: 8px;
@@ -137,6 +148,13 @@ const showCancelHint = computed(
   margin: 0;
   font-size: 20px;
   color: var(--app-text-primary);
+}
+
+.reservation-card__eyebrow,
+.reservation-card__title,
+.reservation-card__time,
+.reservation-card__purpose {
+  overflow-wrap: anywhere;
 }
 
 .reservation-card__time,
