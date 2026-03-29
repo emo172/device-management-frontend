@@ -75,7 +75,6 @@ onUnmounted(() => {
 <template>
   <section class="device-form-page">
     <ConsolePageHero
-      eyebrow="Device Edit"
       title="编辑设备"
       description="编辑页只修改基础档案，不在这里混入状态流转和图片维护，避免单页职责膨胀。"
       class="device-form-page__hero"

@@ -37,7 +37,7 @@ const description = computed(() => {
 <template>
   <section class="overdue-alert" :class="{ 'overdue-alert--quiet': !pendingCount }">
     <div>
-      <p class="overdue-alert__eyebrow">Overdue Radar</p>
+      <p class="overdue-alert__eyebrow">逾期雷达</p>
       <h2>{{ title }}</h2>
       <p class="overdue-alert__description">{{ description }}</p>
     </div>

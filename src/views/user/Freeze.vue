@@ -150,7 +150,7 @@ async function handleSubmit() {
       <template #main>
         <section class="user-freeze-dialog__panel">
           <div class="user-freeze-dialog__header">
-            <p class="user-freeze-dialog__eyebrow">Freeze Control</p>
+            <p class="user-freeze-dialog__eyebrow">冻结控制</p>
             <h2>{{ dialogTitle }}</h2>
             <p class="user-freeze-dialog__description">
               冻结、受限和解冻都直接对齐后端冻结接口；弹窗在这里统一补足目标状态与原因，避免列表页各自拼接不一致的管理语义。

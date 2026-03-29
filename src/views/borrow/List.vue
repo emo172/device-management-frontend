@@ -131,7 +131,6 @@ onMounted(() => {
 <template>
   <section class="borrow-list-view">
     <ConsolePageHero
-      eyebrow="Borrow Ledger"
       title="借还台账"
       description="统一查看借用确认、归还闭环与逾期流转。前端优先展示后端已回传的设备名称与借用人姓名；若当前环境仍只返回 ID，则稳定回退到真实 ID，而不是虚构展示字段。"
       class="borrow-list-view__hero"
@@ -159,7 +158,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="borrow-list-view__filter-panel">
       <div>
-        <p class="borrow-list-view__filter-eyebrow">Filter</p>
+        <p class="borrow-list-view__filter-eyebrow">筛选</p>
         <h2>状态筛选</h2>
       </div>
 

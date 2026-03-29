@@ -123,7 +123,6 @@ onMounted(() => {
 <template>
   <section class="reservation-list-view">
     <ConsolePageHero
-      eyebrow="Reservation Console"
       :title="pageTitle"
       :description="pageDescription"
       class="reservation-list-view__hero"

@@ -73,7 +73,6 @@ onMounted(() => {
 <template>
   <section class="notification-list-view">
     <ConsolePageHero
-      eyebrow="Notification Center"
       title="通知中心"
       description="统一查看站内信、邮件与短信通知。已读回执仅对站内信生效，因此页面会保留渠道信息，帮助用户判断哪些记录只支持查看投递结果。"
       class="notification-list-view__hero"

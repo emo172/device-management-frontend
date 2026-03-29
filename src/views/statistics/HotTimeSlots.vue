@@ -81,7 +81,6 @@ onMounted(() => {
 <template>
   <section class="statistics-detail-view statistics-detail-view--heatmap">
     <ConsolePageHero
-      eyebrow="Hot Time Slots"
       title="热门时段分析"
       description="用单轴热力图表达每个预约时段的热度，帮助管理端快速识别高峰时段。"
       class="statistics-detail-view__hero"
@@ -104,7 +103,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="statistics-detail-view__toolbar">
       <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">Date Scope</p>
+        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
         <h2>统计日期筛选</h2>
         <p>热门时段页与总览共用同一日期口径，避免热度图与其他子页不一致。</p>
       </div>

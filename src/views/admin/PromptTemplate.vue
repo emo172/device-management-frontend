@@ -323,7 +323,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="prompt-template-view">
     <ConsolePageHero
-      eyebrow="System / Prompt Assets"
       title="Prompt 模板管理"
       description="管理 AI 规则降级和未来模型接入所依赖的模板资产，确保模板正文、类型、版本和启停状态都有明确审计入口。"
       class="prompt-template-view__hero"

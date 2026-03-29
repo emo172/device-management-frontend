@@ -67,7 +67,7 @@ watch(
   <section class="ai-chat-view">
     <header class="ai-chat-view__hero">
       <div>
-        <p class="ai-chat-view__eyebrow">AI Assistant</p>
+        <p class="ai-chat-view__eyebrow">AI 助手</p>
         <h1 class="ai-chat-view__title">AI 对话助手</h1>
         <p class="ai-chat-view__description">
           AI

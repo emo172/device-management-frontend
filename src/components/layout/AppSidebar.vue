@@ -71,7 +71,7 @@ function handleSelect(path: string) {
         <span class="app-sidebar__logo">DM</span>
         <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__brand-text">
           <strong>智能设备管理系统</strong>
-          <span>Device Console</span>
+          <span>设备控制台</span>
         </div>
       </div>
 

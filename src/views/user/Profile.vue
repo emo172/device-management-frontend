@@ -159,7 +159,6 @@ function handlePasswordDialogVisibilityChange(visible: boolean) {
 <template>
   <section class="profile-page">
     <ConsolePageHero
-      eyebrow="User / Profile"
       title="个人中心"
       description="统一查看当前账号身份信息，并在不触碰登录标识的前提下维护姓名、手机号与密码。"
       class="profile-page__hero"

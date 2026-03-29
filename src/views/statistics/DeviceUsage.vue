@@ -99,7 +99,6 @@ onMounted(() => {
 <template>
   <section class="statistics-detail-view statistics-detail-view--utilization">
     <ConsolePageHero
-      eyebrow="Utilization"
       title="设备利用率分析"
       description="这里同时展示设备维度和分类维度的利用率，帮助系统管理员判断当前设备投放是否均衡。"
       class="statistics-detail-view__hero"
@@ -126,7 +125,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="statistics-detail-view__toolbar">
       <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">Date Scope</p>
+        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
         <h2>统计日期筛选</h2>
         <p>所有统计子页都沿用同一份日期查询，避免子页与总览页图表口径不一致。</p>
       </div>

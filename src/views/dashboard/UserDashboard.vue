@@ -110,7 +110,6 @@ onMounted(async () => {
 <template>
   <div class="dashboard-page user-dashboard">
     <ConsolePageHero
-      eyebrow="User Workspace"
       :title="`欢迎回来，${welcomeName}`"
       description="今天的仪表盘会优先提醒你最近的预约与签到窗口，减少在多个页面来回切换。"
       class="hero-card dashboard-card"
@@ -127,7 +126,7 @@ onMounted(async () => {
       <article class="dashboard-card reminder-card">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Check-in Focus</p>
+            <p class="eyebrow">签到关注</p>
             <h2>待签到提醒</h2>
           </div>
           <span class="badge">{{ pendingCheckIns.length }} 条</span>
@@ -149,7 +148,7 @@ onMounted(async () => {
       <article class="dashboard-card shortcut-card">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">AI Assistant</p>
+            <p class="eyebrow">AI 助手</p>
             <h2>AI 对话快捷入口</h2>
           </div>
         </div>
@@ -165,7 +164,7 @@ onMounted(async () => {
     <section class="dashboard-card list-card">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Recent Reservations</p>
+          <p class="eyebrow">近期预约</p>
           <h2>我的近期预约列表</h2>
         </div>
         <span class="badge">最近 {{ recentReservations.length }} 条</span>

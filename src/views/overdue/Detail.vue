@@ -68,7 +68,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="overdue-detail-view">
     <ConsolePageHero
-      eyebrow="Overdue Detail"
       title="逾期记录详情"
       description="查看单条逾期记录的正式处理状态、处理方式与处理时间，确保设备管理员与普通用户看到的是同一份后端回执。"
       class="overdue-detail-view__hero"
@@ -160,13 +159,13 @@ onBeforeUnmount(() => {
           >
             <div class="overdue-detail-view__status-grid">
               <article class="overdue-detail-view__status-card">
-                <p class="overdue-detail-view__eyebrow">Processing</p>
+                <p class="overdue-detail-view__eyebrow">处理状态</p>
                 <h2>处理状态</h2>
                 <OverdueProcessingStatusTag :status="currentRecord.processingStatus" />
               </article>
 
               <article class="overdue-detail-view__status-card">
-                <p class="overdue-detail-view__eyebrow">Method</p>
+                <p class="overdue-detail-view__eyebrow">处理方式</p>
                 <h2>处理方式</h2>
                 <OverdueHandleTypeTag :type="currentRecord.processingMethod" />
               </article>

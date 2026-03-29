@@ -158,7 +158,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="role-permission-view">
     <ConsolePageHero
-      eyebrow="System / Role Access"
       title="角色权限管理"
       description="统一维护系统内三类正式角色的授权边界，避免页面菜单、按钮权限和后端接口授权出现口径漂移。"
       class="role-permission-view__hero"

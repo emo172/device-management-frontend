@@ -137,7 +137,6 @@ onMounted(() => {
 <template>
   <section class="borrow-return-view">
     <ConsolePageHero
-      eyebrow="Confirm Return"
       title="归还确认"
       description="统一处理仍处于借用中或已逾期的正式借还记录。确认完成后，设备状态应由后端同步恢复为可用，不在前端直接改设备主数据。"
       class="borrow-return-view__hero"
@@ -171,7 +170,7 @@ onMounted(() => {
         <template #main>
           <article class="borrow-return-view__candidate-panel">
             <div class="borrow-return-view__panel-header">
-              <p class="borrow-return-view__eyebrow">Borrowed</p>
+              <p class="borrow-return-view__eyebrow">借出记录</p>
               <h2>可归还闭环记录</h2>
             </div>
 
@@ -219,7 +218,7 @@ onMounted(() => {
             description="归还确认针对仍处于借用中或已逾期的正式借还记录，备注会跟归还结果一起留在现场处理链路里。"
           >
             <div class="borrow-return-view__panel-header">
-              <p class="borrow-return-view__eyebrow">Selection</p>
+              <p class="borrow-return-view__eyebrow">当前选择</p>
               <h2>归还说明</h2>
             </div>
 

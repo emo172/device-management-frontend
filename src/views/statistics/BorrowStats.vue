@@ -101,7 +101,6 @@ onMounted(() => {
 <template>
   <section class="statistics-detail-view statistics-detail-view--borrow">
     <ConsolePageHero
-      eyebrow="Borrow Analytics"
       title="借用统计分析"
       description="当前图表基于单日聚合结果展示借出与归还对比，并结合设备、用户排行榜呈现当天活跃度。"
       class="statistics-detail-view__hero"
@@ -128,7 +127,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="statistics-detail-view__toolbar">
       <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">Date Scope</p>
+        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
         <h2>统计日期筛选</h2>
         <p>借用统计页与总览共用同一日期口径，保证借出、归还和排行榜来自同一批次聚合。</p>
       </div>

@@ -57,7 +57,7 @@ function isAuthRouteName(routeName: unknown): routeName is AuthRouteName {
  */
 const authHeroMap = {
   Login: {
-    eyebrow: 'Unified Device Workspace',
+    eyebrow: '',
     title: '智能设备管理系统',
     features: [
       {
@@ -81,7 +81,7 @@ const authHeroMap = {
     ],
   },
   Register: {
-    eyebrow: 'Create Account',
+    eyebrow: '',
     title: '创建系统账号',
     features: [
       {
@@ -105,7 +105,7 @@ const authHeroMap = {
     ],
   },
   ForgotPassword: {
-    eyebrow: 'Recover Access',
+    eyebrow: '',
     title: '重置登录密码',
     features: [
       {
@@ -129,7 +129,7 @@ const authHeroMap = {
     ],
   },
   ResetPassword: {
-    eyebrow: 'Reset Credentials',
+    eyebrow: '',
     title: '重新设置登录密码',
     description: '拿到验证码后即可在当前页完成密码更新，再回到登录页继续处理设备相关工作。',
     note: '重置密码不会自动登录，所以左栏强调“完成凭据修复后继续回到系统”，保持公开流程预期一致。',
@@ -167,7 +167,7 @@ const heroContent = computed<AuthHeroContent>(() => authHeroMap[currentRouteName
   <main class="auth-layout auth-layout--compact" :data-resolved-theme="appStore.resolvedTheme">
     <section class="auth-layout__shell">
       <section class="auth-layout__hero-panel">
-        <p class="auth-layout__eyebrow">{{ heroContent.eyebrow }}</p>
+        <p v-if="heroContent.eyebrow" class="auth-layout__eyebrow">{{ heroContent.eyebrow }}</p>
         <h1 class="auth-layout__title auth-layout__title--single-line">{{ heroContent.title }}</h1>
         <p v-if="heroContent.description" class="auth-layout__description">
           {{ heroContent.description }}

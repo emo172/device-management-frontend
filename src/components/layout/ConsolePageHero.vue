@@ -6,7 +6,7 @@ import { useSlots } from 'vue'
  * 统一承接页面主标题、辅助说明和右侧操作区，避免列表页、仪表盘各自维护不一致的首屏结构。
  */
 interface ConsolePageHeroProps {
-  /** 页面眉标，通常用于承接英文域名或模块英文名。 */
+  /** 页面眉标，可选，用于承接辅助标题、状态码或场景提示。 */
   eyebrow?: string
   /** 页面主标题，直接对应当前业务域标题。 */
   title: string

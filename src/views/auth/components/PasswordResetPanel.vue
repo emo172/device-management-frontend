@@ -11,8 +11,8 @@ import { isEmail, isValidPassword } from '@/utils/validate'
  * 用于在复用同一套表单逻辑时保留独立页面的标题、说明和辅助引导语义。
  */
 interface PasswordResetPanelProps {
-  /** 页面眉标，说明当前是忘记密码入口还是独立重置密码入口。 */
-  eyebrow: string
+  /** 页面眉标，可选；当公开页不再需要装饰性英文提示时可以直接省略。 */
+  eyebrow?: string
   /** 页面主标题，突出当前路由要完成的核心动作。 */
   title: string
   /** 主说明文案，解释本页为何需要邮箱验证码与新密码。 */
@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
-      <p class="auth-panel__eyebrow">{{ props.eyebrow }}</p>
+      <p v-if="props.eyebrow" class="auth-panel__eyebrow">{{ props.eyebrow }}</p>
       <h1 class="auth-panel__title">{{ props.title }}</h1>
       <p class="auth-panel__description">{{ props.description }}</p>
     </div>

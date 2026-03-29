@@ -111,7 +111,6 @@ onMounted(() => {
 <template>
   <section class="borrow-confirm-view">
     <ConsolePageHero
-      eyebrow="Confirm Borrow"
       title="借用确认"
       description="统一聚合已批准且已签到的预约候选，再按前端分页展示，避免借用确认被原始预约分页盲区卡住。"
       class="borrow-confirm-view__hero"
@@ -152,7 +151,7 @@ onMounted(() => {
         <template #main>
           <article class="borrow-confirm-view__candidate-panel">
             <div class="borrow-confirm-view__panel-header">
-              <p class="borrow-confirm-view__eyebrow">Candidates</p>
+              <p class="borrow-confirm-view__eyebrow">候选记录</p>
               <h2>可确认借出的预约</h2>
             </div>
 
@@ -194,7 +193,7 @@ onMounted(() => {
             description="确认借出只针对左侧当前选中的正式候选预约，备注会原样透传给后端借用确认接口。"
           >
             <div class="borrow-confirm-view__panel-header">
-              <p class="borrow-confirm-view__eyebrow">Selection</p>
+              <p class="borrow-confirm-view__eyebrow">当前选择</p>
               <h2>确认说明</h2>
             </div>
 
