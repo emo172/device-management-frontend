@@ -113,6 +113,7 @@ describe('installElementPlus', () => {
         'ElUpload',
       ]),
     )
+    expect(registeredComponentNames).toContain('ElTooltip')
     expect(app.directive).toHaveBeenCalledWith('loading', ElLoadingDirective)
     expect(provideGlobalConfigMock).toHaveBeenCalledTimes(1)
   })

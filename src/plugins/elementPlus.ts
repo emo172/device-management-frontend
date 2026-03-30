@@ -32,6 +32,7 @@ import { ElSelect } from 'element-plus/es/components/select/index.mjs'
 import { ElTable } from 'element-plus/es/components/table/index.mjs'
 import { ElTag } from 'element-plus/es/components/tag/index.mjs'
 import { ElTimeline } from 'element-plus/es/components/timeline/index.mjs'
+import { ElTooltip } from 'element-plus/es/components/tooltip/index.mjs'
 import { ElTree } from 'element-plus/es/components/tree/index.mjs'
 import { ElTreeSelect } from 'element-plus/es/components/tree-select/index.mjs'
 import { ElUpload } from 'element-plus/es/components/upload/index.mjs'
@@ -72,6 +73,7 @@ const elementPlusPlugins: Plugin[] = [
   ElTable,
   ElTag,
   ElTimeline,
+  ElTooltip,
   ElTree,
   ElTreeSelect,
   ElUpload,
