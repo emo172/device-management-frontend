@@ -3,6 +3,8 @@ import { Bell, Fold, Monitor, Moon, Setting, Sunny, SwitchButton } from '@elemen
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AppDropdown from '@/components/common/dropdown/AppDropdown.vue'
+import type { AppDropdownItem } from '@/components/common/dropdown/types'
 import { resolveNavigationContext } from '@/components/layout/navigation'
 import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -62,6 +64,43 @@ const currentThemeOption = computed(() => {
 
   return matchedOption ?? themeOptions[themeOptions.length - 1]!
 })
+
+/**
+ * 头部主题菜单统一映射到 AppDropdown 契约，确保测试锚点、当前态和辅助文案都跟随共享包装层流转，
+ * 避免头部继续维护一套只服务本地样式的私有菜单项结构。
+ */
+const themeDropdownItems = computed<AppDropdownItem[]>(() =>
+  themeOptions.map((option) => ({
+    key: option.preference,
+    label: option.label,
+    icon: option.icon,
+    meta: option.preference === appStore.themePreference ? '当前' : undefined,
+    active: option.preference === appStore.themePreference,
+    testId: `theme-option-${option.preference}`,
+  })),
+)
+
+/**
+ * 用户菜单同样收口到共享 dropdown item 契约，让危险项语义由包装层统一表达，
+ * 这样退出登录不需要在头部额外维护红色 class 或单独的菜单结构。
+ */
+const userMenuItems: AppDropdownItem[] = [
+  {
+    key: 'profile',
+    label: '个人中心',
+    icon: Setting,
+  },
+  {
+    key: 'password',
+    label: '修改密码',
+  },
+  {
+    key: 'logout',
+    label: '退出登录',
+    icon: SwitchButton,
+    danger: true,
+  },
+]
 
 /**
  * 顶部上下文统一复用共享导航解析结果。
@@ -145,6 +184,30 @@ async function handleLogout() {
 function handleThemePreferenceChange(preference: ThemePreference) {
   appStore.setThemePreference(preference)
 }
+
+function handleThemeSelect(item: AppDropdownItem) {
+  const nextPreference = themeOptions.find((option) => option.preference === item.key)?.preference
+
+  if (nextPreference) {
+    handleThemePreferenceChange(nextPreference)
+  }
+}
+
+async function handleUserMenuSelect(item: AppDropdownItem) {
+  if (item.key === 'profile') {
+    handleOpenProfile()
+    return
+  }
+
+  if (item.key === 'password') {
+    handleOpenPasswordTab()
+    return
+  }
+
+  if (item.key === 'logout') {
+    await handleLogout()
+  }
+}
 </script>
 
 <template>
@@ -164,38 +227,20 @@ function handleThemePreferenceChange(preference: ThemePreference) {
           <el-icon><Fold /></el-icon>
         </el-button>
 
-        <!-- 主题切换只放在头部工具区，保证通知与用户菜单继续维持独立入口；下拉面板直接复用全局统一菜单样式，不再维护头部专用 class。 -->
+        <!-- 头部主题切换和用户菜单统一复用 AppDropdown 包装层，避免浅深主题、危险项和箭头语义继续分叉成头部私有下拉视觉。 -->
         <div class="app-header__theme-switcher">
-          <el-dropdown class="app-header__theme-dropdown" trigger="click">
-            <el-button
-              data-testid="theme-entry"
-              text
-              class="app-header__theme-button"
-              :data-theme-preference="appStore.themePreference"
-              :data-resolved-theme="appStore.resolvedTheme"
-            >
+          <AppDropdown
+            data-testid="theme-entry"
+            :data-theme-preference="appStore.themePreference"
+            :data-resolved-theme="appStore.resolvedTheme"
+            :items="themeDropdownItems"
+            @select="handleThemeSelect"
+          >
+            <template #trigger>
               <el-icon><component :is="currentThemeOption.icon" /></el-icon>
               <span class="app-header__theme-label">{{ currentThemeOption.label }}</span>
-            </el-button>
-
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-for="option in themeOptions"
-                  :key="option.preference"
-                  :data-testid="`theme-option-${option.preference}`"
-                  :class="{
-                    'app-header__theme-option--active':
-                      option.preference === appStore.themePreference,
-                  }"
-                  @click="handleThemePreferenceChange(option.preference)"
-                >
-                  <el-icon><component :is="option.icon" /></el-icon>
-                  <span>{{ option.label }}</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
             </template>
-          </el-dropdown>
+          </AppDropdown>
         </div>
 
         <!-- 通知入口对所有已登录角色开放，但只走通知中心统一入口，不在头部额外分叉角色快捷菜单。 -->
@@ -216,28 +261,14 @@ function handleThemePreferenceChange(preference: ThemePreference) {
           </el-badge>
         </div>
 
-        <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口；下拉同样复用全局统一菜单样式。 -->
+        <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口。 -->
         <div class="app-header__user-zone">
-          <el-dropdown class="app-header__user" trigger="click">
-            <button class="app-header__user-trigger" type="button">
+          <AppDropdown :items="userMenuItems" @select="handleUserMenuSelect">
+            <template #trigger>
               <el-avatar class="app-header__avatar">{{ displayName.slice(0, 1) }}</el-avatar>
               <span>{{ displayName }}</span>
-            </button>
-
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="handleOpenProfile">
-                  <el-icon><Setting /></el-icon>
-                  个人中心
-                </el-dropdown-item>
-                <el-dropdown-item @click="handleOpenPasswordTab">修改密码</el-dropdown-item>
-                <el-dropdown-item @click="handleLogout">
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
             </template>
-          </el-dropdown>
+          </AppDropdown>
         </div>
       </div>
     </div>
@@ -268,18 +299,14 @@ function handleThemePreferenceChange(preference: ThemePreference) {
 .app-header__context,
 .app-header__theme-switcher,
 .app-header__notifications,
-.app-header__user-zone,
-.app-header__user-trigger,
-.app-header__theme-button {
+.app-header__user-zone {
   display: flex;
 }
 
 .app-header__left,
 .app-header__theme-switcher,
 .app-header__notifications,
-.app-header__user-zone,
-.app-header__user-trigger,
-.app-header__theme-button {
+.app-header__user-zone {
   align-items: center;
 }
 
@@ -324,40 +351,9 @@ function handleThemePreferenceChange(preference: ThemePreference) {
   color: var(--app-text-primary);
 }
 
-.app-header__theme-dropdown {
-  display: block;
-}
-
-.app-header__theme-button {
-  gap: 8px;
-  min-width: 112px;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--app-border-soft);
-  border-radius: 999px;
-  background: var(--app-surface-glass-strong);
-  box-shadow: var(--app-shadow-solid);
-  color: var(--app-text-primary);
-}
-
 .app-header__theme-label {
   font-size: 13px;
   white-space: nowrap;
-}
-
-.app-header__theme-option--active {
-  color: var(--app-tone-brand-text-strong);
-}
-
-.app-header__user-trigger {
-  gap: 12px;
-  padding: 6px 8px 6px 6px;
-  border: none;
-  border-radius: 999px;
-  background: var(--app-surface-glass-strong);
-  box-shadow: var(--app-shadow-solid);
-  color: var(--app-text-primary);
-  cursor: pointer;
 }
 
 .app-header__avatar {

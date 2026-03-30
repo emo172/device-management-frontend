@@ -7,6 +7,29 @@ import { resolve } from 'node:path'
 import { createAppPinia } from '@/stores'
 import { useNotificationStore } from '@/stores/modules/notification'
 
+const appSelectStub = {
+  name: 'AppSelect',
+  inheritAttrs: false,
+  props: {
+    modelValue: {
+      type: String,
+      default: '',
+    },
+    clearable: Boolean,
+    placeholder: {
+      type: String,
+      default: '',
+    },
+    disabled: Boolean,
+  },
+  emits: ['update:modelValue'],
+  template:
+    '<div class="app-select-stub" :class="$attrs.class" :style="$attrs.style" :data-placeholder="placeholder">' +
+    '<select class="app-select-stub__control" data-testid="type-filter" :value="modelValue ?? String()" :disabled="disabled" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>' +
+    '<button v-if="clearable" type="button" data-testid="type-filter-clear" @click="$emit(\'update:modelValue\', \'\')">清空</button>' +
+    '</div>',
+}
+
 const notificationViewModules = import.meta.glob('../*.vue')
 
 async function loadNotificationListView() {
@@ -76,6 +99,14 @@ describe('notification list view', () => {
     setActivePinia(createAppPinia())
   })
 
+  it('通知页源码改为通过 AppSelect 收口类型筛选，并移除页面直连 el-select', () => {
+    const source = readNotificationViewSource()
+
+    expect(source).toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
+    expect(source).toContain('<AppSelect')
+    expect(source).not.toContain('<el-select')
+  })
+
   it('渲染通知列表摘要，并允许按通知类型筛选', async () => {
     const { module, error } = await loadNotificationListView()
 
@@ -112,15 +143,10 @@ describe('notification list view', () => {
             template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
           },
           ElIcon: { template: '<i><slot /></i>' },
+          AppSelect: appSelectStub,
           ElOption: {
             props: ['label', 'value'],
             template: '<option :value="value">{{ label }}</option>',
-          },
-          ElSelect: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<select data-testid="type-filter" :value="modelValue || undefined" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select>',
           },
           ElTag: { template: '<span><slot /></span>' },
         },
@@ -137,16 +163,115 @@ describe('notification list view', () => {
 
     expect(wrapper.find('.conversation-shell').exists()).toBe(true)
     expect(wrapper.find('.notification-list-view__filters').exists()).toBe(true)
+    const typeFilter = wrapper.getComponent({ name: 'AppSelect' })
+    const typeFilterRoot = wrapper.get('.notification-list-view__select.app-select-stub')
+
+    expect(typeFilter.props('modelValue')).toBe('')
+    expect(typeFilter.props('clearable')).toBe(true)
+    expect(typeFilter.props('placeholder')).toBe('筛选通知类型')
+    expect(typeFilterRoot.attributes('data-placeholder')).toBe('筛选通知类型')
     expect(wrapper.text()).toContain('通知中心')
     expect(wrapper.text()).toContain('逾期提醒')
     expect(wrapper.text()).toContain('预约提醒')
     expect(wrapper.text()).toContain('1 条未读')
 
-    await wrapper.get('[data-testid="type-filter"]').setValue('OVERDUE_WARNING')
+    await wrapper.get('.app-select-stub__control').setValue('OVERDUE_WARNING')
 
     expect(wrapper.findAll('.notification-item-stub')).toHaveLength(1)
     const titles = wrapper.findAll('.notification-item-title').map((node) => node.text())
     expect(titles).toEqual(['逾期提醒'])
+
+    await wrapper.get('[data-testid="type-filter-clear"]').trigger('click')
+
+    expect(typeFilter.props('modelValue')).toBe('')
+    expect(wrapper.findAll('.notification-item-stub')).toHaveLength(2)
+  })
+
+  it('AppSelect 发出 undefined 或 null 时，会把筛选值收敛为空字符串并恢复全量通知列表', async () => {
+    const { module, error } = await loadNotificationListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const notificationStore = useNotificationStore()
+    notificationStore.notifications = notifications
+    notificationStore.unreadCount = 1
+
+    vi.spyOn(notificationStore, 'fetchNotificationList').mockResolvedValue(notifications)
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(1)
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
+          NotificationItem: {
+            props: ['notification'],
+            emits: ['mark-read'],
+            template:
+              '<article class="notification-item-stub">' +
+              '<span class="notification-item-title">{{ notification.title }}</span>' +
+              '<button class="notification-item-read" @click="$emit(\'mark-read\', notification.id)">已读</button>' +
+              '</article>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          AppSelect: appSelectStub,
+          ElOption: {
+            props: ['label', 'value'],
+            template: '<option :value="value">{{ label }}</option>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const typeFilter = wrapper.getComponent({ name: 'AppSelect' })
+
+    await wrapper.get('.app-select-stub__control').setValue('OVERDUE_WARNING')
+
+    expect(typeFilter.props('modelValue')).toBe('OVERDUE_WARNING')
+    expect(wrapper.findAll('.notification-item-stub')).toHaveLength(1)
+
+    typeFilter.vm.$emit('update:modelValue', undefined)
+    await flushPromises()
+
+    expect(typeFilter.props('modelValue')).toBe('')
+    expect(wrapper.findAll('.notification-item-stub')).toHaveLength(2)
+    expect(wrapper.findAll('.notification-item-title').map((node) => node.text())).toEqual([
+      '逾期提醒',
+      '预约提醒',
+    ])
+
+    await wrapper.get('.app-select-stub__control').setValue('OVERDUE_WARNING')
+
+    expect(typeFilter.props('modelValue')).toBe('OVERDUE_WARNING')
+    expect(wrapper.findAll('.notification-item-stub')).toHaveLength(1)
+
+    typeFilter.vm.$emit('update:modelValue', null)
+    await flushPromises()
+
+    expect(typeFilter.props('modelValue')).toBe('')
+    expect(wrapper.findAll('.notification-item-stub')).toHaveLength(2)
+    expect(wrapper.findAll('.notification-item-title').map((node) => node.text())).toEqual([
+      '逾期提醒',
+      '预约提醒',
+    ])
   })
 
   it('通知页源码改为消费主题 token，避免暗色主题下残留浅色底与浅色文案', () => {

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import type { DeviceResponse } from '@/api/devices'
 import type { UserListItemResponse } from '@/api/users'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import ReservationForm from '@/components/form/ReservationForm.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
@@ -62,6 +63,13 @@ const initialValue = computed<ReservationFormValue>(() => ({
   remark: '',
 }))
 
+watch(createMode, (value) => {
+  // 退出代预约后必须丢弃旧目标用户，避免再次切回代预约时沿用上一次的选择结果绕过显式确认。
+  if (value !== 'proxy') {
+    targetUserId.value = ''
+  }
+})
+
 function buildDeviceOptions(records: DeviceResponse[]) {
   return records
     .filter((device) => device.status === DeviceStatus.AVAILABLE)
@@ -99,11 +107,29 @@ async function loadReservationTargetUsers() {
   reservationTargetUsers.value = await userStore.fetchReservationTargetUsers({ page: 1, size: 100 })
 }
 
+function ensureProxyTargetUserSelected(options?: { closeConfirmWhenInvalid?: boolean }) {
+  if (createMode.value !== 'proxy') {
+    return true
+  }
+
+  if (targetUserId.value) {
+    return true
+  }
+
+  // 页面层要在提交前后都守住代预约显式选人约束，避免历史状态或异常事件把空目标用户带进创建请求。
+  if (options?.closeConfirmWhenInvalid) {
+    confirmVisible.value = false
+  }
+
+  ElMessage.warning('代预约必须先选择目标用户')
+
+  return false
+}
+
 function handleFormSubmit(payload: ReservationFormValue) {
   pendingPayload.value = payload
 
-  if (createMode.value === 'proxy' && !targetUserId.value) {
-    ElMessage.warning('代预约必须先选择目标用户')
+  if (!ensureProxyTargetUserSelected()) {
     return
   }
 
@@ -114,8 +140,17 @@ function handleClearConflict() {
   serverConflictMessage.value = ''
 }
 
+function handleTargetUserChange(value: unknown) {
+  // 代预约目标用户仍然必须维持 string UUID 语义，避免包装组件的通用 unknown 事件把页面状态冲成其他类型。
+  targetUserId.value = typeof value === 'string' ? value : ''
+}
+
 async function handleConfirmSubmit() {
   if (!pendingPayload.value) {
+    return
+  }
+
+  if (!ensureProxyTargetUserSelected({ closeConfirmWhenInvalid: true })) {
     return
   }
 
@@ -179,11 +214,12 @@ onMounted(() => {
           </el-radio-group>
 
           <!-- 只有 SYSTEM_ADMIN 才能在创建页切换为代预约，并且必须显式选择目标 USER。 -->
-          <el-select
+          <AppSelect
             v-if="createMode === 'proxy'"
-            v-model="targetUserId"
+            :model-value="targetUserId"
             class="reservation-create-page__target-user"
             placeholder="请选择目标用户"
+            @update:modelValue="handleTargetUserChange"
           >
             <el-option
               v-for="user in reservationTargetUsers"
@@ -191,7 +227,7 @@ onMounted(() => {
               :label="`${user.realName || user.username}（${user.username}）`"
               :value="user.id"
             />
-          </el-select>
+          </AppSelect>
         </el-card>
 
         <ReservationForm

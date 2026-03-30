@@ -2,6 +2,7 @@
 import { ElMessage } from 'element-plus'
 import { computed, reactive, ref, watch } from 'vue'
 
+import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
 import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
@@ -39,14 +40,18 @@ const submitting = ref(false)
 
 const roleOptions = computed(() => userStore.roleList)
 const currentRoleLabel = computed(() => formatRoleLabel(props.user?.roleName))
+/**
+ * 提交门禁必须以当前角色表为准：如果用户原有 roleId 已经不在后端真实角色表中，
+ * 页面只能提示管理员重新选择，不能继续把过期角色 ID 提交回去。
+ */
+const selectedRole = computed(() => roleOptions.value.find((role) => role.id === formState.roleId))
 const selectedRoleLabel = computed(() => {
-  const selectedRole = roleOptions.value.find((role) => role.id === formState.roleId)
-  return formatRoleLabel(selectedRole?.name)
+  return formatRoleLabel(selectedRole.value?.name)
 })
 const canSubmitRoleAssign = computed(
   () =>
     !!props.user &&
-    !!formState.roleId &&
+    !!selectedRole.value &&
     !submitting.value &&
     !roleListLoadFailed.value &&
     roleOptions.value.length > 0,
@@ -149,7 +154,8 @@ async function handleSubmit() {
               <el-input :model-value="user?.username ?? ''" disabled />
             </el-form-item>
             <el-form-item label="角色">
-              <el-select
+              <!-- 角色分配页仍然只维护 roleId 字段语义；下拉壳层样式与交互统一交给 AppSelect 收口。 -->
+              <AppSelect
                 v-model="formState.roleId"
                 class="user-role-dialog__field"
                 placeholder="请选择角色"
@@ -160,7 +166,7 @@ async function handleSubmit() {
                   :label="formatRoleLabel(role.name)"
                   :value="role.id"
                 />
-              </el-select>
+              </AppSelect>
             </el-form-item>
           </el-form>
         </section>

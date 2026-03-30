@@ -377,10 +377,27 @@
 
 .el-option.is-selected,
 .el-select-dropdown__item.is-selected,
-.el-dropdown-menu__item.app-header__theme-option--active {
+.el-dropdown-menu__item.app-dropdown__item--active {
   color: var(--app-tone-brand-text-strong);
   background: var(--app-tone-brand-surface);
   border-radius: var(--app-radius-sm);
+}
+
+// 危险动作优先表达风险，hover/focus 也不能回退到品牌高亮，否则会把“退出登录”误读成当前选项。
+.el-dropdown-menu__item.app-dropdown__item--danger,
+.el-dropdown-menu__item.app-dropdown__item--danger:hover,
+.el-dropdown-menu__item.app-dropdown__item--danger:focus {
+  color: var(--app-tone-danger-text);
+  background: var(--app-tone-danger-surface);
+  border-radius: var(--app-radius-sm);
+}
+
+// teleported 下拉里的图标、标题和补充信息需要共享同一套内联对齐方式，避免不同业务菜单各自补样式。
+.el-dropdown-menu__item .app-dropdown__icon,
+.el-dropdown-menu__item .app-dropdown__label,
+.el-dropdown-menu__item .app-dropdown__meta {
+  display: inline-flex;
+  align-items: center;
 }
 
 .el-option:hover,

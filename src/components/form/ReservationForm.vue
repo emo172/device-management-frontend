@@ -3,6 +3,7 @@ import { computed, reactive, watch } from 'vue'
 
 import ConflictWarning from '@/components/business/ConflictWarning.vue'
 import TimeRangePicker from '@/components/business/TimeRangePicker.vue'
+import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import { validateReservationTimeRange } from '@/utils'
 
 interface ReservationFormValue {
@@ -24,6 +25,8 @@ interface DeviceOption {
  * 预约表单组件。
  * 创建页和后续编辑/代预约能力都会依赖同一套字段规则，因此把设备选择、时间范围、用途与备注统一收口在组件内，
  * 由页面层只处理角色差异和最终提交动作。
+ * 其中设备下拉统一改为 AppSelect，由包装组件承接下拉壳层样式与交互约定，
+ * 这样表单仍只保留 deviceOptions、字段绑定和冲突清理链路，不再单独维护 .el-select__wrapper 这类局部补丁。
  */
 const props = withDefaults(
   defineProps<{
@@ -84,8 +87,9 @@ function emitClearConflict() {
   emit('clear-conflict')
 }
 
-function handleDeviceChange(value: string) {
-  formState.deviceId = value
+function handleDeviceChange(value: unknown) {
+  // AppSelect 对外暴露统一的 unknown 事件签名，预约表单仍要守住设备 ID 的字符串契约。
+  formState.deviceId = typeof value === 'string' ? value : ''
   emitClearConflict()
 }
 
@@ -124,7 +128,7 @@ function handleSubmit() {
   <el-form label-position="top" class="reservation-form">
     <div class="reservation-form__grid">
       <el-form-item label="预约设备">
-        <el-select
+        <AppSelect
           :model-value="formState.deviceId"
           class="reservation-form__device"
           placeholder="请选择可预约设备"
@@ -136,7 +140,7 @@ function handleSubmit() {
             :label="`${device.name}（${device.deviceNumber}）`"
             :value="device.id"
           />
-        </el-select>
+        </AppSelect>
       </el-form-item>
 
       <el-form-item label="预约时间范围" class="reservation-form__time-item">
@@ -196,7 +200,6 @@ function handleSubmit() {
 
 // 预约表单在深色下需要让设备选择、时间说明和备注输入共用同一实体输入表面，避免冲突提示上方出现浅色孤岛。
 .reservation-form :deep(.el-input__wrapper),
-.reservation-form :deep(.el-select__wrapper),
 .reservation-form :deep(.el-textarea__inner),
 .reservation-form :deep(.el-input-number) {
   background: var(--app-surface-card-strong);
@@ -204,7 +207,6 @@ function handleSubmit() {
 }
 
 .reservation-form :deep(.el-input__wrapper:hover),
-.reservation-form :deep(.el-select__wrapper:hover),
 .reservation-form :deep(.el-textarea__inner:hover),
 .reservation-form :deep(.el-input-number:hover) {
   box-shadow: inset 0 0 0 1px var(--app-border-strong);

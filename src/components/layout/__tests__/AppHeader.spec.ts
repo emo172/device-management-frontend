@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent } from 'vue'
 
 import { createAppPinia } from '@/stores'
 import { useAppStore } from '@/stores/modules/app'
@@ -52,51 +52,36 @@ function readComponentSource(componentName: string) {
   return readFileSync(resolve(process.cwd(), `src/components/layout/${componentName}.vue`), 'utf-8')
 }
 
-const ElDropdownStub = defineComponent({
-  name: 'ElDropdownStub',
-  setup(_, { attrs, slots }) {
-    const open = ref(false)
-
-    /**
-     * 审查回归点要求直接校验 dropdown 实际收到的属性，
-     * 这里把 fallthrough attrs 序列化到 data 属性，避免测试再次退化成源码字符串匹配。
-     */
-    function serializeAttrs() {
-      return JSON.stringify(attrs)
-    }
-
-    /**
-     * 主题入口回归测试要覆盖更接近真实 dropdown 的开合链路。
-     * 这里默认不渲染下拉面板，只有点击 trigger 区域后才挂载 dropdown slot，避免测试桩过度理想化。
-     */
-    function handleTriggerClick() {
-      open.value = !open.value
-    }
-
-    return () =>
-      h('div', { class: 'el-dropdown-stub', 'data-dropdown-attrs': serializeAttrs() }, [
-        h(
-          'div',
-          {
-            class: 'el-dropdown-stub__trigger',
-            onClick: handleTriggerClick,
-          },
-          slots.default?.(),
-        ),
-        open.value
-          ? h(
-              'div',
-              {
-                class: 'el-dropdown-stub__panel',
-                onClick: () => {
-                  open.value = false
-                },
-              },
-              slots.dropdown?.(),
-            )
-          : null,
-      ])
+const AppDropdownStub = defineComponent({
+  name: 'AppDropdown',
+  inheritAttrs: false,
+  props: {
+    items: {
+      type: Array,
+      default: () => [],
+    },
+    showArrow: {
+      type: Boolean,
+      default: true,
+    },
   },
+  emits: ['select'],
+  data: () => ({
+    open: false,
+  }),
+  template:
+    '<div class="app-dropdown-stub">' +
+    '<button class="app-dropdown-stub__trigger" type="button" v-bind="$attrs" @click="open = !open">' +
+    '<slot name="trigger" />' +
+    '<span v-if="showArrow" class="app-dropdown-stub__arrow">arrow</span>' +
+    '</button>' +
+    '<div v-if="open" class="app-dropdown-stub__menu">' +
+    '<button v-for="item in items" :key="item.key" class="app-dropdown-stub__item" :class="{ \'app-dropdown__item--active\': item.active && !item.danger, \'app-dropdown__item--danger\': item.danger }" :data-testid="item.testId" type="button" @click="$emit(\'select\', item); open = false">' +
+    '<span class="app-dropdown-stub__label">{{ item.label }}</span>' +
+    '<span v-if="item.meta" class="app-dropdown-stub__meta">{{ item.meta }}</span>' +
+    '</button>' +
+    '</div>' +
+    '</div>',
 })
 
 function mountHeader() {
@@ -120,14 +105,8 @@ function mountHeader() {
           inheritAttrs: false,
           template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
         },
-        ElDropdown: ElDropdownStub,
-        ElDropdownItem: {
-          emits: ['click'],
-          inheritAttrs: false,
-          template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
-        },
-        ElDropdownMenu: { template: '<div><slot /></div>' },
         ElIcon: { template: '<i><slot /></i>' },
+        AppDropdown: AppDropdownStub,
       },
     },
   })
@@ -172,38 +151,17 @@ describe('AppHeader', () => {
     expect(source).not.toContain('var(--app-tone-warning-text)')
   })
 
-  it('头部 dropdown 不再依赖私有 popper class，统一复用全局菜单型下拉样式', () => {
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'admin@example.com',
-      phone: '13800138000',
-      realName: '系统管理员',
-      role: UserRole.SYSTEM_ADMIN,
-      userId: 'admin-1',
-      username: 'admin',
-    })
+  it('头部主题与用户菜单统一复用 AppDropdown 包装层，不再保留头部私有 dropdown 结构', () => {
+    const source = readComponentSource('AppHeader')
 
-    const notificationStore = useNotificationStore()
-    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
-    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
-    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
-
-    const wrapper = mountHeader()
-    const dropdownAttrs = wrapper
-      .findAll('.el-dropdown-stub')
-      .map((dropdown) => dropdown.attributes('data-dropdown-attrs'))
-
-    expect(dropdownAttrs).toHaveLength(2)
-    dropdownAttrs.forEach((attrSnapshot) => {
-      expect(attrSnapshot).toBeTruthy()
-
-      const parsedAttrs = JSON.parse(attrSnapshot as string) as Record<string, unknown>
-
-      expect(parsedAttrs).not.toHaveProperty('popper-class')
-      expect(parsedAttrs).not.toHaveProperty('popperClass')
-    })
-
-    return cleanupMountedHeader(wrapper)
+    expect(source).toContain('AppDropdown')
+    expect(source).toContain('themeDropdownItems')
+    expect(source).toContain('userMenuItems')
+    expect(source).toContain('统一复用 AppDropdown 包装层')
+    expect(source).not.toContain('<el-dropdown class="app-header__theme-dropdown"')
+    expect(source).not.toContain('app-header__theme-button')
+    expect(source).not.toContain('app-header__theme-option--active')
+    expect(source).not.toContain('app-header__user-trigger')
   })
 
   it('展示当前页面标题与面包屑上下文', async () => {
@@ -334,10 +292,25 @@ describe('AppHeader', () => {
 
     const wrapper = mountHeader()
     const themeEntry = wrapper.get('[data-testid="theme-entry"]')
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+    const dropdownComponents = wrapper.findAllComponents({ name: 'AppDropdown' })
 
     expect(themeEntry.attributes('data-theme-preference')).toBe('system')
+    expect(themeEntry.attributes('data-resolved-theme')).toBeTruthy()
     expect(wrapper.find('.app-header__theme-switcher').exists()).toBe(true)
     expect(themeEntry.text()).toContain('跟随系统')
+    expect(dropdownTriggers).toHaveLength(2)
+    expect(dropdownTriggers[0]?.find('.app-dropdown-stub__arrow').exists()).toBe(true)
+
+    const themeDropdownItems = dropdownComponents[0]?.props('items') as
+      | Array<{ key: string; active?: boolean; meta?: string; testId?: string }>
+      | undefined
+
+    expect(themeDropdownItems?.find((item) => item.key === 'system')).toMatchObject({
+      active: true,
+      meta: '当前',
+      testId: 'theme-option-system',
+    })
 
     expect(wrapper.find('[data-testid="theme-option-light"]').exists()).toBe(false)
 
@@ -346,6 +319,136 @@ describe('AppHeader', () => {
     expect(wrapper.get('[data-testid="theme-option-light"]').text()).toContain('浅色')
     expect(wrapper.get('[data-testid="theme-option-dark"]').text()).toContain('深色')
     expect(wrapper.get('[data-testid="theme-option-system"]').text()).toContain('跟随系统')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('用户菜单把退出登录映射为危险项，避免头部自行维护私有危险样式', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownComponents = wrapper.findAllComponents({ name: 'AppDropdown' })
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+
+    expect(dropdownComponents).toHaveLength(2)
+    expect(dropdownTriggers[1]?.find('.app-dropdown-stub__arrow').exists()).toBe(true)
+
+    const userMenuItems = dropdownComponents[1]?.props('items') as
+      | Array<{ key: string; danger?: boolean }>
+      | undefined
+
+    expect(userMenuItems?.find((item) => item.key === 'logout')?.danger).toBe(true)
+
+    await dropdownTriggers[1]!.trigger('click')
+
+    expect(wrapper.find('.app-dropdown__item--danger').text()).toContain('退出登录')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('选择 profile 菜单项时跳转到个人中心页', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+
+    await dropdownTriggers[1]!.trigger('click')
+    await wrapper
+      .findAll('.app-dropdown-stub__item')
+      .find((item) => item.text().includes('个人中心'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/profile')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('选择 password 菜单项时跳转到改密标签页', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+
+    await dropdownTriggers[1]!.trigger('click')
+    await wrapper
+      .findAll('.app-dropdown-stub__item')
+      .find((item) => item.text().includes('修改密码'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({ path: '/profile', query: { tab: 'password' } })
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('选择 logout 菜单项时调用认证登出动作', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+    const logoutSpy = vi.spyOn(authStore, 'logout').mockResolvedValue(undefined)
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+
+    await dropdownTriggers[1]!.trigger('click')
+    await wrapper
+      .findAll('.app-dropdown-stub__item')
+      .find((item) => item.text().includes('退出登录'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(logoutSpy).toHaveBeenCalledTimes(1)
 
     await cleanupMountedHeader(wrapper)
   })
