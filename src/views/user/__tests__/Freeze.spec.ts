@@ -20,6 +20,19 @@ const layoutStubs = {
   },
 }
 
+const appSelectStub = {
+  name: 'AppSelect',
+  props: ['modelValue', 'disabled'],
+  emits: ['update:modelValue'],
+  template:
+    '<div class="app-select-stub"><div data-testid="freeze-status-value">{{ modelValue }}</div><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select></div>',
+}
+
+const elOptionStub = {
+  props: ['label', 'value'],
+  template: '<option :value="value">{{ label }}</option>',
+}
+
 function readUserViewSource(fileName: string) {
   return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
 }
@@ -43,6 +56,15 @@ vi.mock('@/stores/modules/user', () => ({
 describe('user freeze dialog', () => {
   beforeEach(() => {
     freezeUserMock.mockReset()
+  })
+
+  it('冻结弹窗改为通过 AppSelect 收口状态选择器，不再直接消费 el-select', () => {
+    const source = readUserViewSource('Freeze.vue')
+
+    // 冻结弹窗已经纳入统一下拉迁移范围，源码必须直接依赖 AppSelect，避免页面继续绑定局部 select 壳层细节。
+    expect(source).toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
+    expect(source).toContain('<AppSelect')
+    expect(source).not.toContain('<el-select')
   })
 
   it('defaults restricted user to restricted handling instead of collapsing into frozen', async () => {
@@ -71,12 +93,8 @@ describe('user freeze dialog', () => {
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
-          ElSelect: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template: '<div data-testid="freeze-status-value">{{ modelValue }}</div>',
-          },
-          ElOption: { template: '<div></div>' },
+          AppSelect: appSelectStub,
+          ElOption: elOptionStub,
           ElInput: {
             props: ['modelValue'],
             emits: ['update:modelValue'],
@@ -118,12 +136,8 @@ describe('user freeze dialog', () => {
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
-          ElSelect: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template: '<div data-testid="freeze-status-value">{{ modelValue }}</div>',
-          },
-          ElOption: { template: '<div></div>' },
+          AppSelect: appSelectStub,
+          ElOption: elOptionStub,
           ElInput: {
             props: ['modelValue'],
             emits: ['update:modelValue'],
@@ -168,12 +182,8 @@ describe('user freeze dialog', () => {
           ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
           ElForm: { template: '<form><slot /></form>' },
           ElFormItem: { template: '<div><slot /></div>' },
-          ElSelect: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template: '<div data-testid="freeze-status-value">{{ modelValue }}</div>',
-          },
-          ElOption: { template: '<div></div>' },
+          AppSelect: appSelectStub,
+          ElOption: elOptionStub,
           ElInput: {
             props: ['modelValue'],
             emits: ['update:modelValue'],
@@ -204,6 +214,70 @@ describe('user freeze dialog', () => {
 
     submitDeferred.resolve()
     await flushPromises()
+  })
+
+  it('切换目标状态后会同步更新解冻文案并提交新的冻结状态载荷', async () => {
+    const loader = userViewModules['../Freeze.vue']
+
+    expect(loader).toBeTypeOf('function')
+
+    if (!loader) {
+      return
+    }
+
+    freezeUserMock.mockResolvedValueOnce(undefined)
+
+    const module = (await loader()) as { default: object }
+
+    const wrapper = mount(module.default, {
+      props: {
+        modelValue: true,
+        user: {
+          id: 'user-4',
+          username: 'zhaoliu',
+          freezeStatus: 'NORMAL',
+        },
+      },
+      global: {
+        stubs: {
+          ...layoutStubs,
+          ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+          ElForm: { template: '<form><slot /></form>' },
+          ElFormItem: { template: '<div><slot /></div>' },
+          AppSelect: appSelectStub,
+          ElOption: elOptionStub,
+          ElInput: {
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<textarea />',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="freeze-status-value"]').text()).toBe('FROZEN')
+
+    await wrapper.get('.app-select-stub__control').setValue('NORMAL')
+
+    expect(wrapper.get('[data-testid="freeze-status-value"]').text()).toBe('NORMAL')
+    expect(wrapper.text()).toContain('解冻账号')
+    expect(wrapper.text()).toContain('恢复正常时原因可留空，仅在需要补充处理说明时填写。')
+
+    const actionButtons = wrapper.findAll('button')
+
+    expect(actionButtons[1]).toBeDefined()
+    await actionButtons[1]!.trigger('click')
+    await flushPromises()
+
+    expect(freezeUserMock).toHaveBeenCalledWith('user-4', {
+      freezeStatus: 'NORMAL',
+      reason: undefined,
+    })
   })
 
   it('冻结弹窗源码改为消费主题 token，避免表单面板和冻结提示在深色下残留浅色硬编码', () => {

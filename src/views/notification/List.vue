@@ -3,6 +3,7 @@ import { RefreshRight } from '@element-plus/icons-vue'
 import { computed, onMounted, ref } from 'vue'
 
 import NotificationItem from '@/components/business/NotificationItem.vue'
+import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConversationShell from '@/components/layout/ConversationShell.vue'
@@ -61,6 +62,15 @@ async function handleMarkAllRead() {
   await notificationStore.markAllAsRead()
 }
 
+/**
+ * 通知类型筛选在页面层继续守住空字符串语义：
+ * 重置按钮、clearable 清空和首屏初始值都共用 `''`，避免包装组件接入后把筛选值漂移成 `undefined`
+ * 影响已有过滤判断与测试断言。
+ */
+function handleSelectedTypeChange(value: unknown) {
+  selectedType.value = typeof value === 'string' ? value : ''
+}
+
 function handleResetFilter() {
   selectedType.value = ''
 }
@@ -100,11 +110,12 @@ onMounted(() => {
         <section class="notification-list-view__filters">
           <div class="notification-list-view__filters-main">
             <span class="notification-list-view__filters-label">通知类型</span>
-            <el-select
-              v-model="selectedType"
+            <AppSelect
+              :model-value="selectedType"
               clearable
               placeholder="筛选通知类型"
               class="notification-list-view__select"
+              @update:modelValue="handleSelectedTypeChange"
             >
               <el-option
                 v-for="option in notificationTypeOptions"
@@ -112,7 +123,7 @@ onMounted(() => {
                 :label="option.label"
                 :value="option.value"
               />
-            </el-select>
+            </AppSelect>
           </div>
 
           <el-button @click="handleResetFilter">重置筛选</el-button>

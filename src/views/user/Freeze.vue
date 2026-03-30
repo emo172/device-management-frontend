@@ -2,6 +2,7 @@
 import { ElMessage } from 'element-plus'
 import { computed, reactive, ref, watch } from 'vue'
 
+import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleDetailLayout from '@/components/layout/ConsoleDetailLayout.vue'
 import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
@@ -159,7 +160,8 @@ async function handleSubmit() {
 
           <el-form label-position="top">
             <el-form-item label="目标状态">
-              <el-select v-model="formState.freezeStatus" class="user-freeze-dialog__field">
+              <!-- 冻结状态选择需要沿用统一下拉包装组件，既保留原有状态值语义，也避免页面继续感知 Element Plus 的局部壳层细节。 -->
+              <AppSelect v-model="formState.freezeStatus" class="user-freeze-dialog__field">
                 <el-option
                   :label="FreezeStatusLabel[FreezeStatus.NORMAL]"
                   :value="FreezeStatus.NORMAL"
@@ -172,7 +174,7 @@ async function handleSubmit() {
                   :label="FreezeStatusLabel[FreezeStatus.FROZEN]"
                   :value="FreezeStatus.FROZEN"
                 />
-              </el-select>
+              </AppSelect>
             </el-form-item>
             <el-form-item :label="isUnfreeze ? '处理说明（选填）' : '限制原因 / 冻结原因'">
               <!-- RESTRICTED 与 FROZEN 都是有效业务状态，弹窗必须允许管理员明确区分，而不是把受限一律折叠成冻结。 -->
