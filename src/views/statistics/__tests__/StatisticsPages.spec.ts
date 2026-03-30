@@ -369,7 +369,8 @@ describe('statistics detail pages', () => {
     const DeviceUsage = (await loadStatisticsView('DeviceUsage')).default
     const wrapper = mount(DeviceUsage, createStatisticsPageMountOptions())
 
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.findAll('.shared-chart-panel__surface')).toHaveLength(2)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
   })
@@ -470,7 +471,8 @@ describe('statistics detail pages', () => {
     const BorrowStats = (await loadStatisticsView('BorrowStats')).default
     const wrapper = mount(BorrowStats, createStatisticsPageMountOptions())
 
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.findAll('.shared-chart-panel__surface').length).toBeGreaterThanOrEqual(1)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
   })
@@ -540,7 +542,8 @@ describe('statistics detail pages', () => {
     const OverdueStats = (await loadStatisticsView('OverdueStats')).default
     const wrapper = mount(OverdueStats, createStatisticsPageMountOptions())
 
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.shared-chart-panel__surface').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
   })
@@ -559,10 +562,32 @@ describe('statistics detail pages', () => {
 
     const OverdueStats = (await loadStatisticsView('OverdueStats')).default
     const wrapper = mount(OverdueStats, createStatisticsPageMountOptions())
+    const metaPills = wrapper.findAll('.statistics-detail-view__meta-pill')
 
     expect(wrapper.text()).toContain('2026-03-20')
     expect(wrapper.text()).not.toContain('2026-03-15')
     expect(wrapper.text()).not.toContain('沿用总览默认日期')
+    expect(metaPills).toHaveLength(3)
+    expect(metaPills[1]?.text()).toContain('逾期记录')
+    expect(metaPills[1]?.text()).toContain('6')
+    expect(metaPills[2]?.text()).toContain('逾期小时')
+    expect(metaPills[2]?.text()).toContain('19')
+  })
+
+  it('逾期统计页在加载中且没有有效数据时不展示假 0 值卡片与 Hero 摘要', async () => {
+    statisticsState.overdueStatistics = null
+    statisticsState.loading = true
+
+    const OverdueStats = (await loadStatisticsView('OverdueStats')).default
+    const wrapper = mount(OverdueStats, createStatisticsPageMountOptions())
+    const metaPills = wrapper.findAll('.statistics-detail-view__meta-pill')
+
+    expect(wrapper.find('.console-feedback-surface--loading').exists()).toBe(true)
+    expect(wrapper.findAll('.statistics-card-stub')).toHaveLength(0)
+    expect(metaPills).toHaveLength(1)
+    expect(metaPills[0]?.text()).toContain('统计日期')
+    expect(wrapper.text()).not.toContain('逾期记录0')
+    expect(wrapper.text()).not.toContain('逾期小时0')
   })
 
   it('统计详情页源码改为消费语义 token，避免 hero 与辅助壳层残留浅色硬编码', () => {
@@ -584,7 +609,8 @@ describe('statistics detail pages', () => {
     const HotTimeSlots = (await loadStatisticsView('HotTimeSlots')).default
     const wrapper = mount(HotTimeSlots, createStatisticsPageMountOptions())
 
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.shared-chart-panel__surface').exists()).toBe(true)
     expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
   })

@@ -134,9 +134,12 @@ onMounted(() => {
       </template>
     </ConsolePageHero>
 
+    <!-- 设备列表顶部筛选卡片只承接当前列表的分类检索，避免把新增设备等写操作入口和筛选语义混在同一块文案里。 -->
     <SearchBar
       v-model="filters.categoryName"
-      label="分类名称"
+      title="设备筛选"
+      description="按分类名称快速缩小当前设备列表范围。"
+      label="设备分类"
       placeholder="按分类名称筛选设备"
       @search="handleSearch"
       @reset="handleReset"

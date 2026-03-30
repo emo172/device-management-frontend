@@ -208,9 +208,12 @@ onBeforeUnmount(() => {
       </template>
     </ConsolePageHero>
 
+    <!-- 后端当前不支持用户列表 keyword 查询，这里明确标注为当前页筛选，避免系统管理员误以为会触发全量后端搜索。 -->
     <SearchBar
       v-model="filters.keyword"
-      label="当前页筛选"
+      title="当前页筛选"
+      description="当前关键词只作用于已加载的本页用户结果。"
+      label="用户关键词"
       placeholder="按当前页用户名 / 邮箱 / 姓名筛选"
       @search="handleSearch"
       @reset="handleReset"

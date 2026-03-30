@@ -4,9 +4,9 @@ import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
@@ -101,14 +101,13 @@ onMounted(() => {
       </template>
     </ConsolePageHero>
 
-    <ConsoleToolbarShell class="statistics-detail-view__toolbar">
-      <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
-        <h2>统计日期筛选</h2>
-        <p>热门时段页与总览共用同一日期口径，避免热度图与其他子页不一致。</p>
-      </div>
-
-      <div class="statistics-detail-view__toolbar-actions">
+    <!-- 统计详情子页统一复用同一日期筛选壳层，确保图表、摘要与总览页始终使用同一统计口径。 -->
+    <ConsoleFilterPanel
+      eyebrow="筛选与操作"
+      title="统计日期筛选"
+      description="所有统计子页共用同一日期口径，避免图表与总览页口径漂移。"
+    >
+      <div class="statistics-detail-view__filter-fields">
         <el-date-picker
           :model-value="pendingDate"
           type="date"
@@ -116,9 +115,14 @@ onMounted(() => {
           placeholder="选择统计日期"
           @update:modelValue="handleDateChange"
         />
-        <el-button @click="handleRefresh">刷新数据</el-button>
       </div>
-    </ConsoleToolbarShell>
+
+      <template #actions>
+        <div class="statistics-detail-view__toolbar-actions">
+          <el-button @click="handleRefresh">刷新数据</el-button>
+        </div>
+      </template>
+    </ConsoleFilterPanel>
 
     <div class="statistics-detail-view__layout">
       <div class="statistics-detail-view__main">
@@ -233,7 +237,6 @@ onMounted(() => {
 }
 
 .statistics-detail-view__meta-pill span,
-.statistics-detail-view__toolbar-eyebrow,
 .statistics-detail-view__aside-label {
   display: block;
   margin: 0 0 8px;
@@ -245,14 +248,12 @@ onMounted(() => {
 }
 
 .statistics-detail-view__meta-pill strong,
-.statistics-detail-view__toolbar h2,
 .statistics-detail-view__aside-card h3,
 .statistics-detail-view__aside-card h4 {
   margin: 0;
   color: var(--app-text-primary);
 }
 
-.statistics-detail-view__toolbar p,
 .statistics-detail-view__aside-card p,
 .statistics-detail-view__feedback-description,
 .statistics-detail-view__rule-list {
@@ -261,16 +262,12 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-.statistics-detail-view__toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-}
-
+.statistics-detail-view__filter-fields,
 .statistics-detail-view__toolbar-actions {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .statistics-detail-view__layout {
@@ -313,14 +310,6 @@ onMounted(() => {
 @media (max-width: 1366px) {
   .statistics-detail-view__layout {
     grid-template-columns: 1fr;
-  }
-
-  .statistics-detail-view__toolbar {
-    flex-direction: column;
-  }
-
-  .statistics-detail-view__toolbar-actions {
-    flex-wrap: wrap;
   }
 }
 </style>

@@ -232,12 +232,72 @@ describe('borrow pages', () => {
     expect(fetchBorrowListSpy).toHaveBeenCalledWith({ page: 1, size: 10, status: undefined })
     expect(wrapper.find('.console-page-hero').exists()).toBe(true)
     expect(wrapper.find('.console-summary-grid').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    const filterPanels = wrapper.findAll('.console-filter-panel')
+    const filterPanel = filterPanels[0]!
+    const filterButtons = filterPanel.findAll('.borrow-list-view__filter-actions button')
+
+    expect(filterPanels).toHaveLength(1)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(filterPanel.text()).toContain('借还状态筛选')
+    expect(filterPanel.findAll('.borrow-list-view__field select')).toHaveLength(1)
+    expect(filterButtons).toHaveLength(2)
+    expect(filterButtons[0]?.text()).toContain('查询')
+    expect(filterButtons[1]?.text()).toContain('重置')
     expect(wrapper.text()).toContain(borrowedRecord.deviceName)
     expect(wrapper.text()).toContain(borrowedRecord.userName)
     expect(wrapper.text()).toContain('借用确认')
     expect(wrapper.text()).toContain('归还确认')
+  })
+
+  it('借还列表页改用统一筛选卡片后，查询与重置仍会驱动状态筛选请求', async () => {
+    const { module, error } = await loadBorrowView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const borrowStore = useBorrowStore()
+    const fetchBorrowListSpy = vi
+      .spyOn(borrowStore, 'fetchBorrowList')
+      .mockResolvedValue({ total: 0, records: [] })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+    const statusSelect = wrapper.get('.borrow-list-view__field select')
+    const filterButtons = wrapper.findAll('.borrow-list-view__filter-actions button')
+
+    await statusSelect.setValue(BorrowStatus.OVERDUE)
+    await filterButtons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(fetchBorrowListSpy).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 10,
+      status: BorrowStatus.OVERDUE,
+    })
+
+    await filterButtons[1]!.trigger('click')
+    await flushPromises()
+
+    expect((statusSelect.element as HTMLSelectElement).value).toBe('')
+    expect(fetchBorrowListSpy).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 10,
+      status: undefined,
+    })
   })
 
   it('借还域页面源码改为消费主题 token，避免列表、表单壳层和详情说明面板在深色下残留浅色硬编码', () => {

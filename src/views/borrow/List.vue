@@ -5,10 +5,10 @@ import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BorrowStatusTag from '@/components/business/BorrowStatusTag.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { BorrowStatus, BorrowStatusLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -156,12 +156,12 @@ onMounted(() => {
       </article>
     </ConsoleSummaryGrid>
 
-    <ConsoleToolbarShell class="borrow-list-view__filter-panel">
-      <div>
-        <p class="borrow-list-view__filter-eyebrow">筛选</p>
-        <h2>状态筛选</h2>
-      </div>
-
+    <!-- 统一借还页顶部筛选卡片语义，保证筛选说明与借用确认、归还确认入口在同一套控制语义下展示。 -->
+    <ConsoleFilterPanel
+      class="borrow-list-view__filter-panel"
+      title="借还状态筛选"
+      description="统一筛选借还状态，并保留管理员常用操作入口。"
+    >
       <div class="borrow-list-view__filter-form">
         <label class="borrow-list-view__field">
           <span>借还状态</span>
@@ -172,12 +172,15 @@ onMounted(() => {
           </select>
         </label>
 
+      </div>
+
+      <template #actions>
         <div class="borrow-list-view__filter-actions">
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </div>
-      </div>
-    </ConsoleToolbarShell>
+      </template>
+    </ConsoleFilterPanel>
 
     <ConsoleTableSection
       title="借还记录列表"
@@ -294,8 +297,7 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.borrow-list-view__eyebrow,
-.borrow-list-view__filter-eyebrow {
+.borrow-list-view__eyebrow {
   margin: 0;
   font-family: 'Fira Code', monospace;
   font-size: 12px;
@@ -308,13 +310,8 @@ onMounted(() => {
   color: var(--app-tone-brand-text);
 }
 
-.borrow-list-view__filter-eyebrow {
-  color: var(--app-tone-warning-text);
-}
-
 .borrow-list-view__title,
-.borrow-list-view__table-header h2,
-.borrow-list-view__filter-panel h2 {
+.borrow-list-view__table-header h2 {
   margin: 10px 0 0;
   font-family: 'Fira Code', monospace;
 }
@@ -362,15 +359,6 @@ onMounted(() => {
 
 .borrow-list-view__summary-card--rose strong {
   color: var(--app-tone-danger-text);
-}
-
-.borrow-list-view__filter-panel {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  border: 1px solid var(--app-border-soft);
-  background: var(--app-surface-card-strong);
-  box-shadow: var(--app-shadow-card);
 }
 
 .borrow-list-view__filter-form {

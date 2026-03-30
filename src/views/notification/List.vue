@@ -5,14 +5,15 @@ import { computed, onMounted, ref } from 'vue'
 import NotificationItem from '@/components/business/NotificationItem.vue'
 import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
-import ConversationShell from '@/components/layout/ConversationShell.vue'
 import { NotificationType, NotificationTypeLabel } from '@/enums'
 import { useNotificationStore } from '@/stores/modules/notification'
 
 /**
  * 通知中心列表页。
- * 页面与头部铃铛复用同一个通知 Store，确保用户在列表里标记已读后，Header 角标无需额外事件总线也能立即同步。
+ * 页面与头部铃铛复用同一个通知 Store，确保用户在列表里标记已读后，Header 角标无需额外事件总线也能立即同步；
+ * 同时通知中心已经并入统一的顶部筛选卡片 + 单主列列表骨架，不再为历史侧栏特例单独维护一套布局语义。
  */
 const notificationStore = useNotificationStore()
 
@@ -90,6 +91,37 @@ onMounted(() => {
       <template #actions>
         <div class="notification-list-view__hero-actions">
           <el-tag type="warning" effect="light">{{ unreadCountText }}</el-tag>
+        </div>
+      </template>
+    </ConsolePageHero>
+
+    <!-- 通知中心已经和其他列表页统一为顶部筛选卡片，避免继续维护只服务该页面的侧栏特例，降低样式分叉与自动化测试成本。 -->
+    <ConsoleFilterPanel
+      class="notification-list-view__filter-panel"
+      title="通知筛选与操作"
+      description="统一在顶部筛选卡片承接通知类型过滤、刷新与批量已读动作。"
+    >
+      <div class="notification-list-view__filter-form">
+        <span class="notification-list-view__field-label">通知类型</span>
+        <AppSelect
+          :model-value="selectedType"
+          clearable
+          placeholder="筛选通知类型"
+          class="notification-list-view__select"
+          @update:modelValue="handleSelectedTypeChange"
+        >
+          <el-option
+            v-for="option in notificationTypeOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </AppSelect>
+      </div>
+
+      <template #actions>
+        <div class="notification-list-view__filter-actions">
+          <el-button @click="handleResetFilter">重置筛选</el-button>
           <el-button @click="loadNotifications">
             <el-icon><RefreshRight /></el-icon>
             刷新列表
@@ -103,62 +135,34 @@ onMounted(() => {
           </el-button>
         </div>
       </template>
-    </ConsolePageHero>
+    </ConsoleFilterPanel>
 
-    <ConversationShell class="notification-list-view__workspace">
-      <template #sidebar>
-        <section class="notification-list-view__filters">
-          <div class="notification-list-view__filters-main">
-            <span class="notification-list-view__filters-label">通知类型</span>
-            <AppSelect
-              :model-value="selectedType"
-              clearable
-              placeholder="筛选通知类型"
-              class="notification-list-view__select"
-              @update:modelValue="handleSelectedTypeChange"
-            >
-              <el-option
-                v-for="option in notificationTypeOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </AppSelect>
-          </div>
+    <section v-loading="notificationStore.loading" class="notification-list-view__list-shell">
+      <div class="notification-list-view__list-header">
+        <div>
+          <h2>通知列表</h2>
+          <p>共 {{ filteredNotifications.length }} 条记录</p>
+        </div>
+      </div>
 
-          <el-button @click="handleResetFilter">重置筛选</el-button>
-        </section>
-      </template>
+      <EmptyState
+        v-if="!filteredNotifications.length && !notificationStore.loading"
+        title="暂无匹配的通知"
+        description="可以调整通知类型筛选条件，或点击刷新重新同步最新通知记录。"
+        action-text="重新加载"
+        @action="loadNotifications"
+      />
 
-      <template #main>
-        <section v-loading="notificationStore.loading" class="notification-list-view__list-shell">
-          <div class="notification-list-view__list-header">
-            <div>
-              <h2>通知列表</h2>
-              <p>共 {{ filteredNotifications.length }} 条记录</p>
-            </div>
-          </div>
-
-          <EmptyState
-            v-if="!filteredNotifications.length && !notificationStore.loading"
-            title="暂无匹配的通知"
-            description="可以调整通知类型筛选条件，或点击刷新重新同步最新通知记录。"
-            action-text="重新加载"
-            @action="loadNotifications"
-          />
-
-          <div v-else class="notification-list-view__list">
-            <NotificationItem
-              v-for="notification in filteredNotifications"
-              :key="notification.id"
-              :notification="notification"
-              :loading="markingNotificationId === notification.id"
-              @mark-read="handleMarkRead"
-            />
-          </div>
-        </section>
-      </template>
-    </ConversationShell>
+      <div v-else class="notification-list-view__list">
+        <NotificationItem
+          v-for="notification in filteredNotifications"
+          :key="notification.id"
+          :notification="notification"
+          :loading="markingNotificationId === notification.id"
+          @mark-read="handleMarkRead"
+        />
+      </div>
+    </section>
   </section>
 </template>
 
@@ -190,14 +194,15 @@ onMounted(() => {
 }
 
 .notification-list-view__hero-actions,
-.notification-list-view__filters-main,
+.notification-list-view__filter-form,
+.notification-list-view__filter-actions,
 .notification-list-view__list-header {
   display: flex;
   align-items: center;
 }
 
-.notification-list-view__hero-actions,
-.notification-list-view__filters-main {
+.notification-list-view__filter-form,
+.notification-list-view__filter-actions {
   gap: 12px;
 }
 
@@ -205,34 +210,15 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.notification-list-view__workspace {
-  align-items: stretch;
-}
-
-// 通知页左侧筛选与右侧列表会长期并排出现，页面层继续锁定不同表面 token，避免暗色下玻璃壳层重新透出浅色底。
-.notification-list-view__workspace :deep(.conversation-shell__sidebar) {
-  border-color: var(--app-border-soft);
-  background: var(--app-surface-card-strong);
-  box-shadow: var(--app-shadow-card);
-}
-
-.notification-list-view__workspace :deep(.conversation-shell__main) {
-  border-color: var(--app-border-soft);
-  background: var(--app-surface-card);
-  box-shadow: var(--app-shadow-card);
+.notification-list-view__filter-actions {
+  justify-content: flex-end;
 }
 
 .notification-list-view__list-header {
   justify-content: space-between;
 }
 
-.notification-list-view__filters {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.notification-list-view__filters-label,
+.notification-list-view__field-label,
 .notification-list-view__list-header p {
   font-size: 13px;
   font-weight: 600;
@@ -249,7 +235,14 @@ onMounted(() => {
 }
 
 .notification-list-view__list-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
   background: var(--app-surface-card);
+  box-shadow: var(--app-shadow-card);
 }
 
 .notification-list-view__list {
