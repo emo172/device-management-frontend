@@ -58,6 +58,84 @@ describe('common business helpers', () => {
     expect(searchBarSource).not.toContain('rgba(255, 255, 255, 0.94)')
   })
 
+  it('SearchBar 默认承接统一筛选卡片语义，并保留默认标题文案', async () => {
+    const { module, error } = await loadComponent('SearchBar')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        modelValue: '',
+      },
+      global: {
+        ...createMountGlobals({
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElInput: {
+            props: ['id', 'modelValue', 'placeholder'],
+            emits: ['update:modelValue'],
+            template:
+              '<div><input class="search-input" :id="id" :value="modelValue" :placeholder="placeholder" @input="$emit(\'update:modelValue\', $event.target.value)" /></div>',
+          },
+        }),
+      },
+    })
+
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
+    expect(wrapper.text()).toContain('筛选与操作')
+    expect(wrapper.text()).toContain('筛选条件')
+    expect(wrapper.text()).toContain('调整条件后更新当前列表结果。')
+    expect(wrapper.text()).toContain('查询')
+    expect(wrapper.text()).toContain('重置')
+  })
+
+  it('SearchBar 为可视标签与输入建立显式关联', async () => {
+    const { module, error } = await loadComponent('SearchBar')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        modelValue: '',
+        label: '设备分类',
+      },
+      global: {
+        ...createMountGlobals({
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElInput: {
+            props: ['id', 'modelValue', 'placeholder'],
+            emits: ['update:modelValue'],
+            template:
+              '<div><input class="search-input" :id="id" :value="modelValue" :placeholder="placeholder" @input="$emit(\'update:modelValue\', $event.target.value)" /></div>',
+          },
+        }),
+      },
+    })
+
+    const label = wrapper.get('.search-bar__label')
+    const input = wrapper.get('.search-input')
+
+    expect(label.element.tagName).toBe('LABEL')
+    expect(input.attributes('id')).toBeTruthy()
+    expect(label.attributes('for')).toBe(input.attributes('id'))
+  })
+
   it('SearchBar 支持关键字输入、查询与重置', async () => {
     const { module, error } = await loadComponent('SearchBar')
 
@@ -112,10 +190,10 @@ describe('common business helpers', () => {
             template: '<button @click="$emit(\'click\')"><slot /></button>',
           },
           ElInput: {
-            props: ['modelValue', 'placeholder'],
+            props: ['id', 'modelValue', 'placeholder'],
             emits: ['update:modelValue'],
             template:
-              '<div><input class="search-input" :value="modelValue" :placeholder="placeholder" @input="$emit(\'update:modelValue\', $event.target.value)" /></div>',
+              '<div><input class="search-input" :id="id" :value="modelValue" :placeholder="placeholder" @input="$emit(\'update:modelValue\', $event.target.value)" /></div>',
           },
         }),
       },
@@ -125,7 +203,8 @@ describe('common business helpers', () => {
     await wrapper.get('.search-bar__submit').trigger('click')
     await wrapper.get('.search-bar__reset').trigger('click')
 
-    expect(wrapper.find('.search-bar__surface').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect((wrapper.vm as { keyword: string }).keyword).toBe('')
     expect((wrapper.vm as { searchPayloads: string[] }).searchPayloads).toEqual(['传感器'])
     expect((wrapper.vm as { resetCount: number }).resetCount).toBe(1)

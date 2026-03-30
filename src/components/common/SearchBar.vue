@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
+import { useId } from 'vue'
+
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 
 /**
  * 通用轻量搜索栏。
- * 当前主要承接设备列表按分类名称筛选，采用最小输入模型，便于其他列表页后续复用同一交互骨架。
+ * 现在统一承接列表页顶部筛选卡片语义，保证标题、说明、字段区和操作区在不同业务页都复用同一层级，
+ * 这样迁移到 ConsoleFilterPanel 后，页面文案、样式和自动化测试都能围绕稳定 DOM 结构演进。
  */
 const props = withDefaults(
   defineProps<{
     modelValue: string
+    title?: string
+    description?: string
+    eyebrow?: string
     placeholder?: string
     label?: string
   }>(),
   {
+    title: '筛选条件',
+    description: '调整条件后更新当前列表结果。',
+    eyebrow: '筛选与操作',
     placeholder: '请输入关键字',
     label: '筛选条件',
   },
@@ -22,6 +31,9 @@ const emit = defineEmits<{
   search: [value: string]
   reset: []
 }>()
+
+// 顶部筛选卡片迁移后仍要保留基础可访问性，让可视标签能稳定关联到真实输入框。
+const inputId = useId()
 
 function handleSearch() {
   emit('search', props.modelValue)
@@ -38,10 +50,16 @@ function handleReset() {
 </script>
 
 <template>
-  <ConsoleToolbarShell class="search-bar search-bar__surface">
+  <ConsoleFilterPanel
+    class="search-bar"
+    :eyebrow="eyebrow"
+    :title="title"
+    :description="description"
+  >
     <div class="search-bar__field">
-      <span class="search-bar__label">{{ label }}</span>
+      <label class="search-bar__label" :for="inputId">{{ label }}</label>
       <el-input
+        :id="inputId"
         :model-value="modelValue"
         :placeholder="placeholder"
         clearable
@@ -49,18 +67,16 @@ function handleReset() {
       />
     </div>
 
-    <div class="search-bar__actions">
-      <el-button class="search-bar__submit" type="primary" @click="handleSearch">查询</el-button>
-      <el-button class="search-bar__reset" @click="handleReset">重置</el-button>
-    </div>
-  </ConsoleToolbarShell>
+    <template #actions>
+      <div class="search-bar__actions">
+        <el-button class="search-bar__submit" type="primary" @click="handleSearch">查询</el-button>
+        <el-button class="search-bar__reset" @click="handleReset">重置</el-button>
+      </div>
+    </template>
+  </ConsoleFilterPanel>
 </template>
 
 <style scoped lang="scss">
-.search-bar {
-  justify-content: space-between;
-}
-
 .search-bar__field,
 .search-bar__actions {
   display: flex;
@@ -70,6 +86,10 @@ function handleReset() {
 
 .search-bar__field {
   flex: 1;
+}
+
+.search-bar :deep(.console-filter-panel__fields) {
+  min-width: min(100%, 480px);
 }
 
 .search-bar :deep(.el-input) {

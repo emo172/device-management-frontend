@@ -117,6 +117,65 @@ describe('reservation list view', () => {
     setActivePinia(createAppPinia())
   })
 
+  it('顶部操作区迁移到无字段版筛选壳层，并保留稳定字段/操作容器', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const reservationStore = useReservationStore()
+    reservationStore.list = [reservationRecord]
+    reservationStore.total = 1
+
+    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({
+      total: 1,
+      records: [reservationRecord],
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          ReservationCard: { template: '<article></article>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTable: { template: '<div><slot /></div>' },
+          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    const filterPanel = wrapper.get('.console-filter-panel')
+
+    expect(filterPanel.find('.console-filter-panel__fields').exists()).toBe(true)
+    expect(filterPanel.find('.console-filter-panel__actions').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
+  })
+
   it('普通用户进入页面会拉取列表，并支持详情跳转与取消动作', async () => {
     const { module, error } = await loadListView()
 
@@ -187,9 +246,6 @@ describe('reservation list view', () => {
     })
 
     expect(fetchReservationListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
-    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
-    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('我的预约')
     expect(wrapper.text()).toContain('user')
     expect(wrapper.text()).toContain('创建预约')
@@ -328,9 +384,6 @@ describe('reservation list view', () => {
       },
     })
 
-    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
-    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('全部预约')
     expect(wrapper.text()).toContain('admin')
     expect(wrapper.text()).toContain('创建预约')
@@ -391,9 +444,6 @@ describe('reservation list view', () => {
       },
     })
 
-    expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
-    expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('创建预约')
   })
 
@@ -457,6 +507,17 @@ describe('reservation list view', () => {
     const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
 
     expect(source).not.toMatch(hardcodedColorPattern)
+  })
+
+  it('无字段工具条使用拉伸布局兜底字段容器，避免回退到 magic number 高度', () => {
+    const source = readReservationViewSource('List.vue')
+
+    expect(source).toMatch(
+      /\.reservation-list-view__filter-panel\s*:deep\(\.console-filter-panel__body\)\s*\{[\s\S]*?align-items:\s*stretch;/,
+    )
+    expect(source).not.toMatch(
+      /\.reservation-list-view__filter-panel\s*:deep\(\.console-filter-panel__fields\)\s*\{[\s\S]*?min-height:\s*\d+px;/,
+    )
   })
 
   it('预约卡片网格允许卡片收缩，避免极端长字段把主内容区整体撑宽', () => {

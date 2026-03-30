@@ -114,7 +114,9 @@ describe('user list view', () => {
       global: {
         stubs: {
           SearchBar: {
-            template: '<div class="search-bar-stub"></div>',
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
           },
           Pagination: {
             template: '<div class="pagination-stub"></div>',
@@ -163,8 +165,13 @@ describe('user list view', () => {
     })
 
     expect(fetchAdminUserListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('用户管理')
+    expect(wrapper.text()).toContain('当前页筛选')
+    expect(wrapper.text()).toContain('当前关键词只作用于已加载的本页用户结果。')
+    expect(wrapper.text()).toContain('用户关键词')
     expect(wrapper.text()).toContain('zhangsan')
 
     await wrapper.get('[data-testid="user-detail-trigger"]').trigger('click')
@@ -244,10 +251,10 @@ describe('user list view', () => {
       global: {
         stubs: {
           SearchBar: {
-            props: ['modelValue'],
+            props: ['modelValue', 'title', 'description', 'eyebrow', 'label'],
             emits: ['update:modelValue', 'search', 'reset'],
             template:
-              '<div><button data-testid="set-keyword" @click="$emit(\'update:modelValue\', \'zhang\')">set</button><button data-testid="search-trigger" @click="$emit(\'search\', modelValue)">search</button></div>',
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}<button data-testid="set-keyword" @click="$emit(\'update:modelValue\', \'zhang\')">set</button><button data-testid="search-trigger" @click="$emit(\'search\', modelValue)">search</button></div>',
           },
           Pagination: {
             template: '<div class="pagination-stub"></div>',
@@ -294,6 +301,8 @@ describe('user list view', () => {
     })
 
     expect(fetchAdminUserListSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('当前页筛选')
+    expect(wrapper.text()).toContain('用户关键词')
     await wrapper.get('[data-testid="set-keyword"]').trigger('click')
     await wrapper.get('[data-testid="search-trigger"]').trigger('click')
 
@@ -344,7 +353,11 @@ describe('user list view', () => {
     const wrapper = mount(module.default, {
       global: {
         stubs: {
-          SearchBar: { template: '<div class="search-bar-stub"></div>' },
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
           Pagination: { template: '<div class="pagination-stub"></div>' },
           EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
           FreezeStatusTag: {
@@ -423,7 +436,11 @@ describe('user list view', () => {
     const wrapper = mount(module.default, {
       global: {
         stubs: {
-          SearchBar: { template: '<div class="search-bar-stub"></div>' },
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
           Pagination: { template: '<div class="pagination-stub"></div>' },
           EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
           FreezeStatusTag: {

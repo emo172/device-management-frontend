@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { setActivePinia } from 'pinia'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -205,11 +205,71 @@ describe('overdue pages', () => {
       processingStatus: undefined,
     })
     expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    const filterPanels = wrapper.findAll('.console-filter-panel')
+    const filterPanel = filterPanels[0]!
+    const filterButtons = filterPanel.findAll('.overdue-list-view__filter-actions button')
+
+    expect(filterPanels).toHaveLength(1)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
+    expect(filterPanel.text()).toContain('处理状态筛选')
+    expect(filterPanel.findAll('.overdue-list-view__field select')).toHaveLength(1)
+    expect(filterButtons).toHaveLength(2)
+    expect(filterButtons[0]?.text()).toContain('查询')
+    expect(filterButtons[1]?.text()).toContain('重置')
     expect(wrapper.text()).toContain(pendingRecord.deviceName)
     expect(wrapper.text()).toContain(pendingRecord.userName)
     expect(wrapper.text()).toContain('处理逾期')
+  })
+
+  it('逾期列表页改用统一筛选卡片后，查询与重置仍会驱动处理状态请求', async () => {
+    const { module, error } = await loadOverdueView('List')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const overdueStore = useOverdueStore()
+    const fetchOverdueListSpy = vi
+      .spyOn(overdueStore, 'fetchOverdueList')
+      .mockResolvedValue({ total: 0, records: [] })
+
+    const wrapper = mount(module.default, { global: commonGlobal })
+    const statusSelect = wrapper.get('.overdue-list-view__field select')
+    const filterButtons = wrapper.findAll('.overdue-list-view__filter-actions button')
+
+    await statusSelect.setValue(OverdueProcessingStatus.PROCESSED)
+    await filterButtons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(fetchOverdueListSpy).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 10,
+      processingStatus: OverdueProcessingStatus.PROCESSED,
+    })
+
+    await filterButtons[1]!.trigger('click')
+    await flushPromises()
+
+    expect((statusSelect.element as HTMLSelectElement).value).toBe('')
+    expect(fetchOverdueListSpy).toHaveBeenLastCalledWith({
+      page: 1,
+      size: 10,
+      processingStatus: undefined,
+    })
   })
 
   it('逾期列表把横向滚动收口到本地表格 wrapper，避免超长记录把整页主区撑宽', () => {

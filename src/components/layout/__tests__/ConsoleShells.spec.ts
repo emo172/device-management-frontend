@@ -71,6 +71,68 @@ describe('Console shell components', () => {
     expect(wrapper.text()).toContain('刷新数据')
   })
 
+  it('ConsoleFilterPanel 提供稳定壳层结构，并在空插槽场景保留字段区与操作区容器', async () => {
+    const ConsoleFilterPanel = (await import('../ConsoleFilterPanel.vue')).default
+    const wrapper = mount(ConsoleFilterPanel, {
+      props: {
+        title: '设备筛选',
+      },
+    })
+
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel__header').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel__body').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel__fields').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel__actions').exists()).toBe(true)
+    expect(wrapper.get('.console-filter-panel__eyebrow').text()).toBe('筛选与操作')
+    expect(wrapper.get('.console-filter-panel__title').text()).toBe('设备筛选')
+    expect(wrapper.find('.console-filter-panel__description').exists()).toBe(false)
+    expect(wrapper.get('.console-filter-panel__fields').text()).toBe('')
+    expect(wrapper.get('.console-filter-panel__actions').text()).toBe('')
+  })
+
+  it('ConsoleFilterPanel 支持字段区和 actions 插槽渲染', async () => {
+    const ConsoleFilterPanel = (await import('../ConsoleFilterPanel.vue')).default
+    const wrapper = mount(ConsoleFilterPanel, {
+      props: {
+        eyebrow: 'Device Console',
+        title: '预约列表',
+        description: '统一承接列表顶部筛选条件与批量操作。',
+      },
+      slots: {
+        default: '<div class="panel-field">状态筛选</div>',
+        actions: '<button class="panel-action">导出</button>',
+      },
+    })
+
+    expect(wrapper.get('.console-filter-panel__eyebrow').text()).toBe('Device Console')
+    expect(wrapper.get('.console-filter-panel__description').text()).toBe(
+      '统一承接列表顶部筛选条件与批量操作。',
+    )
+    expect(wrapper.find('.panel-field').exists()).toBe(true)
+    expect(wrapper.find('.panel-action').exists()).toBe(true)
+    expect(wrapper.get('.console-filter-panel__actions').text()).toContain('导出')
+  })
+
+  it('ConsoleFilterPanel 的 body 容器保持普通布局节点，避免把无标题区误标记为 section', () => {
+    const filterPanelSource = readLayoutSource('ConsoleFilterPanel')
+
+    expect(filterPanelSource).toContain('<div class="console-filter-panel__body">')
+    expect(filterPanelSource).not.toContain('<section class="console-filter-panel__body">')
+  })
+
+  it('ConsoleFilterPanel 持续使用主题 token，避免回退到硬编码颜色', () => {
+    const filterPanelSource = readLayoutSource('ConsoleFilterPanel')
+
+    expect(filterPanelSource).toContain("@use '@/assets/styles/console-shell' as shell;")
+    expect(filterPanelSource).toContain('@include shell.console-surface();')
+    expect(filterPanelSource).toContain('color: var(--app-accent-amber);')
+    expect(filterPanelSource).toContain('color: var(--app-text-primary);')
+    expect(filterPanelSource).toContain('color: var(--app-text-secondary);')
+    expect(filterPanelSource).not.toMatch(/color:\s*#[0-9a-fA-F]{3,8}/)
+    expect(filterPanelSource).not.toMatch(new RegExp('rgb\\s*\\(', 'i'))
+  })
+
   it('ConsoleSummaryGrid 提供摘要网格壳层', async () => {
     const ConsoleSummaryGrid = (await import('../ConsoleSummaryGrid.vue')).default
     const wrapper = mount(ConsoleSummaryGrid, {

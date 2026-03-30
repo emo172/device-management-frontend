@@ -10,10 +10,10 @@ import CheckInStatusTag from '@/components/business/CheckInStatusTag.vue'
 import ReservationStatusTag from '@/components/business/ReservationStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { UserRole } from '@/enums'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useReservationStore } from '@/stores/modules/reservation'
@@ -128,25 +128,25 @@ onMounted(() => {
       class="reservation-list-view__hero"
     />
 
-    <ConsoleToolbarShell class="reservation-list-view__toolbar">
-      <p class="reservation-list-view__toolbar-copy">
-        {{
-          isUser
-            ? '列表页仅承接本人预约的刷新、创建与后续动作入口。'
-            : '管理员在本页只做总览与详情跳转，审核流程统一进入管理页。'
-        }}
-      </p>
-      <div class="reservation-list-view__hero-actions">
-        <el-button @click="loadReservationList()">
-          <el-icon><RefreshRight /></el-icon>
-          刷新
-        </el-button>
-        <el-button v-if="canCreateReservation" type="primary" @click="handleCreate">
-          <el-icon><Plus /></el-icon>
-          创建预约
-        </el-button>
-      </div>
-    </ConsoleToolbarShell>
+    <!-- 顶部区域只承接刷新与创建入口，审批、签到等流程仍留在详情页和管理页，避免预约列表重新长出第二套流程入口。 -->
+    <ConsoleFilterPanel
+      class="reservation-list-view__filter-panel"
+      title="列表操作"
+      description="本页承接预约刷新与创建入口，不在这里混入额外审批流程。"
+    >
+      <template #actions>
+        <div class="reservation-list-view__hero-actions">
+          <el-button @click="loadReservationList()">
+            <el-icon><RefreshRight /></el-icon>
+            刷新
+          </el-button>
+          <el-button v-if="canCreateReservation" type="primary" @click="handleCreate">
+            <el-icon><Plus /></el-icon>
+            创建预约
+          </el-button>
+        </div>
+      </template>
+    </ConsoleFilterPanel>
 
     <ConsoleSummaryGrid v-if="reservationCards.length" class="reservation-list-view__card-grid">
       <ReservationCard
@@ -274,14 +274,9 @@ onMounted(() => {
   gap: 8px;
 }
 
-.reservation-list-view__toolbar {
-  justify-content: space-between;
-}
-
-.reservation-list-view__toolbar-copy {
-  margin: 0;
-  color: var(--app-text-secondary);
-  line-height: 1.7;
+.reservation-list-view__filter-panel :deep(.console-filter-panel__body) {
+  // 当前页顶部只有操作入口，没有筛选字段；改为让 body 交叉轴拉伸，这样空字段容器能跟随动作区高度，不必再写 magic number。
+  align-items: stretch;
 }
 
 .reservation-list-view__table-shell {

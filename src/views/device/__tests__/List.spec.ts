@@ -111,7 +111,11 @@ describe('device list view', () => {
           },
           EmptyState: { template: '<div><slot /></div>' },
           Pagination: { template: '<div class="pagination-stub"></div>' },
-          SearchBar: { template: '<div class="console-toolbar-shell search-bar-stub"></div>' },
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
           ElButton: {
             emits: ['click'],
             template: '<button @click="$emit(\'click\')"><slot /></button>',
@@ -131,9 +135,13 @@ describe('device list view', () => {
 
     expect(fetchDeviceListSpy).toHaveBeenCalledWith({ page: 1, size: 10 })
     expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).toContain('新增设备')
+    expect(wrapper.text()).toContain('设备筛选')
+    expect(wrapper.text()).toContain('按分类名称快速缩小当前设备列表范围。')
+    expect(wrapper.text()).toContain('设备分类')
     expect(wrapper.text()).toContain('高精度示波器-admin')
     expect(wrapper.text()).toContain('/files/devices/device-1.png')
   })
@@ -195,7 +203,11 @@ describe('device list view', () => {
           },
           EmptyState: { template: '<div><slot /></div>' },
           Pagination: { template: '<div class="pagination-stub"></div>' },
-          SearchBar: { template: '<div class="console-toolbar-shell search-bar-stub"></div>' },
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
           ElButton: {
             emits: ['click'],
             template: '<button @click="$emit(\'click\')"><slot /></button>',
@@ -214,9 +226,12 @@ describe('device list view', () => {
     })
 
     expect(wrapper.find('.console-page-hero').exists()).toBe(true)
-    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(true)
+    expect(wrapper.find('.console-filter-panel').exists()).toBe(true)
+    expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
     expect(wrapper.find('.console-table-section').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('新增设备')
+    expect(wrapper.text()).toContain('设备筛选')
+    expect(wrapper.text()).toContain('设备分类')
     expect(wrapper.text()).toContain('高精度示波器-readonly')
     expect(wrapper.text()).toContain('/files/devices/device-1.png')
   })

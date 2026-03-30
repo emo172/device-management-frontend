@@ -8,9 +8,9 @@ import OverdueHandleTypeTag from '@/components/business/OverdueHandleTypeTag.vue
 import OverdueProcessingStatusTag from '@/components/business/OverdueProcessingStatusTag.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { OverdueProcessingStatus, OverdueProcessingStatusLabel } from '@/enums'
 import { UserRole } from '@/enums/UserRole'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -162,12 +162,12 @@ onMounted(() => {
       :is-admin="isDeviceAdmin"
     />
 
-    <ConsoleToolbarShell class="overdue-list-view__filter-panel">
-      <div>
-        <p class="overdue-list-view__filter-eyebrow">筛选</p>
-        <h2>处理状态筛选</h2>
-      </div>
-
+    <!-- 统一逾期页顶部筛选卡片职责，让处理状态筛选与风险入口说明固定落在同一块控制区域。 -->
+    <ConsoleFilterPanel
+      class="overdue-list-view__filter-panel"
+      title="处理状态筛选"
+      description="统一筛选待处理与已处理逾期单据，避免用户反复寻找入口。"
+    >
       <div class="overdue-list-view__filter-form">
         <label class="overdue-list-view__field">
           <span>处理状态</span>
@@ -178,12 +178,15 @@ onMounted(() => {
           </select>
         </label>
 
+      </div>
+
+      <template #actions>
         <div class="overdue-list-view__filter-actions">
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
         </div>
-      </div>
-    </ConsoleToolbarShell>
+      </template>
+    </ConsoleFilterPanel>
 
     <ConsoleTableSection
       title="逾期记录列表"
@@ -278,7 +281,6 @@ onMounted(() => {
 }
 
 .overdue-list-view__hero,
-.overdue-list-view__filter-panel,
 .overdue-list-view__table-shell {
   border: 1px solid var(--app-border-soft);
   box-shadow: var(--app-shadow-card);
@@ -292,14 +294,12 @@ onMounted(() => {
   );
 }
 
-.overdue-list-view__filter-panel,
 .overdue-list-view__table-shell {
   background: var(--app-surface-card-strong);
 }
 
 .overdue-list-view__hero,
 .overdue-list-view__hero-actions,
-.overdue-list-view__filter-form,
 .overdue-list-view__filter-actions,
 .overdue-list-view__table-actions {
   display: flex;
@@ -311,25 +311,11 @@ onMounted(() => {
   align-self: flex-start;
 }
 
-.overdue-list-view__filter-eyebrow {
-  margin: 0;
-  font-family: 'Fira Code', monospace;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
 .overdue-list-view__hero :deep(.console-page-hero__eyebrow) {
   color: var(--app-tone-danger-text);
 }
 
-.overdue-list-view__filter-eyebrow {
-  color: var(--app-tone-brand-text);
-}
-
 .overdue-list-view__hero :deep(.console-page-hero__title),
-.overdue-list-view__filter-panel h2,
 .overdue-list-view__table-header h2 {
   margin: 10px 0 0;
   font-family: 'Fira Code', monospace;
@@ -344,6 +330,12 @@ onMounted(() => {
   margin: 14px 0 0;
   line-height: 1.8;
   color: var(--app-tone-danger-text);
+}
+
+.overdue-list-view__filter-form {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
 }
 
 .overdue-list-view__field {

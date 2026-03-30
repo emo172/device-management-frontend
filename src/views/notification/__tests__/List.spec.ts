@@ -99,7 +99,7 @@ describe('notification list view', () => {
     setActivePinia(createAppPinia())
   })
 
-  it('通知页源码改为通过 AppSelect 收口类型筛选，并移除页面直连 el-select', () => {
+  it('通知页源码通过 AppSelect 收口类型筛选，并移除页面直连 el-select', () => {
     const source = readNotificationViewSource()
 
     expect(source).toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
@@ -107,7 +107,7 @@ describe('notification list view', () => {
     expect(source).not.toContain('<el-select')
   })
 
-  it('渲染通知列表摘要，并允许按通知类型筛选', async () => {
+  it('渲染顶部筛选卡片与单主列通知列表，并允许按通知类型筛选', async () => {
     const { module, error } = await loadNotificationListView()
 
     expect(error).toBeNull()
@@ -161,8 +161,6 @@ describe('notification list view', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
-    expect(wrapper.find('.notification-list-view__filters').exists()).toBe(true)
     const typeFilter = wrapper.getComponent({ name: 'AppSelect' })
     const typeFilterRoot = wrapper.get('.notification-list-view__select.app-select-stub')
 
@@ -170,10 +168,23 @@ describe('notification list view', () => {
     expect(typeFilter.props('clearable')).toBe(true)
     expect(typeFilter.props('placeholder')).toBe('筛选通知类型')
     expect(typeFilterRoot.attributes('data-placeholder')).toBe('筛选通知类型')
+    const heroActions = wrapper.get('.notification-list-view__hero-actions')
+    const filterPanel = wrapper.find('.console-filter-panel')
+    const listShell = wrapper.find('.notification-list-view__list-shell')
+
+    expect(wrapper.find('.conversation-shell').exists()).toBe(false)
+    expect(wrapper.find('.notification-list-view__filters').exists()).toBe(false)
+    expect(filterPanel.exists()).toBe(true)
+    expect(listShell.exists()).toBe(true)
+    expect(listShell.find('.notification-list-view__list-header').exists()).toBe(true)
     expect(wrapper.text()).toContain('通知中心')
     expect(wrapper.text()).toContain('逾期提醒')
     expect(wrapper.text()).toContain('预约提醒')
     expect(wrapper.text()).toContain('1 条未读')
+    expect(heroActions.text()).toContain('1 条未读')
+    expect(heroActions.text()).not.toContain('刷新列表')
+    expect(filterPanel.text()).toContain('刷新列表')
+    expect(filterPanel.text()).toContain('全部标记已读')
 
     await wrapper.get('.app-select-stub__control').setValue('OVERDUE_WARNING')
 
@@ -274,10 +285,97 @@ describe('notification list view', () => {
     ])
   })
 
-  it('通知页源码改为消费主题 token，避免暗色主题下残留浅色底与浅色文案', () => {
+  it('筛选卡片里的刷新与全部已读动作仍连通通知 store', async () => {
+    const { module, error } = await loadNotificationListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const notificationStore = useNotificationStore()
+    notificationStore.notifications = notifications
+    notificationStore.unreadCount = 1
+
+    const fetchNotificationListSpy = vi
+      .spyOn(notificationStore, 'fetchNotificationList')
+      .mockResolvedValue(notifications)
+    const fetchUnreadCountSpy = vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(1)
+    const markAllAsReadSpy = vi.spyOn(notificationStore, 'markAllAsRead').mockResolvedValue({
+      updatedCount: 1,
+      readAt: '2026-03-16T09:00:00',
+      unreadCount: 0,
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
+          NotificationItem: {
+            props: ['notification'],
+            emits: ['mark-read'],
+            template:
+              '<article class="notification-item-stub">' +
+              '<span class="notification-item-title">{{ notification.title }}</span>' +
+              '<button class="notification-item-read" @click="$emit(\'mark-read\', notification.id)">已读</button>' +
+              '</article>',
+          },
+          ElButton: {
+            props: ['disabled'],
+            emits: ['click'],
+            template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          AppSelect: appSelectStub,
+          ElOption: {
+            props: ['label', 'value'],
+            template: '<option :value="value">{{ label }}</option>',
+          },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const filterPanel = wrapper.get('.console-filter-panel')
+    const actionButtons = filterPanel.findAll('button')
+    const refreshButton = actionButtons.find((node) => node.text().includes('刷新列表'))
+    const markAllButton = actionButtons.find((node) => node.text().includes('全部标记已读'))
+
+    expect(refreshButton).toBeTruthy()
+    expect(markAllButton).toBeTruthy()
+
+    if (!refreshButton || !markAllButton) {
+      return
+    }
+
+    expect(fetchNotificationListSpy).toHaveBeenCalledTimes(1)
+    expect(fetchUnreadCountSpy).toHaveBeenCalledTimes(1)
+
+    await refreshButton.trigger('click')
+    await flushPromises()
+
+    expect(fetchNotificationListSpy).toHaveBeenCalledTimes(2)
+    expect(fetchUnreadCountSpy).toHaveBeenCalledTimes(2)
+
+    await markAllButton.trigger('click')
+
+    expect(markAllAsReadSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('通知页源码继续消费主题 token，避免暗色主题下残留硬编码颜色', () => {
     const source = readNotificationViewSource()
 
-    // 通知中心既要承载筛选侧栏，也要承载通知列表和空态，页面层必须直接锁定表面与文字 token，避免深色模式回退成浅色孤岛。
+    // 新布局的结构迁移由挂载测试守护；源码层只继续兜住 design token 与颜色约束，避免测试对历史类名耦合过深。
     expect(source).toContain('var(--app-surface-card-strong)')
     expect(source).toContain('var(--app-surface-card)')
     expect(source).toContain('var(--app-text-primary)')

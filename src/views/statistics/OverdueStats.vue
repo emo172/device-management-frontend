@@ -4,9 +4,9 @@ import { computed, onMounted, ref } from 'vue'
 import StatisticsCard from '@/components/business/StatisticsCard.vue'
 import ConsoleAsidePanel from '@/components/layout/ConsoleAsidePanel.vue'
 import ConsoleFeedbackSurface from '@/components/layout/ConsoleFeedbackSurface.vue'
+import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
 import ConsoleSummaryGrid from '@/components/layout/ConsoleSummaryGrid.vue'
-import ConsoleToolbarShell from '@/components/layout/ConsoleToolbarShell.vue'
 import { useAppStore } from '@/stores/modules/app'
 import { useStatisticsStore } from '@/stores/modules/statistics'
 import SharedChartPanel from './SharedChartPanel.vue'
@@ -35,22 +35,34 @@ function resolveAppliedDate() {
 const pendingDate = ref(resolveAppliedDate())
 const appliedDate = ref(resolveAppliedDate())
 
-const overdueCards = computed(() => [
-  {
-    title: '逾期记录数',
-    value: statisticsStore.overdueStatistics?.totalOverdue ?? 0,
-    description: '当前统计日期内进入逾期状态的记录数量。',
-    trendLabel: '',
-    accent: 'rose' as const,
-  },
-  {
-    title: '逾期小时数',
-    value: statisticsStore.overdueStatistics?.totalOverdueHours ?? 0,
-    description: '所有逾期记录累计形成的小时数。',
-    trendLabel: '',
-    accent: 'amber' as const,
-  },
-])
+const overdueCards = computed(() => {
+  const overdueStatistics = statisticsStore.overdueStatistics
+
+  /**
+   * 加载态且还没有拿到成功聚合时，不能把占位 0 值渲染成真实统计卡片。
+   * 逾期页只有在拿到有效结果后才展示摘要卡片，避免系统管理员误判当天风险已经清零。
+   */
+  if (!overdueStatistics) {
+    return []
+  }
+
+  return [
+    {
+      title: '逾期记录数',
+      value: overdueStatistics.totalOverdue,
+      description: '当前统计日期内进入逾期状态的记录数量。',
+      trendLabel: '',
+      accent: 'rose' as const,
+    },
+    {
+      title: '逾期小时数',
+      value: overdueStatistics.totalOverdueHours,
+      description: '所有逾期记录累计形成的小时数。',
+      trendLabel: '',
+      accent: 'amber' as const,
+    },
+  ]
+})
 const overdueOption = computed(() =>
   createOverdueSummaryOption(statisticsStore.overdueStatistics, appStore.resolvedTheme),
 )
@@ -104,25 +116,25 @@ onMounted(() => {
           <span>统计日期</span>
           <strong>{{ effectiveDateLabel }}</strong>
         </div>
-        <div class="statistics-detail-view__meta-pill">
+        <!-- 还没拿到有效聚合结果时，页头摘要只保留统计日期，避免把占位 0 值误读成真实风险已清零。 -->
+        <div v-if="statisticsStore.overdueStatistics" class="statistics-detail-view__meta-pill">
           <span>逾期记录</span>
-          <strong>{{ statisticsStore.overdueStatistics?.totalOverdue ?? 0 }}</strong>
+          <strong>{{ statisticsStore.overdueStatistics.totalOverdue }}</strong>
         </div>
-        <div class="statistics-detail-view__meta-pill">
+        <div v-if="statisticsStore.overdueStatistics" class="statistics-detail-view__meta-pill">
           <span>逾期小时</span>
-          <strong>{{ statisticsStore.overdueStatistics?.totalOverdueHours ?? 0 }}</strong>
+          <strong>{{ statisticsStore.overdueStatistics.totalOverdueHours }}</strong>
         </div>
       </template>
     </ConsolePageHero>
 
-    <ConsoleToolbarShell class="statistics-detail-view__toolbar">
-      <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
-        <h2>统计日期筛选</h2>
-        <p>逾期统计与借用统计必须共享同一日期口径，方便系统管理员做风险对照。</p>
-      </div>
-
-      <div class="statistics-detail-view__toolbar-actions">
+    <!-- 统计详情子页统一复用同一日期筛选壳层，确保图表、摘要与总览页始终使用同一统计口径。 -->
+    <ConsoleFilterPanel
+      eyebrow="筛选与操作"
+      title="统计日期筛选"
+      description="所有统计子页共用同一日期口径，避免图表与总览页口径漂移。"
+    >
+      <div class="statistics-detail-view__filter-fields">
         <el-date-picker
           :model-value="pendingDate"
           type="date"
@@ -130,9 +142,14 @@ onMounted(() => {
           placeholder="选择统计日期"
           @update:modelValue="handleDateChange"
         />
-        <el-button @click="handleRefresh">刷新数据</el-button>
       </div>
-    </ConsoleToolbarShell>
+
+      <template #actions>
+        <div class="statistics-detail-view__toolbar-actions">
+          <el-button @click="handleRefresh">刷新数据</el-button>
+        </div>
+      </template>
+    </ConsoleFilterPanel>
 
     <div class="statistics-detail-view__layout">
       <div class="statistics-detail-view__main">
@@ -237,7 +254,6 @@ onMounted(() => {
 }
 
 .statistics-detail-view__meta-pill span,
-.statistics-detail-view__toolbar-eyebrow,
 .statistics-detail-view__aside-label {
   display: block;
   margin: 0 0 8px;
@@ -249,14 +265,12 @@ onMounted(() => {
 }
 
 .statistics-detail-view__meta-pill strong,
-.statistics-detail-view__toolbar h2,
 .statistics-detail-view__aside-card h3,
 .statistics-detail-view__aside-card h4 {
   margin: 0;
   color: var(--app-text-primary);
 }
 
-.statistics-detail-view__toolbar p,
 .statistics-detail-view__aside-card p,
 .statistics-detail-view__feedback-description,
 .statistics-detail-view__rule-list {
@@ -265,16 +279,12 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-.statistics-detail-view__toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-}
-
+.statistics-detail-view__filter-fields,
 .statistics-detail-view__toolbar-actions {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .statistics-detail-view__layout {
@@ -322,14 +332,6 @@ onMounted(() => {
   .statistics-detail-view__layout,
   .statistics-detail-view__summary-grid {
     grid-template-columns: 1fr;
-  }
-
-  .statistics-detail-view__toolbar {
-    flex-direction: column;
-  }
-
-  .statistics-detail-view__toolbar-actions {
-    flex-wrap: wrap;
   }
 }
 </style>
