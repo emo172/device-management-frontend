@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
@@ -27,6 +29,10 @@ vi.mock('vue-router', async (importOriginal) => {
  * 布局测试单独放在 layouts 目录下，避免组件壳层测试同时背负布局透传与公开页路由回退职责，
  * 这样失败时可以更快定位是布局母版问题还是 layout 组件内部壳层问题。
  */
+function readLayoutSource(componentName: string) {
+  return readFileSync(resolve(process.cwd(), `src/layouts/${componentName}.vue`), 'utf-8')
+}
+
 describe('Layout theme forwarding', () => {
   beforeEach(() => {
     setActivePinia(createAppPinia())
@@ -126,5 +132,14 @@ describe('Layout theme forwarding', () => {
 
     expect(wrapper.text()).toContain('智能设备管理系统')
     expect(wrapper.text()).toContain('设备信息集中查看')
+  })
+
+  it('DefaultLayout 主内容壳不再用 fit-content 撑宽，避免局部宽表把横滚冒泡到整页', () => {
+    const source = readLayoutSource('DefaultLayout')
+
+    expect(source).toContain('.default-layout__main-shell')
+    expect(source).toContain('width: 100%;')
+    expect(source).toContain('max-width: 100%;')
+    expect(source).not.toContain('width: fit-content;')
   })
 })

@@ -65,7 +65,6 @@ onUnmounted(() => {
 <template>
   <section class="device-detail-view">
     <ConsolePageHero
-      eyebrow="Device Detail"
       :title="currentDevice?.name || '设备详情'"
       description="集中查看设备基础档案、图片与状态流转，上传能力仍严格限制在设备管理员角色。"
       class="device-detail-view__hero"

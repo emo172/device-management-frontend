@@ -88,7 +88,6 @@ onUnmounted(() => {
 <template>
   <section class="reservation-detail-view">
     <ConsolePageHero
-      eyebrow="Reservation Detail"
       title="预约详情"
       description="聚合展示预约基本信息、审批流与签到进度，避免用户在列表、审核结果和通知之间来回切换确认状态。"
       class="reservation-detail-view__hero"

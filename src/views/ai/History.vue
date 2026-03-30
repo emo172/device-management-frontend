@@ -66,7 +66,7 @@ onMounted(() => {
   <section class="ai-history-view">
     <header class="ai-history-view__hero">
       <div>
-        <p class="ai-history-view__eyebrow">Conversation History</p>
+        <p class="ai-history-view__eyebrow">会话历史</p>
         <h1 class="ai-history-view__title">历史会话</h1>
         <p class="ai-history-view__description">
           这里回看你已经发起过的 AI 记录。点击某条摘要后，右侧会展示那一轮用户输入、AI

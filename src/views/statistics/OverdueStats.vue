@@ -91,7 +91,6 @@ onMounted(() => {
 <template>
   <section class="statistics-detail-view statistics-detail-view--overdue">
     <ConsolePageHero
-      eyebrow="Overdue Risk"
       title="逾期统计分析"
       description="逾期页专门聚焦逾期风险规模与时长，避免被其他借用指标稀释。"
       class="statistics-detail-view__hero"
@@ -118,7 +117,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="statistics-detail-view__toolbar">
       <div>
-        <p class="statistics-detail-view__toolbar-eyebrow">Date Scope</p>
+        <p class="statistics-detail-view__toolbar-eyebrow">日期范围</p>
         <h2>统计日期筛选</h2>
         <p>逾期统计与借用统计必须共享同一日期口径，方便系统管理员做风险对照。</p>
       </div>

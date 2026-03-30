@@ -212,6 +212,14 @@ describe('overdue pages', () => {
     expect(wrapper.text()).toContain('处理逾期')
   })
 
+  it('逾期列表把横向滚动收口到本地表格 wrapper，避免超长记录把整页主区撑宽', () => {
+    const listSource = readOverdueViewSource('List.vue')
+
+    expect(listSource).toMatch(
+      /\.overdue-list-view__table-wrapper\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;[\s\S]*?overflow:\s*auto;/,
+    )
+  })
+
   it('当前页没有待处理记录时，处理逾期按钮会改拉待处理数据后再跳转', async () => {
     const { module, error } = await loadOverdueView('List')
 

@@ -458,4 +458,15 @@ describe('reservation list view', () => {
 
     expect(source).not.toMatch(hardcodedColorPattern)
   })
+
+  it('预约卡片网格允许卡片收缩，避免极端长字段把主内容区整体撑宽', () => {
+    const source = readReservationViewSource('List.vue')
+
+    expect(source).toMatch(
+      /\.reservation-list-view__card-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/,
+    )
+    expect(source).toMatch(
+      /\.reservation-list-view__card-grid\s*>\s*\*\s*\{[\s\S]*?min-width:\s*0;/,
+    )
+  })
 })

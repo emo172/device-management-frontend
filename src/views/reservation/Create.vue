@@ -161,7 +161,6 @@ onMounted(() => {
 <template>
   <section class="reservation-create-page">
     <ConsolePageHero
-      eyebrow="Reservation Create"
       :title="isSystemAdmin ? '创建 / 代预约' : '创建预约'"
       description="创建页只承接角色差异与冲突回填，字段编辑和业务校验统一留在 ReservationForm 内部。"
       class="reservation-create-page__hero"

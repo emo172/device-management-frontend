@@ -124,7 +124,6 @@ onMounted(() => {
 <template>
   <section class="statistics-overview-view">
     <ConsolePageHero
-      eyebrow="Statistics Console"
       title="统计分析总览"
       description="系统管理员在这里统一选择统计日期，并快速跳转到利用率、借用、逾期和热门时段等分析页。"
       class="statistics-overview-view__hero"

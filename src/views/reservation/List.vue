@@ -123,7 +123,6 @@ onMounted(() => {
 <template>
   <section class="reservation-list-view">
     <ConsolePageHero
-      eyebrow="Reservation Console"
       :title="pageTitle"
       :description="pageDescription"
       class="reservation-list-view__hero"
@@ -334,6 +333,11 @@ onMounted(() => {
 
 .reservation-list-view__card-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+// 预约摘要卡片在极端长设备号场景下也必须允许收缩，避免三列卡片把主内容壳整体撑宽。
+.reservation-list-view__card-grid > * {
+  min-width: 0;
 }
 
 .reservation-list-view__hint {

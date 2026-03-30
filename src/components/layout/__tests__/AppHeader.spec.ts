@@ -54,8 +54,16 @@ function readComponentSource(componentName: string) {
 
 const ElDropdownStub = defineComponent({
   name: 'ElDropdownStub',
-  setup(_, { slots }) {
+  setup(_, { attrs, slots }) {
     const open = ref(false)
+
+    /**
+     * 审查回归点要求直接校验 dropdown 实际收到的属性，
+     * 这里把 fallthrough attrs 序列化到 data 属性，避免测试再次退化成源码字符串匹配。
+     */
+    function serializeAttrs() {
+      return JSON.stringify(attrs)
+    }
 
     /**
      * 主题入口回归测试要覆盖更接近真实 dropdown 的开合链路。
@@ -66,7 +74,7 @@ const ElDropdownStub = defineComponent({
     }
 
     return () =>
-      h('div', { class: 'el-dropdown-stub' }, [
+      h('div', { class: 'el-dropdown-stub', 'data-dropdown-attrs': serializeAttrs() }, [
         h(
           'div',
           {
@@ -162,6 +170,40 @@ describe('AppHeader', () => {
     expect(source).toContain('var(--app-tone-warning-solid)')
     expect(source).toContain('var(--app-tone-brand-solid)')
     expect(source).not.toContain('var(--app-tone-warning-text)')
+  })
+
+  it('头部 dropdown 不再依赖私有 popper class，统一复用全局菜单型下拉样式', () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownAttrs = wrapper
+      .findAll('.el-dropdown-stub')
+      .map((dropdown) => dropdown.attributes('data-dropdown-attrs'))
+
+    expect(dropdownAttrs).toHaveLength(2)
+    dropdownAttrs.forEach((attrSnapshot) => {
+      expect(attrSnapshot).toBeTruthy()
+
+      const parsedAttrs = JSON.parse(attrSnapshot as string) as Record<string, unknown>
+
+      expect(parsedAttrs).not.toHaveProperty('popper-class')
+      expect(parsedAttrs).not.toHaveProperty('popperClass')
+    })
+
+    return cleanupMountedHeader(wrapper)
   })
 
   it('展示当前页面标题与面包屑上下文', async () => {

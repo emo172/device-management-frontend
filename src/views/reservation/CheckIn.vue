@@ -157,7 +157,6 @@ onUnmounted(() => {
 <template>
   <section class="reservation-check-in-view">
     <ConsolePageHero
-      eyebrow="Reservation Check In"
       title="预约签到"
       description="在预约开始前 30 分钟到开始后 60 分钟内完成签到，并根据实际签到时点反馈正常或超时结果。"
       class="reservation-check-in-view__hero"

@@ -37,11 +37,34 @@ function readStyleSource(relativePath: string) {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf-8')
 }
 
-function extractSelectorBlock(source: string, selector: string) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = source.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))
+function extractSelectorBlocks(source: string, selector: string) {
+  const normalizedSource = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[\t ]*\/\/.*$/gm, '')
 
-  return match?.[1] ?? ''
+  return Array.from(normalizedSource.matchAll(/([^{}]+)\{([^{}]*)\}/g)).flatMap(
+    ([, selectorList, block]) => {
+      if (!selectorList || !block) {
+        return []
+      }
+
+      const selectors = selectorList.split(',').map((item) => item.trim())
+
+      return selectors.includes(selector) ? [block] : []
+    },
+  )
+}
+
+function extractSelectorBlock(source: string, selector: string) {
+  return extractSelectorBlocks(source, selector)[0] ?? ''
+}
+
+function hasSelectorBlockWithDeclarations(
+  source: string,
+  selector: string,
+  declarations: string[],
+) {
+  return extractSelectorBlocks(source, selector).some((block) =>
+    declarations.every((declaration) => block.includes(declaration)),
+  )
 }
 
 describe('installElementPlus', () => {
@@ -174,6 +197,100 @@ describe('installElementPlus', () => {
     ].forEach((token) => {
       expect(styleSource).toContain(token)
     })
+  })
+
+  it('为菜单型下拉统一全局面板契约，并禁止回退到头部私有 class', () => {
+    const styleSource = readStyleSource('src/assets/styles/element-override.scss')
+    const elementPlusSelectSource = readStyleSource(
+      'node_modules/element-plus/theme-chalk/el-select.css',
+    )
+    const elementPlusTreeSelectSource = readStyleSource(
+      'node_modules/element-plus/theme-chalk/el-tree-select.css',
+    )
+    const elementPlusDropdownSource = readStyleSource(
+      'node_modules/element-plus/theme-chalk/el-dropdown.css',
+    )
+    const menuPopperDeclarations = [
+      'background: var(--app-surface-card);',
+      'border: 1px solid var(--app-border-soft);',
+      'border-radius: var(--app-radius-md);',
+      'box-shadow: var(--app-shadow-solid);',
+    ]
+
+    /**
+     * 菜单型下拉只允许覆盖 dropdown/select/tree-select 三类面板，
+     * 因此这里既锁定 Element Plus theme-chalk 里真实存在的运行时类名，
+     * 也约束本地 SCSS 不得回退到头部私有 class、全局 `.el-popper` 污染或后续分组重复声明。
+     */
+    expect(elementPlusSelectSource).toContain('.el-select-dropdown{')
+    expect(elementPlusSelectSource).toContain('.el-select-dropdown__item{')
+    expect(elementPlusTreeSelectSource).toContain('.el-tree-select__popper')
+    expect(elementPlusTreeSelectSource).toContain('.el-tree-node__content')
+    expect(elementPlusDropdownSource).toContain('.el-dropdown__popper.el-popper')
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown__popper.el-popper',
+        menuPopperDeclarations,
+      ),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-select-dropdown', menuPopperDeclarations),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-tree-select__popper',
+        menuPopperDeclarations,
+      ),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown__popper.el-popper .el-popper__arrow',
+        ['display: none;'],
+      ),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-select-dropdown__item', [
+        'background: transparent;',
+        'border-radius: var(--app-radius-sm);',
+      ]),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item', [
+        'border-radius: var(--app-radius-sm);',
+      ]),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-select-dropdown__item.is-selected', [
+        'background: var(--app-tone-brand-surface);',
+        'color: var(--app-tone-brand-text-strong);',
+        'border-radius: var(--app-radius-sm);',
+      ]),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item:hover', [
+        'background: var(--app-tone-brand-surface);',
+        'color: var(--app-tone-brand-text-strong);',
+        'border-radius: var(--app-radius-sm);',
+      ]),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-tree-node.is-current > .el-tree-node__content',
+        ['background: var(--app-tone-brand-surface);', 'color: var(--app-tone-brand-text-strong);'],
+      ),
+    ).toBe(true)
+    expect(styleSource).not.toContain('.app-header__dropdown-popper')
+    expect(styleSource.match(/^[\t ]*\.el-popper\s*\{/m)).toBeNull()
+    expect(styleSource).not.toMatch(
+      /\.el-dropdown-menu,\s*\.el-message,\s*\.el-message-box,\s*\.el-picker-panel,\s*\.el-select-dropdown\s*\{/m,
+    )
+    expect(styleSource).not.toMatch(
+      /\.el-tooltip__popper,\s*\.el-popper\.is-dark,\s*\.el-popper\.is-light,\s*\.el-dropdown-menu,\s*\.el-message,\s*\.el-message-box,\s*\.el-picker-panel,\s*\.el-select-dropdown,\s*\.el-tree-select__popper\s*\{/m,
+    )
   })
 
   it('对按钮语义变体和 tooltip 面板使用精确选择器', () => {

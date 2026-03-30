@@ -29,7 +29,7 @@ const currentDashboard = computed(() => {
 
 <template>
   <section v-if="!hasResolvedRole" class="dashboard-entry-pending" data-testid="dashboard-pending">
-    <p class="dashboard-entry-pending__eyebrow">Dashboard</p>
+    <p class="dashboard-entry-pending__eyebrow">仪表盘</p>
     <h1>正在恢复仪表盘权限</h1>
     <p>当前先等待认证状态回填，避免在角色未恢复时误触发管理员侧接口。</p>
   </section>

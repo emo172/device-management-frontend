@@ -136,7 +136,7 @@ async function handleSubmit() {
       <template #main>
         <section class="user-role-dialog__panel">
           <div class="user-role-dialog__header">
-            <p class="user-role-dialog__eyebrow">Role Assignment</p>
+            <p class="user-role-dialog__eyebrow">角色分配</p>
             <h2>分配角色</h2>
             <p class="user-role-dialog__description">
               当前弹窗只提交

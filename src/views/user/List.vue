@@ -194,7 +194,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="user-list-view">
     <ConsolePageHero
-      eyebrow="System / Users"
       title="用户管理"
       description="统一查看账号状态、冻结风险与角色归属。所有管理动作都收敛到系统管理员页面，避免出现跨页面维护造成的信息不同步。"
       class="user-list-view__hero"

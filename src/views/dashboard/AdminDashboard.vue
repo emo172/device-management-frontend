@@ -127,7 +127,6 @@ onMounted(async () => {
 <template>
   <div class="dashboard-page admin-dashboard">
     <ConsolePageHero
-      eyebrow="Admin Console"
       :title="`${displayName}，这里是今天的管理概览`"
       :description="
         isSystemAdmin
@@ -185,7 +184,7 @@ onMounted(async () => {
       <article class="dashboard-card reminder-card">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Approval Reminder</p>
+            <p class="eyebrow">审批提醒</p>
             <h2>待审核预约提醒</h2>
           </div>
           <span class="badge">{{ pendingReservationCount }} 条</span>
@@ -202,7 +201,7 @@ onMounted(async () => {
       <article class="dashboard-card actions-card">
         <div class="panel-header">
           <div>
-            <p class="eyebrow">Quick Actions</p>
+            <p class="eyebrow">快捷操作</p>
             <h2>快捷操作入口</h2>
           </div>
         </div>

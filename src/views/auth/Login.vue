@@ -92,7 +92,7 @@ async function handleSubmit() {
 <template>
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
-      <p class="auth-panel__eyebrow">Auth / Login</p>
+      <p class="auth-panel__eyebrow">账号登录</p>
       <h1 class="auth-panel__title">进入设备管理工作台</h1>
       <p class="auth-panel__description">
         使用账号或注册邮箱登录，继续处理你的设备查询、预约与审批相关工作。

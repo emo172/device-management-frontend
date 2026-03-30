@@ -65,8 +65,7 @@
 .el-dropdown-menu,
 .el-message-box,
 .el-message,
-.el-picker-panel,
-.el-select-dropdown {
+.el-picker-panel {
   box-shadow: var(--app-shadow-solid);
 }
 
@@ -368,16 +367,25 @@
   color: var(--el-disabled-text-color);
 }
 
-.el-option {
+// 下拉项统一采用内缩圆角，保证浅色/深色主题下 selected、hover、focus 的几何形态一致，避免出现直角选中块。
+.el-option,
+.el-select-dropdown__item,
+.el-dropdown-menu__item {
   background: transparent;
+  border-radius: var(--app-radius-sm);
 }
 
-.el-option.is-selected {
+.el-option.is-selected,
+.el-select-dropdown__item.is-selected,
+.el-dropdown-menu__item.app-header__theme-option--active {
   color: var(--app-tone-brand-text-strong);
   background: var(--app-tone-brand-surface);
+  border-radius: var(--app-radius-sm);
 }
 
 .el-option:hover,
+.el-select-dropdown__item:hover,
+.el-select-dropdown__item.is-hovering,
 .el-dropdown-menu__item:hover,
 .el-dropdown-menu__item:focus,
 .el-menu-item:hover,
@@ -385,6 +393,7 @@
 .el-pagination button:hover {
   background: var(--app-tone-brand-surface);
   color: var(--app-tone-brand-text-strong);
+  border-radius: var(--app-radius-sm);
 }
 
 .el-radio-group {
@@ -428,11 +437,24 @@
   backdrop-filter: blur(var(--app-glass-blur));
 }
 
+// 菜单型下拉只覆盖 dropdown/select/tree-select 三类真实运行时面板，避免误伤 tooltip、日期面板与消息弹层。
+.el-dropdown__popper.el-popper,
+.el-select-dropdown,
+.el-tree-select__popper {
+  background: var(--app-surface-card);
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-md);
+  box-shadow: var(--app-shadow-solid);
+}
+
+.el-dropdown__popper.el-popper .el-popper__arrow {
+  display: none;
+}
+
 .el-dropdown-menu,
 .el-message,
 .el-message-box,
-.el-picker-panel,
-.el-select-dropdown {
+.el-picker-panel {
   border-radius: var(--app-radius-md);
 }
 
@@ -442,9 +464,7 @@
 .el-dropdown-menu,
 .el-message,
 .el-message-box,
-.el-picker-panel,
-.el-select-dropdown,
-.el-tree-select__popper {
+.el-picker-panel {
   border: 1px solid var(--app-border-soft);
 }
 

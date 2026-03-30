@@ -138,7 +138,6 @@ onMounted(() => {
 <template>
   <section class="overdue-list-view">
     <ConsolePageHero
-      eyebrow="Overdue Board"
       title="逾期看板"
       description="聚合查看当前页逾期单据、当前页累计逾期时长与处理结果。当前后端逾期接口仍以设备 ID、用户 ID、借还记录 ID 为主，不在前端虚构设备名与借用人姓名字段。"
       class="overdue-list-view__hero"
@@ -165,7 +164,7 @@ onMounted(() => {
 
     <ConsoleToolbarShell class="overdue-list-view__filter-panel">
       <div>
-        <p class="overdue-list-view__filter-eyebrow">Filter</p>
+        <p class="overdue-list-view__filter-eyebrow">筛选</p>
         <h2>处理状态筛选</h2>
       </div>
 
@@ -376,6 +375,9 @@ onMounted(() => {
 }
 
 .overdue-list-view__table-wrapper {
+  // 逾期记录可能出现超长主键与设备名称，横向预算必须留在表格区内，不能把主内容壳整体撑宽。
+  width: 100%;
+  max-width: 100%;
   overflow: auto;
 }
 

@@ -46,7 +46,6 @@ onMounted(() => {
 <template>
   <section class="category-list-view">
     <ConsolePageHero
-      eyebrow="Category Console"
       title="设备分类管理"
       description="分类树展示全部层级，但真正的新增维护入口只向设备管理员开放，确保前后端职责一致。"
       class="category-list-view__hero"

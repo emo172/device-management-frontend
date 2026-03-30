@@ -79,7 +79,6 @@ onUnmounted(() => {
 <template>
   <section class="user-detail-view">
     <ConsolePageHero
-      eyebrow="System / User Detail"
       :title="currentUser?.username || '用户详情'"
       description="展示系统管理员处理账号前必须确认的身份与风险信息，避免仅凭列表页最小字段做高风险决策。"
       class="user-detail-view__hero"

@@ -164,7 +164,7 @@ function handleThemePreferenceChange(preference: ThemePreference) {
           <el-icon><Fold /></el-icon>
         </el-button>
 
-        <!-- 主题切换只放在头部工具区，保证通知与用户菜单继续维持独立入口，不把主题配置混入业务导航。 -->
+        <!-- 主题切换只放在头部工具区，保证通知与用户菜单继续维持独立入口；下拉面板直接复用全局统一菜单样式，不再维护头部专用 class。 -->
         <div class="app-header__theme-switcher">
           <el-dropdown class="app-header__theme-dropdown" trigger="click">
             <el-button
@@ -216,7 +216,7 @@ function handleThemePreferenceChange(preference: ThemePreference) {
           </el-badge>
         </div>
 
-        <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口。 -->
+        <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口；下拉同样复用全局统一菜单样式。 -->
         <div class="app-header__user-zone">
           <el-dropdown class="app-header__user" trigger="click">
             <button class="app-header__user-trigger" type="button">

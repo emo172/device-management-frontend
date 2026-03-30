@@ -61,8 +61,9 @@ function handleSelect(path: string) {
 
 <template>
   <el-aside
-    :width="appStore.sidebarCollapsed ? '88px' : '248px'"
+    :width="appStore.sidebarCollapsed ? '96px' : '248px'"
     class="app-sidebar"
+    :class="{ 'is-collapsed': appStore.sidebarCollapsed }"
     :data-resolved-theme="appStore.resolvedTheme"
   >
     <div class="app-sidebar__surface">
@@ -70,7 +71,7 @@ function handleSelect(path: string) {
         <span class="app-sidebar__logo">DM</span>
         <div v-if="!appStore.sidebarCollapsed" class="app-sidebar__brand-text">
           <strong>智能设备管理系统</strong>
-          <span>Device Console</span>
+          <span>设备控制台</span>
         </div>
       </div>
 
@@ -107,11 +108,9 @@ function handleSelect(path: string) {
                     :content="`${group.title} · ${item.title}`"
                     placement="right"
                   >
-                    <span class="app-sidebar__menu-tooltip-trigger">
-                      <el-icon class="app-sidebar__menu-icon">
-                        <component :is="item.icon" />
-                      </el-icon>
-                    </span>
+                    <el-icon class="app-sidebar__menu-icon">
+                      <component :is="item.icon" />
+                    </el-icon>
                   </el-tooltip>
 
                   <template v-else>
@@ -148,8 +147,14 @@ function handleSelect(path: string) {
 .app-sidebar {
   height: 100%;
   padding: 16px 0 16px 16px;
+  overflow: hidden;
   background: transparent;
   transition: width 0.24s ease;
+}
+
+// 折叠态必须为 Element Plus 64px 折叠菜单留出完整宽度预算，避免图标被裁切后触发横向滚动。
+.app-sidebar.is-collapsed {
+  padding: 16px 0 16px 8px;
 }
 
 .app-sidebar__surface {
@@ -159,7 +164,7 @@ function handleSelect(path: string) {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border-radius: var(--app-radius-lg) 0 0 var(--app-radius-lg);
+  border-radius: var(--app-radius-lg);
   background:
     radial-gradient(circle at top, var(--app-page-accent-strong), transparent 32%),
     var(--app-surface-glass);
@@ -170,6 +175,12 @@ function handleSelect(path: string) {
   align-items: center;
   gap: 14px;
   padding: 24px 20px 18px;
+}
+
+.app-sidebar.is-collapsed .app-sidebar__brand {
+  justify-content: center;
+  gap: 0;
+  padding: 18px 10px 14px;
 }
 
 .app-sidebar__logo {
@@ -208,6 +219,10 @@ function handleSelect(path: string) {
   min-height: 0;
   padding: 0 14px 20px;
   overflow: hidden;
+}
+
+.app-sidebar.is-collapsed .app-sidebar__scrollbar {
+  padding: 0 10px 18px;
 }
 
 .app-sidebar__scrollbar :deep(.el-scrollbar__view) {
@@ -266,13 +281,6 @@ function handleSelect(path: string) {
   flex-shrink: 0;
 }
 
-.app-sidebar__menu-tooltip-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
 .app-sidebar__menu-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -282,6 +290,10 @@ function handleSelect(path: string) {
 .app-sidebar__role-panel {
   padding: 18px 20px 22px;
   border-top: 1px solid var(--app-border-soft);
+}
+
+.app-sidebar.is-collapsed .app-sidebar__role-panel {
+  padding: 14px 10px 16px;
 }
 
 .app-sidebar__role-panel--collapsed {

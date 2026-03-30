@@ -115,7 +115,6 @@ onMounted(() => {
 <template>
   <section class="device-list-view">
     <ConsolePageHero
-      eyebrow="Device Console"
       title="设备中心"
       description="统一查看设备状态、分类归属与位置分布。仅设备管理员可在此维护设备主数据，其余角色保持只读访问。"
       class="device-list-view__hero"

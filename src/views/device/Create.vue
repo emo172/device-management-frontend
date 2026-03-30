@@ -53,7 +53,6 @@ onMounted(() => {
 <template>
   <section class="device-form-page">
     <ConsolePageHero
-      eyebrow="Device Create"
       title="新建设备"
       description="创建设备页只承接分类加载、基础字段录入与提交跳转，真正的字段规则统一收口到 DeviceForm。"
       class="device-form-page__hero"

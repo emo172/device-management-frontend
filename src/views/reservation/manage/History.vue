@@ -61,7 +61,6 @@ onMounted(() => {
 <template>
   <section class="reservation-manage-view">
     <ConsolePageHero
-      eyebrow="Reservation History"
       title="审批历史"
       description="查看管理员已审批、已拒绝、已取消或已过期的预约结果，便于追溯审核结论与人工处理落点。"
       class="reservation-manage-view__hero"

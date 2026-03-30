@@ -68,7 +68,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="borrow-detail-view">
     <ConsolePageHero
-      eyebrow="Borrow Detail"
       title="借还记录详情"
       description="查看单条借还记录的正式主键、借出归还时间与处理人，方便借还确认完成后追溯现场操作记录。"
       class="borrow-detail-view__hero"

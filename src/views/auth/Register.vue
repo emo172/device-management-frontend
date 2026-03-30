@@ -93,7 +93,7 @@ async function handleSubmit() {
 <template>
   <section class="auth-panel auth-panel__surface">
     <div class="auth-panel__intro">
-      <p class="auth-panel__eyebrow">Auth / Register</p>
+      <p class="auth-panel__eyebrow">账号注册</p>
       <h1 class="auth-panel__title">注册系统账号</h1>
       <p class="auth-panel__description">
         填写基础资料后即可完成注册，进入系统继续进行设备预约与个人操作。

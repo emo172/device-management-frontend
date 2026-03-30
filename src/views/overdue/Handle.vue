@@ -162,7 +162,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="overdue-handle-view">
     <ConsolePageHero
-      eyebrow="Process Overdue"
       title="逾期处理"
       description="选择警告、赔偿或继续使用作为最终裁决；赔偿金额只在赔偿模式下生效，其余模式继续按后端真实 DTO 空值处理。"
       class="overdue-handle-view__hero"
@@ -200,7 +199,7 @@ onBeforeUnmount(() => {
         <template #main>
           <article class="overdue-handle-view__summary-panel">
             <div class="overdue-handle-view__panel-header">
-              <p class="overdue-handle-view__eyebrow">Snapshot</p>
+              <p class="overdue-handle-view__eyebrow">处理快照</p>
               <h2>当前逾期信息</h2>
             </div>
 
@@ -253,7 +252,7 @@ onBeforeUnmount(() => {
             description="设备管理员在这里明确选择处理方式、处理备注与赔偿金额，直接对齐后端 ProcessOverdueRequest。"
           >
             <div class="overdue-handle-view__panel-header">
-              <p class="overdue-handle-view__eyebrow">Decision</p>
+              <p class="overdue-handle-view__eyebrow">处理决策</p>
               <h2>选择处理方式</h2>
             </div>
 

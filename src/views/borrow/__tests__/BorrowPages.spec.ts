@@ -271,6 +271,14 @@ describe('borrow pages', () => {
     expect(detailSource).not.toMatch(hardcodedColorPattern)
   })
 
+  it('借还列表把横向滚动收口到本地表格 wrapper，避免超长字段把整页主区撑宽', () => {
+    const listSource = readBorrowViewSource('List.vue')
+
+    expect(listSource).toMatch(
+      /\.borrow-list-view__table-wrapper\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;[\s\S]*?overflow:\s*auto;/,
+    )
+  })
+
   it('普通用户访问借还列表页时不展示管理员确认入口', async () => {
     const { module, error } = await loadBorrowView('List')
 
