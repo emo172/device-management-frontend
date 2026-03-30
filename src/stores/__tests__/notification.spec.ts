@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 const {
@@ -31,6 +31,11 @@ describe('notification store', () => {
     getUnreadNotificationCountMock.mockReset()
     markAllNotificationsReadMock.mockReset()
     markNotificationReadMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
   })
 
   it('loads notification list and unread count', async () => {
@@ -221,33 +226,53 @@ describe('notification store', () => {
     expect(store.notifications[1]?.readAt).toBeNull()
   })
 
-  it('starts and stops unread count polling without duplicate timers', async () => {
+  it('starts and stops unread count polling with a stable single timer handle', async () => {
     getUnreadNotificationCountMock.mockResolvedValue({ unreadCount: 5 })
 
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
     const store = useNotificationStore()
     store.startPolling()
+    const firstTimer = store.pollingTimer
     store.startPolling()
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(store.pollingTimer).toBe(firstTimer)
 
     await vi.advanceTimersByTimeAsync(30000)
     expect(getUnreadNotificationCountMock).toHaveBeenCalledTimes(1)
+    expect(store.pollingTimer).toBe(firstTimer)
 
     store.stopPolling()
+    expect(store.pollingTimer).toBeNull()
+
     await vi.advanceTimersByTimeAsync(30000)
     expect(getUnreadNotificationCountMock).toHaveBeenCalledTimes(1)
   })
 
-  it('suppresses polling request errors and keeps subsequent polling alive', async () => {
+  it('keeps the same polling timer alive after failures and ignores repeated restarts', async () => {
     getUnreadNotificationCountMock
       .mockRejectedValueOnce(new Error('network error'))
       .mockResolvedValueOnce({ unreadCount: 2 })
 
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
     const store = useNotificationStore()
     store.startPolling()
+    const firstTimer = store.pollingTimer
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(store.pollingTimer).toBe(firstTimer)
 
     await vi.advanceTimersByTimeAsync(30000)
+
+    store.startPolling()
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(store.pollingTimer).toBe(firstTimer)
+
     await vi.advanceTimersByTimeAsync(30000)
 
     expect(getUnreadNotificationCountMock).toHaveBeenCalledTimes(2)
     expect(store.unreadCount).toBe(2)
+    expect(store.pollingTimer).toBe(firstTimer)
   })
 })

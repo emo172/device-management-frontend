@@ -584,8 +584,9 @@ describe('AppHeader', () => {
     await flushPromises()
 
     expect(startPollingSpy).toHaveBeenCalledTimes(1)
+    expect(pushMock).not.toHaveBeenCalled()
 
-    wrapper.unmount()
+    await cleanupMountedHeader(wrapper)
   })
 
   it('组件卸载早于未读数请求完成时不会重新启动轮询', async () => {
@@ -610,7 +611,9 @@ describe('AppHeader', () => {
     const startPollingSpy = vi
       .spyOn(notificationStore, 'startPolling')
       .mockImplementation(() => undefined)
-    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+    const stopPollingSpy = vi
+      .spyOn(notificationStore, 'stopPolling')
+      .mockImplementation(() => undefined)
 
     const wrapper = mountHeader()
 
@@ -621,6 +624,8 @@ describe('AppHeader', () => {
     }
     await flushPromises()
 
+    expect(stopPollingSpy).toHaveBeenCalledTimes(1)
     expect(startPollingSpy).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })

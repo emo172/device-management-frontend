@@ -5,6 +5,7 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UserRole } from '@/enums/UserRole'
+import { installElementPlus } from '@/plugins/elementPlus'
 import { createAppPinia } from '@/stores'
 import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -60,6 +61,18 @@ function mountSidebar() {
       },
     },
   })
+}
+
+function mountSidebarWithRuntimeElementPlus() {
+  return mount(AppSidebar, {
+    global: {
+      plugins: [installElementPlus],
+    },
+  })
+}
+
+function stringifyConsoleCalls(spy: { mock: { calls: unknown[][] } }) {
+  return spy.mock.calls.flatMap((callArgs) => callArgs.map((arg) => String(arg))).join('\n')
 }
 
 function setCurrentUserRole(role: UserRole) {
@@ -182,6 +195,36 @@ describe('AppSidebar', () => {
         .findAll('.tooltip-stub')
         .every((tooltip) => tooltip.attributes('data-teleported') !== 'false'),
     ).toBe(true)
+  })
+
+  it('真实 Element Plus 安装链路在折叠态不再暴露 el-tooltip 未注册 warning', async () => {
+    const appStore = useAppStore()
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    appStore.setSidebarCollapsed(true)
+    setCurrentUserRole(UserRole.DEVICE_ADMIN)
+
+    try {
+      const wrapper = mountSidebarWithRuntimeElementPlus()
+
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.app-sidebar__role-panel--collapsed').exists()).toBe(true)
+      expect(wrapper.findAll('.app-sidebar__menu-tooltip-trigger').length).toBeGreaterThan(0)
+
+      const consoleOutput = [
+        stringifyConsoleCalls(consoleWarnSpy),
+        stringifyConsoleCalls(consoleErrorSpy),
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      expect(consoleOutput).not.toContain('Failed to resolve component: el-tooltip')
+    } finally {
+      consoleWarnSpy.mockRestore()
+      consoleErrorSpy.mockRestore()
+    }
   })
 
   it('侧栏壳层暴露当前解析后的主题态，供布局联动样式消费', () => {
