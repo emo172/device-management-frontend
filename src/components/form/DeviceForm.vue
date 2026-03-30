@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 
-import type { CategoryTreeResponse } from '@/api/categories'
+import AppTreeSelect from '@/components/common/dropdown/AppTreeSelect.vue'
 
 type DeviceFormMode = 'create' | 'edit'
 
@@ -14,16 +14,27 @@ interface DeviceFormValue {
 }
 
 /**
+ * 设备分类树选项统一沿用 AppTreeSelect 的 `label/value` 契约。
+ * DeviceForm 只接收已经完成展示字段映射的数据，避免把接口原始 `name` 口径直接混进表单，
+ * 导致界面展示文案与最终提交到 `categoryName` 的真实值互相串位。
+ */
+interface DeviceFormCategoryOption {
+  label: string
+  value: string
+  children?: DeviceFormCategoryOption[]
+}
+
+/**
  * 设备表单组件。
  * 创建设备与编辑设备共用一套字段结构，但编辑模式必须锁定设备编号，防止前端误改后破坏后端的唯一识别口径。
+ * 分类树选择统一切到 AppTreeSelect 这个包装组件，后续同类表单就能共用一套下拉触发器与面板契约，
+ * 不必在各表单里重复补选择器样式，也能把旧下拉结构的局部样式补丁收口到公共层维护。
  */
 const props = withDefaults(
   defineProps<{
     mode: DeviceFormMode
     initialValue: DeviceFormValue
-    categoryOptions: Array<
-      Pick<CategoryTreeResponse, 'name'> | { label: string; value: string; children?: unknown[] }
-    >
+    categoryOptions: DeviceFormCategoryOption[]
     submitting?: boolean
   }>(),
   {
@@ -78,7 +89,7 @@ function handleSubmit() {
       </el-form-item>
 
       <el-form-item label="分类">
-        <el-tree-select
+        <AppTreeSelect
           v-model="formState.categoryName"
           class="device-form__category"
           :data="categoryOptions"
@@ -132,17 +143,13 @@ function handleSubmit() {
 
 // 设备表单包含输入、树选择与多行描述，统一抬到实体表面后深色主题才不会留下发灰的浅色控件底。
 .device-form :deep(.el-input__wrapper),
-.device-form :deep(.el-select__wrapper),
-.device-form :deep(.el-textarea__inner),
-.device-form :deep(.el-input-number) {
+.device-form :deep(.el-textarea__inner) {
   background: var(--app-surface-card-strong);
   box-shadow: inset 0 0 0 1px var(--app-border-soft);
 }
 
 .device-form :deep(.el-input__wrapper:hover),
-.device-form :deep(.el-select__wrapper:hover),
-.device-form :deep(.el-textarea__inner:hover),
-.device-form :deep(.el-input-number:hover) {
+.device-form :deep(.el-textarea__inner:hover) {
   box-shadow: inset 0 0 0 1px var(--app-border-strong);
 }
 
