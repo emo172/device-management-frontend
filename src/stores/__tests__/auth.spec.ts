@@ -308,7 +308,7 @@ describe('auth store', () => {
     expect(store.currentUser).toEqual(persistedUser)
   })
 
-  it('delegates 401 session recovery failure to the unified unauthorized chain', async () => {
+  it('only runs unauthorized handler when initializeAuth receives 401 from /auth/me', async () => {
     const unauthorizedError = {
       response: {
         status: 401,
