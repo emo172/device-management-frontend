@@ -202,17 +202,19 @@ describe('router guards', () => {
     expect(router.currentRoute.value.path).toBe('/statistics')
   })
 
-  it('受保护路由补拉用户遇到 401 时，走统一未授权链并保留目标 redirect', async () => {
+  it('受保护路由补拉用户遇到 401 时，会把目标页 fullPath 透传给未授权链', async () => {
     setAccessToken('access-token')
     setRefreshToken('refresh-token')
     getCurrentUserMock.mockRejectedValue({ response: { status: 401 } })
 
     const router = createGuardedRouter()
+    const targetPath = '/statistics?tab=overview'
 
-    await router.push('/statistics')
+    await router.push(targetPath)
 
+    expect(getCurrentUserMock).toHaveBeenCalledTimes(1)
     expect(runUnauthorizedHandlerMock).toHaveBeenCalledTimes(1)
-    expect(runUnauthorizedHandlerMock).toHaveBeenCalledWith({ redirect: '/statistics' })
+    expect(runUnauthorizedHandlerMock).toHaveBeenCalledWith({ redirect: targetPath })
     expect(runFatalErrorHandlerMock).not.toHaveBeenCalled()
   })
 
