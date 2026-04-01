@@ -97,7 +97,7 @@ describe('request service', () => {
     expect(messageErrorMock).toHaveBeenCalledWith('业务失败')
   })
 
-  it('delegates 401 handling to the unified unauthorized chain', async () => {
+  it('only runs unauthorized handler when request layer receives 401', async () => {
     service.defaults.adapter = async () => {
       return Promise.reject({
         response: {
