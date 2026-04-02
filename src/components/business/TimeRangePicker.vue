@@ -19,7 +19,29 @@ const emit = defineEmits<{
   'update:modelValue': [value: TimeRangeValue]
 }>()
 
-const rangeValue = computed(() => [props.modelValue.startTime, props.modelValue.endTime])
+/**
+ * `el-date-picker` 的区间值在空态时必须传 `null`，否则会把 `['', '']` 误当成已选择范围，
+ * 进而让创建页初始态出现不可预测的运行时行为。
+ * 若用户处于半选状态，则继续保留空字符串占位，避免打断当前输入过程。
+ */
+const rangeValue = computed<string[] | null>(() => {
+  const { startTime, endTime } = props.modelValue
+
+  if (!startTime && !endTime) {
+    return null
+  }
+
+  if (startTime && endTime) {
+    return [startTime, endTime]
+  }
+
+  return [startTime || '', endTime || '']
+})
+
+/**
+ * 默认补齐预约时间窗口的上下边界，确保日期面板在选中日期后仍优先落到业务允许的 08:00 与 22:00。
+ */
+const defaultTime = [new Date(2000, 0, 1, 8, 0, 0), new Date(2000, 0, 1, 22, 0, 0)]
 
 function disabledHours() {
   return Array.from({ length: 24 }, (_, hour) => hour).filter((hour) => hour < 8 || hour > 22)
@@ -50,18 +72,8 @@ function handleRangeChange(value: string[] | null) {
 </script>
 
 <template>
-  <el-date-picker
-    class="time-range-picker"
-    :model-value="rangeValue"
-    type="datetimerange"
-    range-separator="至"
-    start-placeholder="请选择开始时间"
-    end-placeholder="请选择结束时间"
-    format="YYYY-MM-DD HH:mm:ss"
-    value-format="YYYY-MM-DDTHH:mm:ss"
-    :disabled-hours="disabledHours"
-    :disabled-minutes="disabledMinutes"
-    :disabled-seconds="disabledSeconds"
-    @update:modelValue="handleRangeChange"
-  />
+  <el-date-picker class="time-range-picker" :model-value="rangeValue" :default-time="defaultTime" type="datetimerange"
+    range-separator="至" start-placeholder="请选择开始时间" end-placeholder="请选择结束时间" format="YYYY-MM-DD HH:mm:ss"
+    value-format="YYYY-MM-DDTHH:mm:ss" :disabled-hours="disabledHours" :disabled-minutes="disabledMinutes"
+    :disabled-seconds="disabledSeconds" @update:modelValue="handleRangeChange" />
 </template>
