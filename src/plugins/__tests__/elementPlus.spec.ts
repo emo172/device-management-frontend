@@ -98,6 +98,7 @@ describe('installElementPlus', () => {
     expect(registeredComponentNames).toEqual(
       expect.arrayContaining([
         'ElAside',
+        'ElAlert',
         'ElAvatar',
         'ElBadge',
         'ElBreadcrumb',
@@ -105,6 +106,7 @@ describe('installElementPlus', () => {
         'ElButton',
         'ElCard',
         'ElContainer',
+        'ElDatePicker',
         'ElDescriptions',
         'ElDescriptionsItem',
         'ElDialog',
@@ -124,6 +126,8 @@ describe('installElementPlus', () => {
         'ElMenuItem',
         'ElOption',
         'ElPagination',
+        'ElRadioButton',
+        'ElRadioGroup',
         'ElScrollbar',
         'ElSelect',
         'ElTable',
