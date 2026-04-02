@@ -280,16 +280,18 @@ describe('installElementPlus', () => {
       ]),
     ).toBe(true)
     expect(
-      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item.app-dropdown__item--active', [
-        'background: var(--app-tone-brand-surface);',
-        'color: var(--app-tone-brand-text-strong);',
-      ]),
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown-menu__item.app-dropdown__item--active',
+        ['background: var(--app-tone-brand-surface);', 'color: var(--app-tone-brand-text-strong);'],
+      ),
     ).toBe(true)
     expect(
-      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item.app-dropdown__item--danger', [
-        'background: var(--app-tone-danger-surface);',
-        'color: var(--app-tone-danger-text);',
-      ]),
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown-menu__item.app-dropdown__item--danger',
+        ['background: var(--app-tone-danger-surface);', 'color: var(--app-tone-danger-text);'],
+      ),
     ).toBe(true)
     expect(
       hasSelectorBlockWithDeclarations(
@@ -322,10 +324,26 @@ describe('installElementPlus', () => {
       ]),
     ).toBe(true)
     expect(
-      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item .app-dropdown__label', [
-        'display: inline-flex;',
-        'align-items: center;',
+      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item .app-dropdown__icon', [
+        'justify-content: center;',
+        'inline-size: 16px;',
+        'block-size: 16px;',
+        'flex-shrink: 0;',
       ]),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown-menu__item .app-dropdown__label',
+        ['display: inline-flex;', 'align-items: center;'],
+      ),
+    ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(
+        styleSource,
+        '.el-dropdown-menu__item .app-dropdown__label',
+        ['min-width: 0;'],
+      ),
     ).toBe(true)
     expect(
       hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item .app-dropdown__meta', [
@@ -334,13 +352,32 @@ describe('installElementPlus', () => {
       ]),
     ).toBe(true)
     expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu__item .app-dropdown__meta', [
+        'justify-content: flex-end;',
+        'text-align: right;',
+        'white-space: nowrap;',
+        'color: var(--app-text-secondary);',
+        'font-size: 12px;',
+      ]),
+    ).toBe(true)
+    expect(
+      extractSelectorBlock(styleSource, '.el-dropdown-menu__item.app-dropdown__item--danger:hover'),
+    ).not.toContain('var(--app-tone-brand-surface)')
+    expect(
+      extractSelectorBlock(styleSource, '.el-dropdown-menu__item.app-dropdown__item--danger:focus'),
+    ).not.toContain('var(--app-tone-brand-text-strong)')
+    expect(
       hasSelectorBlockWithDeclarations(
         styleSource,
         '.el-tree-node.is-current > .el-tree-node__content',
         ['background: var(--app-tone-brand-surface);', 'color: var(--app-tone-brand-text-strong);'],
       ),
     ).toBe(true)
+    expect(
+      hasSelectorBlockWithDeclarations(styleSource, '.el-dropdown-menu', menuPopperDeclarations),
+    ).toBe(false)
     expect(styleSource).not.toContain('.app-header__theme-option--active')
+    expect(styleSource).not.toMatch(/\.app-header__[A-Za-z0-9_-]+/)
     expect(styleSource).not.toContain('popper-class')
     expect(styleSource).not.toContain('.app-header__dropdown-popper')
     expect(styleSource.match(/^[\t ]*\.el-popper\s*\{/m)).toBeNull()

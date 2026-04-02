@@ -222,4 +222,30 @@ describe('console theme styles', () => {
     expect(dangerTextRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
     expect(infoLinkRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
   })
+
+  it('为 teleported dropdown 图标锁定固定尺寸与居中盒模型，避免主题菜单图标抖动', () => {
+    const styleSource = readStyleSource('src/assets/styles/element-override.scss')
+    const dropdownIconRules = findStyleRulesContaining(
+      '.el-dropdown-menu__item .app-dropdown__icon',
+    )
+    const dropdownItem = document.createElement('button')
+    dropdownItem.className = 'el-dropdown-menu__item'
+
+    const icon = document.createElement('span')
+    icon.className = 'app-dropdown__icon'
+    dropdownItem.append(icon)
+    document.body.append(dropdownItem)
+
+    expect(styleSource).toContain('.el-dropdown-menu__item .app-dropdown__icon')
+    expect(dropdownIconRules.some((rule) => rule.style.justifyContent === 'center')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.inlineSize === '16px')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.blockSize === '16px')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.flexShrink === '0')).toBe(true)
+
+    const iconStyle = getComputedStyle(icon)
+    expect(iconStyle.display).toBe('inline-flex')
+    expect(iconStyle.alignItems).toBe('center')
+    expect(iconStyle.justifyContent).toBe('center')
+    expect(iconStyle.flexShrink).toBe('0')
+  })
 })

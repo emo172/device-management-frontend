@@ -400,6 +400,28 @@
   align-items: center;
 }
 
+// 菜单图标固定为统一的 16px 盒模型，避免主题图标、设置图标和退出图标因字形边界不同出现左右跳动。
+.el-dropdown-menu__item .app-dropdown__icon {
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  flex-shrink: 0;
+}
+
+// teleported dropdown 只能由共享全局选择器维护，label 必须允许收缩，避免面板脱离 header 祖先后再次被私有布局样式绑死。
+.el-dropdown-menu__item .app-dropdown__label {
+  min-width: 0;
+}
+
+// teleported dropdown 的右侧补充信息继续走共享全局合同，避免布局组件私有样式失控并把 meta 语义漂移成普通正文。
+.el-dropdown-menu__item .app-dropdown__meta {
+  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--app-text-secondary);
+  font-size: 12px;
+}
+
 .el-option:hover,
 .el-select-dropdown__item:hover,
 .el-select-dropdown__item.is-hovering,
