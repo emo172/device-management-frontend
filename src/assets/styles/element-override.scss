@@ -141,6 +141,35 @@
   color: var(--app-tone-brand-text-strong);
 }
 
+// 详情动作继续沿用 primary plain 语义入口，但通过共享类抬高可见性，避免各页面再私自发明一种“查看”按钮样式。
+.el-button--primary.is-plain.app-detail-action {
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface);
+  color: var(--app-detail-action-text);
+}
+
+.el-button--primary.is-plain.app-detail-action:hover {
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface-strong);
+  color: var(--app-detail-action-text-strong);
+}
+
+.el-button--primary.is-plain.app-detail-action:focus-visible {
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface-strong);
+  color: var(--app-detail-action-text-strong);
+  box-shadow: var(--app-detail-action-focus-ring);
+}
+
+.el-button--primary.is-plain.app-detail-action.is-disabled,
+.el-button--primary.is-plain.app-detail-action.is-disabled:hover,
+.el-button--primary.is-plain.app-detail-action.is-disabled:focus-visible {
+  border-color: var(--app-border-soft);
+  background: var(--el-disabled-bg-color);
+  color: var(--el-disabled-text-color);
+  box-shadow: none;
+}
+
 .el-button--success {
   border-color: var(--app-tone-success-solid);
   background: var(--app-tone-success-solid);

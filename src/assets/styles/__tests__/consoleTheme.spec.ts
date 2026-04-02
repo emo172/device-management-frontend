@@ -223,6 +223,93 @@ describe('console theme styles', () => {
     expect(infoLinkRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
   })
 
+  it('为详情动作建立隔离的中强调契约，不污染通用 primary plain 或 text 语义', () => {
+    const variablesSource = readStyleSource('src/assets/styles/variables.scss')
+    const overrideSource = readStyleSource('src/assets/styles/element-override.scss')
+
+    ;[
+      '--app-detail-action-text',
+      '--app-detail-action-text-strong',
+      '--app-detail-action-surface',
+      '--app-detail-action-surface-strong',
+      '--app-detail-action-border',
+    ].forEach((token) => {
+      expect(extractTokenValue(variablesSource, ':root', token)).toMatch(/^var\(--app-tone-brand-/)
+      expect(extractTokenValue(variablesSource, "\\[data-theme='dark'\\]", token)).toBeUndefined()
+    })
+
+    expect(extractTokenValue(variablesSource, ':root', '--app-detail-action-focus-ring')).toBe(
+      'var(--app-focus-ring)',
+    )
+    expect(
+      extractTokenValue(
+        variablesSource,
+        "\\[data-theme='dark'\\]",
+        '--app-detail-action-focus-ring',
+      ),
+    ).toBeUndefined()
+
+    const genericPrimaryPlainButton = document.createElement('button')
+    genericPrimaryPlainButton.className = 'el-button el-button--primary is-plain'
+
+    const detailActionButton = document.createElement('button')
+    detailActionButton.className = 'el-button el-button--primary is-plain app-detail-action'
+
+    const disabledDetailActionButton = document.createElement('button')
+    disabledDetailActionButton.className =
+      'el-button el-button--primary is-plain app-detail-action is-disabled'
+
+    document.body.append(genericPrimaryPlainButton, detailActionButton, disabledDetailActionButton)
+
+    const detailBaseRule = findStyleRule('.el-button--primary.is-plain.app-detail-action')
+    const detailHoverRule = findStyleRule('.el-button--primary.is-plain.app-detail-action:hover')
+    const detailFocusRule = findStyleRule(
+      '.el-button--primary.is-plain.app-detail-action:focus-visible',
+    )
+    const detailDisabledRules = findStyleRulesContaining(
+      '.el-button--primary.is-plain.app-detail-action.is-disabled',
+    )
+    const genericPrimaryPlainRules = findStyleRulesContaining(
+      '.el-button--primary.is-plain',
+    ).filter((rule) => !rule.selectorText.includes('.app-detail-action'))
+    const genericPrimaryTextRules = findStyleRulesContaining('.el-button--primary.is-text').filter(
+      (rule) => !rule.selectorText.includes('.app-detail-action'),
+    )
+
+    expect(detailBaseRule?.style.borderColor).toBe('var(--app-detail-action-border)')
+    expect(detailBaseRule?.style.background).toBe('var(--app-detail-action-surface)')
+    expect(detailBaseRule?.style.color).toBe('var(--app-detail-action-text)')
+
+    expect(detailHoverRule?.style.background).toBe('var(--app-detail-action-surface-strong)')
+    expect(detailHoverRule?.style.color).toBe('var(--app-detail-action-text-strong)')
+
+    expect(detailFocusRule?.style.background).toBe('var(--app-detail-action-surface-strong)')
+    expect(detailFocusRule?.style.color).toBe('var(--app-detail-action-text-strong)')
+    expect(detailFocusRule?.style.boxShadow).toBe('var(--app-detail-action-focus-ring)')
+
+    expect(detailDisabledRules).toHaveLength(1)
+    expect(detailDisabledRules[0]?.style.background).toBe('var(--el-disabled-bg-color)')
+    expect(detailDisabledRules[0]?.style.color).toBe('var(--el-disabled-text-color)')
+    expect(detailDisabledRules[0]?.style.boxShadow).toBe('none')
+
+    expect(overrideSource).not.toContain('.el-button--primary.is-text.app-detail-action')
+    expect(genericPrimaryPlainRules.some((rule) => rule.style.background === 'transparent')).toBe(
+      true,
+    )
+    expect(genericPrimaryTextRules.some((rule) => rule.style.background === 'transparent')).toBe(
+      true,
+    )
+    expect(
+      genericPrimaryPlainRules.every((rule) => !rule.cssText.includes('--app-detail-action-')),
+    ).toBe(true)
+    expect(
+      genericPrimaryTextRules.every((rule) => !rule.cssText.includes('--app-detail-action-')),
+    ).toBe(true)
+
+    expect(detailBaseRule?.style.background).not.toBe('transparent')
+    expect(detailDisabledRules[0]?.style.background).not.toBe(detailBaseRule?.style.background)
+  })
+
   it('为 teleported dropdown 图标锁定固定尺寸与居中盒模型，避免主题菜单图标抖动', () => {
     const styleSource = readStyleSource('src/assets/styles/element-override.scss')
     const dropdownIconRules = findStyleRulesContaining(
