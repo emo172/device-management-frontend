@@ -13,9 +13,14 @@ import { useUserStore } from '@/stores/modules/user'
 
 const pushMock = vi.fn()
 const userViewModules = import.meta.glob('../*.vue')
+const buttonStubTemplate = '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>'
 
 function readUserViewSource(fileName: string) {
   return readFileSync(resolve(process.cwd(), `src/views/user/${fileName}`), 'utf-8')
+}
+
+function normalizeButtonText(text: string) {
+  return text.replace(/\s+/g, '')
 }
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -140,7 +145,7 @@ describe('user list view', () => {
           },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template: buttonStubTemplate,
           },
           ElIcon: {
             template: '<i><slot /></i>',
@@ -173,6 +178,51 @@ describe('user list view', () => {
     expect(wrapper.text()).toContain('当前关键词只作用于已加载的本页用户结果。')
     expect(wrapper.text()).toContain('用户关键词')
     expect(wrapper.text()).toContain('zhangsan')
+
+    const cardDetailButton = wrapper.get('[data-testid="user-detail-trigger"]')
+    expect(cardDetailButton.classes()).toContain('app-detail-action')
+    expect(cardDetailButton.find('svg').exists()).toBe(true)
+
+    const detailButtons = wrapper
+      .findAll('button')
+      .filter((button) => button.classes().includes('app-detail-action'))
+    expect(detailButtons).toHaveLength(2)
+
+    const tableDetailButton = detailButtons.find(
+      (button) => normalizeButtonText(button.text()) === '详情',
+    )
+    expect(tableDetailButton).toBeTruthy()
+    expect(tableDetailButton?.find('svg').exists()).toBe(true)
+
+    expect(wrapper.get('[data-testid="user-role-trigger"]').classes()).not.toContain(
+      'app-detail-action',
+    )
+    expect(wrapper.get('[data-testid="user-status-trigger"]').classes()).not.toContain(
+      'app-detail-action',
+    )
+    expect(wrapper.get('[data-testid="user-freeze-trigger"]').classes()).not.toContain(
+      'app-detail-action',
+    )
+
+    const roleButtons = wrapper
+      .findAll('button')
+      .filter((button) => normalizeButtonText(button.text()) === '分配角色')
+    expect(roleButtons).toHaveLength(2)
+    roleButtons.forEach((button) => {
+      expect(button.classes()).not.toContain('app-detail-action')
+    })
+
+    const tableStatusButton = wrapper
+      .findAll('button')
+      .find((button) => normalizeButtonText(button.text()) === '启用')
+    expect(tableStatusButton).toBeTruthy()
+    expect(tableStatusButton?.classes()).not.toContain('app-detail-action')
+
+    const tableFreezeButton = wrapper
+      .findAll('button')
+      .find((button) => normalizeButtonText(button.text()) === '冻结')
+    expect(tableFreezeButton).toBeTruthy()
+    expect(tableFreezeButton?.classes()).not.toContain('app-detail-action')
 
     await wrapper.get('[data-testid="user-detail-trigger"]').trigger('click')
     expect(pushMock).toHaveBeenCalledWith('/users/user-1')
@@ -276,7 +326,7 @@ describe('user list view', () => {
           },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template: buttonStubTemplate,
           },
           ElIcon: {
             template: '<i><slot /></i>',
@@ -368,7 +418,7 @@ describe('user list view', () => {
           RoleAssign: { props: ['modelValue', 'user'], template: '<div></div>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template: buttonStubTemplate,
           },
           ElIcon: { template: '<i><slot /></i>' },
           ElTable: { template: '<div class="el-table-stub"><slot /></div>' },
@@ -451,7 +501,7 @@ describe('user list view', () => {
           RoleAssign: { props: ['modelValue', 'user'], template: '<div></div>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template: buttonStubTemplate,
           },
           ElIcon: { template: '<i><slot /></i>' },
           ElTable: { template: '<div class="el-table-stub"><slot /></div>' },
@@ -467,7 +517,95 @@ describe('user list view', () => {
       },
     })
 
-    expect(wrapper.get('[data-testid="user-freeze-trigger"]').text()).toBe('调整限制')
+    const freezeTrigger = wrapper.get('[data-testid="user-freeze-trigger"]')
+
+    expect(freezeTrigger.text()).toBe('调整限制')
+    expect(freezeTrigger.classes()).not.toContain('app-detail-action')
+  })
+
+  it('启用账号与解冻账号等管理动作不会复用详情按钮样式语义类', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'system-admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'system-admin-1',
+      username: 'system-admin',
+    })
+
+    const userStore = useUserStore()
+    userStore.adminUserList = [
+      {
+        id: 'user-4',
+        username: 'zhaoliu',
+        email: 'zhaoliu@example.com',
+        realName: '赵六',
+        phone: '13800138004',
+        status: 0,
+        freezeStatus: FreezeStatus.FROZEN,
+        roleId: 'role-user',
+        roleName: UserRole.USER,
+      },
+    ]
+    userStore.adminUserTotal = 1
+
+    vi.spyOn(userStore, 'fetchAdminUserList').mockResolvedValue({
+      total: 1,
+      records: userStore.adminUserList,
+    })
+    vi.spyOn(userStore, 'fetchRoleList').mockResolvedValue([])
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
+          FreezeStatusTag: {
+            props: ['status'],
+            template: '<span class="freeze-status-tag">{{ status }}</span>',
+          },
+          Freeze: { props: ['modelValue', 'user'], template: '<div></div>' },
+          RoleAssign: { props: ['modelValue', 'user'], template: '<div></div>' },
+          ElButton: {
+            emits: ['click'],
+            template: buttonStubTemplate,
+          },
+          ElIcon: { template: '<i><slot /></i>' },
+          ElTable: { template: '<div class="el-table-stub"><slot /></div>' },
+          ElTableColumn: { template: '<div><slot :row="$attrs.row || {}" /></div>' },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    const statusTrigger = wrapper.get('[data-testid="user-status-trigger"]')
+    const freezeTrigger = wrapper.get('[data-testid="user-freeze-trigger"]')
+
+    expect(statusTrigger.text()).toBe('启用账号')
+    expect(statusTrigger.classes()).not.toContain('app-detail-action')
+    expect(freezeTrigger.text()).toBe('解冻账号')
+    expect(freezeTrigger.classes()).not.toContain('app-detail-action')
   })
 
   it('用户管理页源码改为消费主题 token，避免 hero 和用户卡在深色下残留浅色硬编码', () => {
