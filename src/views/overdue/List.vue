@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
@@ -177,7 +178,6 @@ onMounted(() => {
             </option>
           </select>
         </label>
-
       </div>
 
       <template #actions>
@@ -239,7 +239,16 @@ onMounted(() => {
                 </td>
                 <td>
                   <div class="overdue-list-view__table-actions">
-                    <el-button text type="primary" @click="handleDetail(record.id)">详情</el-button>
+                    <!-- 显式详情按钮统一挂语义类，供共享主题收口样式，不影响首列记录链接与逾期处理动作。 -->
+                    <el-button
+                      text
+                      type="primary"
+                      class="app-detail-action"
+                      @click="handleDetail(record.id)"
+                    >
+                      <el-icon><View /></el-icon>
+                      详情
+                    </el-button>
 
                     <!-- 设备管理员只处理仍处于待处理状态的逾期单据，已处理记录不再重复开放处理按钮。 -->
                     <el-button
