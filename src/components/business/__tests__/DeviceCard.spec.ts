@@ -84,10 +84,11 @@ describe('DeviceCard', () => {
             props: ['src'],
             template: '<img class="device-card__image" :src="src" />',
           },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElIcon: { template: '<i class="el-icon"><slot /></i>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              '<button v-bind="$attrs" :data-button-type="$attrs.type" @click="$emit(\'click\')"><slot /></button>',
           },
           ElTag: {
             template: '<span><slot /></span>',
@@ -103,7 +104,16 @@ describe('DeviceCard', () => {
     expect(wrapper.text()).toContain('A-201')
     expect(wrapper.get('.device-card__image').attributes('src')).toBe('/files/devices/device-1.png')
 
-    await wrapper.get('.device-card__detail').trigger('click')
+    const detailButton = wrapper.get('.device-card__detail')
+    expect(detailButton.classes()).toContain('app-detail-action')
+    expect(detailButton.attributes('data-button-type')).toBe('primary')
+    expect(detailButton.find('.el-icon').exists()).toBe(true)
+    expect(detailButton.find('svg').exists()).toBe(true)
+    expect(wrapper.get('.device-card__edit').classes()).not.toContain('app-detail-action')
+    expect(wrapper.get('.device-card__status').classes()).not.toContain('app-detail-action')
+    expect(wrapper.get('.device-card__delete').classes()).not.toContain('app-detail-action')
+
+    await detailButton.trigger('click')
     await wrapper.get('.device-card__edit').trigger('click')
     await wrapper.get('.device-card__status').trigger('click')
     await wrapper.get('.device-card__delete').trigger('click')
@@ -139,10 +149,11 @@ describe('DeviceCard', () => {
             props: ['src'],
             template: '<img class="device-card__image" :src="src" />',
           },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElIcon: { template: '<i class="el-icon"><slot /></i>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              '<button v-bind="$attrs" :data-button-type="$attrs.type" @click="$emit(\'click\')"><slot /></button>',
           },
           ElTag: {
             template: '<span><slot /></span>',

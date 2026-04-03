@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Location, Postcard } from '@element-plus/icons-vue'
+import { Location, Postcard, View } from '@element-plus/icons-vue'
 
 import type { DeviceResponse } from '@/api/devices'
 
@@ -52,9 +52,16 @@ const emit = defineEmits<{
     <p class="device-card__description">{{ device.description || '当前未填写设备描述' }}</p>
 
     <div class="device-card__actions">
-      <el-button class="device-card__detail" text @click="emit('detail', device.id)"
-        >详情</el-button
+      <!-- 卡片里的详情入口统一接入共享语义类与前置 View 图标，避免“查看”动作和编辑/删除类操作混成同一视觉层级。 -->
+      <el-button
+        class="device-card__detail app-detail-action"
+        text
+        type="primary"
+        @click="emit('detail', device.id)"
       >
+        <el-icon><View /></el-icon>
+        详情
+      </el-button>
 
       <!-- 只有设备管理员可直接执行设备维护动作，系统管理员与普通用户仅保留只读入口。 -->
       <template v-if="showAdminActions">
