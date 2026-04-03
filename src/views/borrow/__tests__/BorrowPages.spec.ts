@@ -153,10 +153,11 @@ const commonGlobal = {
       template: '<div class="pagination-stub"></div>',
     },
     ElButton: {
+      inheritAttrs: false,
       props: ['type', 'loading', 'disabled'],
       emits: ['click'],
       template:
-        '<button :disabled="disabled" :data-type="type" :data-loading="loading" @click="$emit(\'click\')"><slot /></button>',
+        '<button v-bind="$attrs" :disabled="disabled" :data-type="type" :data-loading="loading" @click="$emit(\'click\')"><slot /></button>',
     },
     ElIcon: {
       template: '<i><slot /></i>',
@@ -248,6 +249,20 @@ describe('borrow pages', () => {
     expect(wrapper.text()).toContain(borrowedRecord.userName)
     expect(wrapper.text()).toContain('借用确认')
     expect(wrapper.text()).toContain('归还确认')
+
+    const detailAction = wrapper.get('.borrow-list-view__table-actions .app-detail-action')
+    const returnAction = wrapper
+      .findAll('.borrow-list-view__table-actions button')
+      .find((node) => node.text().includes('去归还确认'))
+    const recordLink = wrapper.get('.borrow-list-view__link')
+
+    expect(detailAction.text()).toContain('详情')
+    expect(detailAction.attributes('data-type')).toBe('primary')
+    expect(detailAction.find('i').exists()).toBe(true)
+    expect(detailAction.find('svg').exists()).toBe(true)
+    expect(returnAction).toBeTruthy()
+    expect(returnAction?.classes()).not.toContain('app-detail-action')
+    expect(recordLink.classes()).not.toContain('app-detail-action')
   })
 
   it('借还列表页改用统一筛选卡片后，查询与重置仍会驱动状态筛选请求', async () => {
