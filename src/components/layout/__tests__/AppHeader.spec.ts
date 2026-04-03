@@ -91,7 +91,8 @@ function mountHeader() {
         ElAvatar: { template: '<div><slot /></div>' },
         ElBadge: {
           props: ['hidden', 'value'],
-          template: '<div><slot />{{ hidden ? 0 : value }}</div>',
+          template:
+            '<div class="el-badge-stub" :data-hidden="String(hidden)" :data-value="String(value)"><slot />{{ hidden ? 0 : value }}</div>',
         },
         ElBreadcrumb: {
           props: ['separator'],
@@ -270,6 +271,42 @@ describe('AppHeader', () => {
     await wrapper.get('[data-testid="notification-entry"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith('/notifications')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('通知角标继续只消费共享 unreadCount，不受分页 list/total/query 形态影响', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    notificationStore.unreadCount = 7
+    notificationStore.total = 58
+    notificationStore.query = {
+      page: 3,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+
+    const fetchNotificationListSpy = vi
+      .spyOn(notificationStore, 'fetchNotificationList')
+      .mockResolvedValue([])
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(7)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+
+    expect(wrapper.get('.el-badge-stub').attributes('data-value')).toBe('7')
+    expect(wrapper.get('.el-badge-stub').attributes('data-hidden')).toBe('false')
+    expect(fetchNotificationListSpy).not.toHaveBeenCalled()
 
     await cleanupMountedHeader(wrapper)
   })
@@ -587,6 +624,47 @@ describe('AppHeader', () => {
     expect(pushMock).not.toHaveBeenCalled()
 
     await cleanupMountedHeader(wrapper)
+  })
+
+  it('轮询仍完全委托给 notification store，头部自身不会创建第二套 timer', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const fetchNotificationListSpy = vi
+      .spyOn(notificationStore, 'fetchNotificationList')
+      .mockResolvedValue([])
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(4)
+    const startPollingSpy = vi
+      .spyOn(notificationStore, 'startPolling')
+      .mockImplementation(() => undefined)
+    const stopPollingSpy = vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+
+    await flushPromises()
+
+    expect(fetchNotificationListSpy).not.toHaveBeenCalled()
+    expect(startPollingSpy).toHaveBeenCalledTimes(1)
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+    await flushPromises()
+
+    expect(stopPollingSpy).toHaveBeenCalledTimes(1)
+    expect(clearIntervalSpy).not.toHaveBeenCalled()
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
   })
 
   it('组件卸载早于未读数请求完成时不会重新启动轮询', async () => {
