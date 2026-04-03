@@ -104,6 +104,9 @@
   --app-detail-action-surface-strong: var(--app-tone-brand-surface-strong);
   --app-detail-action-border: var(--app-tone-brand-border);
   --app-detail-action-focus-ring: var(--app-focus-ring);
+  --app-detail-action-icon-size: 14px;
+  --app-detail-action-gap: 4px;
+  --app-detail-action-padding-inline: 8px;
 
   // 兼容当前仓库里已经落地的旧变量命名，避免本任务提前触发页面级大面积联动。
   --app-color-primary: var(--app-tone-brand-solid);
