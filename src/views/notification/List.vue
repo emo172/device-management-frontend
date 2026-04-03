@@ -2,22 +2,31 @@
 import { RefreshRight } from '@element-plus/icons-vue'
 import { computed, onMounted, ref } from 'vue'
 
-import NotificationItem from '@/components/business/NotificationItem.vue'
+import type { NotificationListQuery, NotificationResponse } from '@/api/notifications'
 import AppSelect from '@/components/common/dropdown/AppSelect.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Pagination from '@/components/common/Pagination.vue'
 import ConsoleFilterPanel from '@/components/layout/ConsoleFilterPanel.vue'
 import ConsolePageHero from '@/components/layout/ConsolePageHero.vue'
-import { NotificationType, NotificationTypeLabel } from '@/enums'
+import ConsoleTableSection from '@/components/layout/ConsoleTableSection.vue'
+import {
+  NotificationChannel,
+  NotificationChannelLabel,
+  NotificationChannelTagType,
+  NotificationType,
+  NotificationTypeLabel,
+  NotificationTypeTagType,
+} from '@/enums'
 import { useNotificationStore } from '@/stores/modules/notification'
+import { formatDateTime } from '@/utils/date'
 
 /**
  * 通知中心列表页。
- * 页面与头部铃铛复用同一个通知 Store，确保用户在列表里标记已读后，Header 角标无需额外事件总线也能立即同步；
- * 同时通知中心已经并入统一的顶部筛选卡片 + 单主列列表骨架，不再为历史侧栏特例单独维护一套布局语义。
+ * 当前页只负责承接通知 store 的分页真相源：`list / total / query / unreadCount`，
+ * 避免继续保留历史卡片列表里的本地 filter / sort / slice，导致视图和后端真分页脱节。
  */
 const notificationStore = useNotificationStore()
 
-const selectedType = ref('')
 const markingNotificationId = ref<string | null>(null)
 
 const notificationTypeOptions = Object.values(NotificationType).map((value) => ({
@@ -25,26 +34,98 @@ const notificationTypeOptions = Object.values(NotificationType).map((value) => (
   label: NotificationTypeLabel[value],
 }))
 
-const filteredNotifications = computed(() => {
-  const nextList = notificationStore.notifications
-    .slice()
-    .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
-
-  if (!selectedType.value) {
-    return nextList
-  }
-
-  return nextList.filter((item) => item.notificationType === selectedType.value)
-})
-
 const unreadCountText = computed(() => `当前共有 ${notificationStore.unreadCount} 条未读`)
+const selectedType = computed(() => notificationStore.query.notificationType ?? '')
+const tableData = computed(() => notificationStore.list)
+
+function resolveNotificationTypeLabel(notificationType: string) {
+  return NotificationTypeLabel[notificationType as NotificationType] ?? notificationType
+}
+
+function resolveNotificationTypeTag(notificationType: string) {
+  return NotificationTypeTagType[notificationType as NotificationType] ?? 'info'
+}
+
+function resolveChannelLabel(channel: string) {
+  return NotificationChannelLabel[channel as NotificationChannel] ?? channel
+}
+
+function resolveChannelTag(channel: string) {
+  return NotificationChannelTagType[channel as NotificationChannel] ?? 'info'
+}
+
+function isInAppNotification(notification: NotificationResponse) {
+  return notification.channel === NotificationChannel.IN_APP
+}
+
+function canMarkAsRead(notification: NotificationResponse) {
+  return isInAppNotification(notification) && notification.readFlag === 0
+}
 
 /**
- * 通知列表与未读角标需要一起刷新：列表用于展示详情，未读数用于同步头部铃铛，拆开调用会导致首屏短时间出现数据不一致。
+ * 只有站内信存在正式已读回执。
+ * 邮件和短信在通知中心只回放投递结果，因此要用稳定的静态语义提示“无已读回执”，避免误导用户把它们当成未读站内信。
  */
-async function loadNotifications() {
+function resolveReadStatus(notification: NotificationResponse) {
+  if (!isInAppNotification(notification)) {
+    return {
+      type: 'info',
+      label: '无已读回执',
+    }
+  }
+
+  return {
+    type: notification.readFlag === 1 ? 'info' : 'warning',
+    label: notification.readFlag === 1 ? '已读' : '未读',
+  }
+}
+
+function resolveReadAtText(notification: NotificationResponse) {
+  if (!isInAppNotification(notification) || notification.readFlag !== 1 || !notification.readAt) {
+    return '-'
+  }
+
+  return formatDateTime(notification.readAt)
+}
+
+function resolveActionCopy(notification: NotificationResponse) {
+  if (!isInAppNotification(notification)) {
+    return '无已读回执'
+  }
+
+  if (notification.readFlag === 1) {
+    return '已读'
+  }
+
+  return ''
+}
+
+function buildQuery(overrides: Partial<NotificationListQuery> = {}): NotificationListQuery {
+  const nextQuery: NotificationListQuery = {
+    page: overrides.page ?? notificationStore.query.page ?? 1,
+    size: overrides.size ?? notificationStore.query.size ?? 10,
+  }
+  const notificationType =
+    overrides.notificationType !== undefined
+      ? overrides.notificationType
+      : notificationStore.query.notificationType
+
+  if (notificationType) {
+    nextQuery.notificationType = notificationType
+  }
+
+  return nextQuery
+}
+
+/**
+ * 通知列表与未读角标需要同步刷新：
+ * 列表负责展示当前页数据，未读数负责同步 Hero/头部铃铛，拆开更新会造成短暂不一致。
+ */
+async function loadNotifications(overrides: Partial<NotificationListQuery> = {}) {
+  const nextQuery = buildQuery(overrides)
+
   await Promise.all([
-    notificationStore.fetchNotificationList(),
+    notificationStore.fetchNotificationList(nextQuery),
     notificationStore.fetchUnreadCount(),
   ])
 }
@@ -59,21 +140,38 @@ async function handleMarkRead(notificationId: string) {
   }
 }
 
-async function handleMarkAllRead() {
-  await notificationStore.markAllAsRead()
+/**
+ * 筛选变化必须重置到第 1 页。
+ * 否则用户停留在旧页码时，很容易把“这一页没数据”误解成“当前类型没有任何记录”。
+ */
+async function handleFilterChange(value: unknown) {
+  const notificationType = typeof value === 'string' ? value : ''
+
+  await loadNotifications({ page: 1, notificationType: notificationType || undefined })
+}
+
+async function handleResetFilter() {
+  await handleFilterChange('')
 }
 
 /**
- * 通知类型筛选在页面层继续守住空字符串语义：
- * 重置按钮、clearable 清空和首屏初始值都共用 `''`，避免包装组件接入后把筛选值漂移成 `undefined`
- * 影响已有过滤判断与测试断言。
+ * Pagination 组件在 page size 变化时会保留当前页码并原样回传。
+ * 通知页必须遵守这个合同，不能额外擅自退回第一页。
  */
-function handleSelectedTypeChange(value: unknown) {
-  selectedType.value = typeof value === 'string' ? value : ''
+async function handlePaginationChange(payload: { currentPage: number; pageSize: number }) {
+  await loadNotifications({ page: payload.currentPage, size: payload.pageSize })
 }
 
-function handleResetFilter() {
-  selectedType.value = ''
+async function handleRefresh() {
+  await loadNotifications()
+}
+
+/**
+ * “全部标记已读”后的当前页回刷属于通知 store 已冻结的分页契约。
+ * 视图层这里必须只委托 store 执行，避免页面再额外重置 query 或重复发起第二次列表请求。
+ */
+async function handleMarkAllRead() {
+  await notificationStore.markAllAsRead()
 }
 
 onMounted(() => {
@@ -95,7 +193,7 @@ onMounted(() => {
       </template>
     </ConsolePageHero>
 
-    <!-- 通知中心已经和其他列表页统一为顶部筛选卡片，避免继续维护只服务该页面的侧栏特例，降低样式分叉与自动化测试成本。 -->
+    <!-- 通知页继续复用统一顶部筛选卡片，只替换列表承载形态，不额外发散出新的控制区结构。 -->
     <ConsoleFilterPanel
       class="notification-list-view__filter-panel"
       title="通知筛选与操作"
@@ -108,7 +206,7 @@ onMounted(() => {
           clearable
           placeholder="筛选通知类型"
           class="notification-list-view__select"
-          @update:modelValue="handleSelectedTypeChange"
+          @update:modelValue="handleFilterChange"
         >
           <el-option
             v-for="option in notificationTypeOptions"
@@ -122,7 +220,7 @@ onMounted(() => {
       <template #actions>
         <div class="notification-list-view__filter-actions">
           <el-button @click="handleResetFilter">重置筛选</el-button>
-          <el-button @click="loadNotifications">
+          <el-button @click="handleRefresh">
             <el-icon><RefreshRight /></el-icon>
             刷新列表
           </el-button>
@@ -137,32 +235,91 @@ onMounted(() => {
       </template>
     </ConsoleFilterPanel>
 
-    <section v-loading="notificationStore.loading" class="notification-list-view__list-shell">
-      <div class="notification-list-view__list-header">
-        <div>
-          <h2>通知列表</h2>
-          <p>共 {{ filteredNotifications.length }} 条记录</p>
-        </div>
-      </div>
-
+    <ConsoleTableSection
+      title="通知列表"
+      :count="notificationStore.total"
+      class="notification-list-view__table-shell"
+    >
       <EmptyState
-        v-if="!filteredNotifications.length && !notificationStore.loading"
-        title="暂无匹配的通知"
-        description="可以调整通知类型筛选条件，或点击刷新重新同步最新通知记录。"
+        v-if="!tableData.length && !notificationStore.loading"
+        title="暂无符合条件的通知"
+        description="可以尝试切换通知类型筛选，或点击刷新重新同步最新通知记录。"
         action-text="重新加载"
-        @action="loadNotifications"
+        @action="loadNotifications()"
       />
 
-      <div v-else class="notification-list-view__list">
-        <NotificationItem
-          v-for="notification in filteredNotifications"
-          :key="notification.id"
-          :notification="notification"
-          :loading="markingNotificationId === notification.id"
-          @mark-read="handleMarkRead"
+      <template v-else>
+        <div v-loading="notificationStore.loading" class="notification-list-view__table-wrapper">
+          <table class="notification-list-view__table">
+            <thead>
+              <tr>
+                <th>通知时间</th>
+                <th>通知类型</th>
+                <th>渠道</th>
+                <th>标题与摘要</th>
+                <th>已读状态</th>
+                <th>已读时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="notification in tableData" :key="notification.id">
+                <td>{{ formatDateTime(notification.createdAt) }}</td>
+                <td>
+                  <el-tag :type="resolveNotificationTypeTag(notification.notificationType)" effect="light">
+                    {{ resolveNotificationTypeLabel(notification.notificationType) }}
+                  </el-tag>
+                </td>
+                <td>
+                  <el-tag :type="resolveChannelTag(notification.channel)" effect="plain">
+                    {{ resolveChannelLabel(notification.channel) }}
+                  </el-tag>
+                </td>
+                <td>
+                  <div class="notification-list-view__headline">
+                    <strong>{{ notification.title }}</strong>
+                    <p>{{ notification.content }}</p>
+                  </div>
+                </td>
+                <td>
+                  <el-tag :type="resolveReadStatus(notification).type" effect="plain">
+                    {{ resolveReadStatus(notification).label }}
+                  </el-tag>
+                </td>
+                <td>{{ resolveReadAtText(notification) }}</td>
+                <td>
+                  <div class="notification-list-view__table-actions">
+                    <!-- 仅站内信且仍未读时才开放“标记已读”；其它渠道只展示静态语义，不伪造交互。 -->
+                    <el-button
+                      v-if="canMarkAsRead(notification)"
+                      text
+                      type="primary"
+                      :loading="markingNotificationId === notification.id"
+                      @click="handleMarkRead(notification.id)"
+                    >
+                      标记已读
+                    </el-button>
+                    <span v-else class="notification-list-view__action-copy">
+                      {{ resolveActionCopy(notification) }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <template #footer>
+        <Pagination
+          :current-page="notificationStore.query.page ?? 1"
+          :page-size="notificationStore.query.size ?? 10"
+          :total="notificationStore.total"
+          :disabled="notificationStore.loading"
+          @change="handlePaginationChange"
         />
-      </div>
-    </section>
+      </template>
+    </ConsoleTableSection>
   </section>
 </template>
 
@@ -173,10 +330,22 @@ onMounted(() => {
   gap: 24px;
 }
 
-.notification-list-view__hero {
+.notification-list-view__hero,
+.notification-list-view__table-shell {
   border: 1px solid var(--app-border-soft);
   box-shadow: var(--app-shadow-card);
-  background: linear-gradient(135deg, var(--app-surface-card-strong), var(--app-tone-info-surface));
+}
+
+.notification-list-view__hero {
+  background: linear-gradient(
+    135deg,
+    var(--app-surface-card-strong),
+    var(--app-tone-info-surface)
+  );
+}
+
+.notification-list-view__table-shell {
+  background: var(--app-surface-card-strong);
 }
 
 .notification-list-view__hero :deep(.console-page-hero__eyebrow) {
@@ -184,70 +353,102 @@ onMounted(() => {
 }
 
 .notification-list-view__hero :deep(.console-page-hero__title),
-.notification-list-view__list-header h2 {
+.notification-list-view__table-header h2 {
   margin: 0;
   color: var(--app-text-primary);
 }
 
 .notification-list-view__hero :deep(.console-page-hero__description) {
+  max-width: 860px;
+  margin-top: 14px;
+  line-height: 1.8;
   color: var(--app-tone-info-text);
 }
 
 .notification-list-view__hero-actions,
-.notification-list-view__filter-form,
 .notification-list-view__filter-actions,
-.notification-list-view__list-header {
+.notification-list-view__table-actions {
   display: flex;
   align-items: center;
-}
-
-.notification-list-view__filter-form,
-.notification-list-view__filter-actions {
-  gap: 12px;
+  gap: 10px;
 }
 
 .notification-list-view__hero-actions {
   align-self: flex-start;
 }
 
-.notification-list-view__filter-actions {
-  justify-content: flex-end;
+.notification-list-view__filter-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.notification-list-view__list-header {
-  justify-content: space-between;
-}
-
-.notification-list-view__field-label,
-.notification-list-view__list-header p {
+.notification-list-view__field-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--app-text-secondary);
-}
-
-.notification-list-view__list-header p {
-  margin: 8px 0 0;
-  font-weight: 400;
 }
 
 .notification-list-view__select {
   width: 240px;
 }
 
-.notification-list-view__list-shell {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  border: 1px solid var(--app-border-soft);
-  border-radius: var(--app-radius-lg);
-  background: var(--app-surface-card);
-  box-shadow: var(--app-shadow-card);
+.notification-list-view__table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
 }
 
-.notification-list-view__list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+// 通知表格同一块壳层里同时承接空态、原生 table 和分页，页面层继续锁定主题 token，避免局部区域退回浏览器默认白底。
+.notification-list-view__table-shell :deep(.console-table-section__body),
+.notification-list-view__table-shell :deep(.console-table-section__footer) {
+  background: var(--app-surface-card-strong);
+}
+
+.notification-list-view__table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--app-text-primary);
+}
+
+.notification-list-view__table th,
+.notification-list-view__table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--app-border-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.notification-list-view__table th {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-secondary);
+}
+
+.notification-list-view__headline {
+  min-width: 260px;
+  max-width: 420px;
+}
+
+.notification-list-view__headline strong,
+.notification-list-view__headline p {
+  margin: 0;
+}
+
+.notification-list-view__headline strong {
+  color: var(--app-text-primary);
+}
+
+.notification-list-view__headline p {
+  margin-top: 8px;
+  line-height: 1.7;
+  color: var(--app-text-secondary);
+}
+
+.notification-list-view__action-copy {
+  font-size: 13px;
+  color: var(--app-text-secondary);
 }
 </style>
