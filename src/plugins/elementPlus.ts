@@ -31,7 +31,7 @@ import { ElMenu, ElMenuItem } from 'element-plus/es/components/menu/index.mjs'
 import { ElPagination } from 'element-plus/es/components/pagination/index.mjs'
 import { ElRadioButton, ElRadioGroup } from 'element-plus/es/components/radio/index.mjs'
 import { ElScrollbar } from 'element-plus/es/components/scrollbar/index.mjs'
-import { ElSelect } from 'element-plus/es/components/select/index.mjs'
+import { ElOption, ElSelect } from 'element-plus/es/components/select/index.mjs'
 import { ElTable } from 'element-plus/es/components/table/index.mjs'
 import { ElTag } from 'element-plus/es/components/tag/index.mjs'
 import { ElTimeline } from 'element-plus/es/components/timeline/index.mjs'
@@ -72,6 +72,7 @@ const elementPlusPlugins: Plugin[] = [
   ElMain,
   ElMenu,
   ElMenuItem,
+  ElOption,
   ElPagination,
   ElScrollbar,
   ElSelect,

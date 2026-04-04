@@ -3,6 +3,8 @@ import request from '@/api/request'
 import type {
   MarkAllReadResponse,
   MarkReadResponse,
+  NotificationListQuery,
+  NotificationPageResponse,
   NotificationResponse,
   UnreadCountResponse,
 } from './types'
@@ -10,16 +12,18 @@ import type {
 export type {
   MarkAllReadResponse,
   MarkReadResponse,
+  NotificationListQuery,
+  NotificationPageResponse,
   NotificationResponse,
   UnreadCountResponse,
 } from './types'
 
 /**
  * 查询通知列表。
- * 对应 `GET /api/notifications`，当前后端只返回当前登录人的通知集合，不支持额外筛选参数。
+ * 对应 `GET /api/notifications`，前端只透传分页参数和可选通知类型，后端固定返回 `{ total, records }` 分页体。
  */
-export function getNotificationList() {
-  return request.get<NotificationResponse[]>('/notifications')
+export function getNotificationList(params?: NotificationListQuery) {
+  return request.get<NotificationPageResponse>('/notifications', { params })
 }
 
 /**

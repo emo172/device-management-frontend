@@ -5,6 +5,8 @@ import { mount } from '@vue/test-utils'
 import { computed, defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
+import { installElementPlus } from '@/plugins/elementPlus'
+
 const selectModules = import.meta.glob('../AppSelect.vue')
 
 async function loadAppSelect() {
@@ -387,6 +389,47 @@ describe('AppSelect', () => {
     expect(wrapper.find('.app-select__prefix').exists()).toBe(true)
     expect(wrapper.find('.custom-prefix-override').exists()).toBe(true)
     expect(wrapper.find('.test-leading-icon').exists()).toBe(false)
+  })
+
+  it('在真实 Element Plus 运行时下允许业务页通过 slot 挂载 ElOption', async () => {
+    const { component, error } = await loadAppSelect()
+
+    expect(error).toBeNull()
+    expect(component).toBeTruthy()
+
+    if (!component) {
+      return
+    }
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const RuntimeHost = defineComponent({
+        components: {
+          AppSelect: component,
+        },
+        template: `
+          <AppSelect model-value="OVERDUE_WARNING" clearable>
+            <el-option label="逾期提醒" value="OVERDUE_WARNING" />
+          </AppSelect>
+        `,
+      })
+
+      const wrapper = mount(RuntimeHost, {
+        global: {
+          plugins: [installElementPlus],
+        },
+      })
+
+      expect(wrapper.findComponent({ name: 'ElOption' }).exists()).toBe(true)
+      expect(
+        consoleWarnSpy.mock.calls.some((callArgs) =>
+          callArgs.some((arg) => String(arg).includes('Failed to resolve component: el-option')),
+        ),
+      ).toBe(false)
+    } finally {
+      consoleWarnSpy.mockRestore()
+    }
   })
 
   it('源码契约只依赖 element-plus 运行时类，不新增私有 option class', async () => {

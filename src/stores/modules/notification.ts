@@ -5,15 +5,28 @@ import * as notificationApi from '@/api/notifications'
 const POLLING_INTERVAL = 30000
 
 interface NotificationState {
+  list: notificationApi.NotificationResponse[]
   notifications: notificationApi.NotificationResponse[]
+  total: number
+  query: notificationApi.NotificationListQuery
   unreadCount: number
   pollingTimer: ReturnType<typeof setInterval> | null
   loading: boolean
 }
 
+function createDefaultQuery(): notificationApi.NotificationListQuery {
+  return {
+    page: 1,
+    size: 10,
+  }
+}
+
 function createDefaultState(): NotificationState {
   return {
+    list: [],
     notifications: [],
+    total: 0,
+    query: createDefaultQuery(),
     unreadCount: 0,
     pollingTimer: null,
     loading: false,
@@ -29,15 +42,19 @@ export const useNotificationStore = defineStore('notification', {
 
   actions: {
     /**
-     * 通知列表当前没有额外筛选能力，Store 只缓存后端返回的当前用户通知集合。
+     * 通知列表统一复用分页查询状态。
+     * 这样通知中心做“全部已读”回刷当前页时，能继续沿用用户正在看的页码和筛选条件，而不是退回第一页。
      */
-    async fetchNotificationList() {
+    async fetchNotificationList(query: notificationApi.NotificationListQuery = createDefaultQuery()) {
       this.loading = true
 
       try {
-        const notifications = await notificationApi.getNotificationList()
-        this.notifications = notifications
-        return notifications
+        const result = await notificationApi.getNotificationList(query)
+        this.query = { ...query }
+        this.list = result.records
+        this.notifications = result.records
+        this.total = result.total
+        return result.records
       } finally {
         this.loading = false
       }
@@ -58,11 +75,13 @@ export const useNotificationStore = defineStore('notification', {
     async markAsRead(notificationId: string) {
       const result = await notificationApi.markNotificationRead(notificationId)
 
-      this.notifications = this.notifications.map((item) =>
+      const nextList = this.list.map((item) =>
         item.id === result.notificationId
           ? { ...item, readFlag: result.readFlag, readAt: result.readAt }
           : item,
       )
+      this.list = nextList
+      this.notifications = nextList
 
       this.unreadCount = result.unreadCount
 
@@ -71,16 +90,13 @@ export const useNotificationStore = defineStore('notification', {
 
     /**
      * 全部已读只对站内信生效。
-     * 邮件和短信即使展示在同一列表里，也只是投递记录，不能在前端伪造成“已读”，否则会与后端真实读回执语义冲突。
+     * 成功后必须按当前分页条件重新拉取列表，避免前端只改本地数组后把后端真实排序、筛选和分页结果改乱。
      */
     async markAllAsRead() {
+      const currentQuery = { ...this.query }
       const result = await notificationApi.markAllNotificationsRead()
-      this.notifications = this.notifications.map((item) =>
-        item.channel === 'IN_APP' && item.readFlag === 0
-          ? { ...item, readFlag: 1, readAt: result.readAt }
-          : item,
-      )
       this.unreadCount = result.unreadCount
+      await this.fetchNotificationList(currentQuery)
       return result
     },
 
@@ -120,7 +136,10 @@ export const useNotificationStore = defineStore('notification', {
      */
     resetState() {
       this.stopPolling()
+      this.list = []
       this.notifications = []
+      this.total = 0
+      this.query = createDefaultQuery()
       this.unreadCount = 0
       this.loading = false
     },

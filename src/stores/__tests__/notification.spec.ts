@@ -22,6 +22,26 @@ vi.mock('@/api/notifications', () => ({
 
 import { useNotificationStore } from '../modules/notification'
 
+function createNotification(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    notificationType: 'OVERDUE_WARNING',
+    channel: 'IN_APP',
+    title: `通知${id}`,
+    content: `内容${id}`,
+    status: 'STATUS_PLACEHOLDER',
+    readFlag: 0,
+    readAt: null,
+    templateVars: null,
+    retryCount: 0,
+    relatedId: `related-${id}`,
+    relatedType: 'BORROW_RECORD',
+    sentAt: '2026-03-16T08:00:00',
+    createdAt: '2026-03-16T08:00:00',
+    ...overrides,
+  }
+}
+
 describe('notification store', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -38,38 +58,73 @@ describe('notification store', () => {
     vi.useRealTimers()
   })
 
-  it('loads notification list and unread count', async () => {
-    getNotificationListMock.mockResolvedValue([
-      {
-        id: 'notice-1',
-        notificationType: 'OVERDUE_WARNING',
-        channel: 'IN_APP',
-        title: '通知标题',
-        content: '通知内容',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: '{"deviceName":"热像仪"}',
-        retryCount: 0,
-        relatedId: 'borrow-1',
-        relatedType: 'BORROW_RECORD',
-        sentAt: '2026-03-16T08:00:00',
-        createdAt: '2026-03-16T08:00:00',
-      },
-    ])
+  it('loads paged notification list, saves current query and unread count', async () => {
+    const query = {
+      page: 2,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+
+    getNotificationListMock.mockResolvedValue({
+      total: 21,
+      records: [
+        createNotification('notice-1', {
+          templateVars: '{"deviceName":"热像仪"}',
+          relatedId: 'borrow-1',
+        }),
+      ],
+    })
     getUnreadNotificationCountMock.mockResolvedValue({ unreadCount: 3 })
 
     const store = useNotificationStore()
-    await store.fetchNotificationList()
+    await store.fetchNotificationList(query)
     await store.fetchUnreadCount()
 
-    expect(store.notifications).toHaveLength(1)
-    expect(store.notifications[0]?.createdAt).toBe('2026-03-16T08:00:00')
-    expect(store.notifications[0]?.status).toBe('STATUS_PLACEHOLDER')
+    expect(getNotificationListMock).toHaveBeenCalledWith(query)
+    expect(store.list).toHaveLength(1)
+    expect(store.list[0]?.createdAt).toBe('2026-03-16T08:00:00')
+    expect(store.list[0]?.status).toBe('STATUS_PLACEHOLDER')
+    expect(store.total).toBe(21)
+    expect(store.query).toEqual(query)
     expect(store.unreadCount).toBe(3)
   })
 
-  it('marks one notification as read and keeps unread count in sync', async () => {
+  it('keeps previous query and list when loading a new page fails', async () => {
+    const previousQuery = {
+      page: 1,
+      size: 10,
+      notificationType: 'FIRST_APPROVAL_TODO',
+    }
+    const nextQuery = {
+      page: 2,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+
+    getNotificationListMock.mockRejectedValueOnce(new Error('network error'))
+
+    const store = useNotificationStore()
+    store.query = previousQuery
+    store.list = [createNotification('notice-1', { notificationType: 'FIRST_APPROVAL_TODO' })]
+    store.notifications = store.list
+    store.total = 1
+
+    await expect(store.fetchNotificationList(nextQuery)).rejects.toThrow('network error')
+
+    expect(getNotificationListMock).toHaveBeenCalledWith(nextQuery)
+    expect(store.query).toEqual(previousQuery)
+    expect(store.list).toEqual([
+      expect.objectContaining({
+        id: 'notice-1',
+        notificationType: 'FIRST_APPROVAL_TODO',
+      }),
+    ])
+    expect(store.notifications).toEqual(store.list)
+    expect(store.total).toBe(1)
+    expect(store.loading).toBe(false)
+  })
+
+  it('marks one notification as read and only updates the current page row', async () => {
     markNotificationReadMock.mockResolvedValue({
       notificationId: 'notice-1',
       readFlag: 1,
@@ -78,31 +133,23 @@ describe('notification store', () => {
     })
 
     const store = useNotificationStore()
-    store.notifications = [
-      {
-        id: 'notice-1',
-        notificationType: 'OVERDUE_WARNING',
-        channel: 'IN_APP',
-        title: '通知标题',
-        content: '通知内容',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
-        relatedId: 'borrow-1',
-        relatedType: 'BORROW_RECORD',
-        sentAt: '2026-03-16T08:00:00',
-        createdAt: '2026-03-16T08:00:00',
-      },
+    store.list = [
+      createNotification('notice-1', { relatedId: 'borrow-1' }),
+      createNotification('notice-2', {
+        relatedId: 'borrow-2',
+        readFlag: 1,
+        readAt: '2026-03-16T07:00:00',
+      }),
     ]
     store.unreadCount = 1
 
     await store.markAsRead('notice-1')
 
     expect(markNotificationReadMock).toHaveBeenCalledWith('notice-1')
-    expect(store.notifications[0]?.readFlag).toBe(1)
-    expect(store.notifications[0]?.readAt).toBe('2026-03-16T08:30:00')
+    expect(store.list[0]?.readFlag).toBe(1)
+    expect(store.list[0]?.readAt).toBe('2026-03-16T08:30:00')
+    expect(store.list[1]?.readFlag).toBe(1)
+    expect(store.list[1]?.readAt).toBe('2026-03-16T07:00:00')
     expect(store.unreadCount).toBe(0)
   })
 
@@ -115,115 +162,91 @@ describe('notification store', () => {
     })
 
     const store = useNotificationStore()
-    store.notifications = [
-      {
-        id: 'notice-1',
-        notificationType: 'OVERDUE_WARNING',
-        channel: 'IN_APP',
+    store.list = [
+      createNotification('notice-1', {
         title: '站内信通知',
         content: '站内信内容',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
         relatedId: 'borrow-1',
-        relatedType: 'BORROW_RECORD',
-        sentAt: '2026-03-16T08:00:00',
-        createdAt: '2026-03-16T08:00:00',
-      },
-      {
-        id: 'notice-2',
+      }),
+      createNotification('notice-2', {
         notificationType: 'RESERVATION_REMINDER',
         channel: 'EMAIL',
         title: '邮件通知',
         content: '邮件内容',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
         relatedId: 'reservation-1',
         relatedType: 'RESERVATION',
         sentAt: '2026-03-16T09:00:00',
         createdAt: '2026-03-16T09:00:00',
-      },
-      {
-        id: 'notice-3',
+      }),
+      createNotification('notice-3', {
         notificationType: 'FIRST_APPROVAL_TODO',
-        channel: 'IN_APP',
         title: '另一条站内信',
         content: '另一条站内信内容',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
         relatedId: 'reservation-2',
         relatedType: 'RESERVATION',
         sentAt: '2026-03-16T10:00:00',
         createdAt: '2026-03-16T10:00:00',
-      },
+      }),
     ]
     store.unreadCount = 2
 
     await store.markAsRead('notice-1')
 
     expect(store.unreadCount).toBe(1)
-    expect(store.notifications[0]?.readAt).toBe('2026-03-16T08:30:00')
+    expect(store.list[0]?.readAt).toBe('2026-03-16T08:30:00')
   })
 
-  it('marks only in-app notifications as read when bulk action succeeds', async () => {
+  it('reloads the current page after marking all notifications as read', async () => {
     markAllNotificationsReadMock.mockResolvedValue({
       updatedCount: 1,
       readAt: '2026-03-16T09:00:00',
       unreadCount: 0,
     })
+    getNotificationListMock.mockResolvedValue({
+      total: 2,
+      records: [
+        createNotification('notice-1', {
+          readFlag: 1,
+          readAt: '2026-03-16T09:00:00',
+        }),
+        createNotification('notice-2', {
+          notificationType: 'RESERVATION_REMINDER',
+          channel: 'EMAIL',
+          sentAt: '2026-03-16T09:00:00',
+          createdAt: '2026-03-16T09:00:00',
+        }),
+      ],
+    })
 
     const store = useNotificationStore()
-    store.notifications = [
-      {
-        id: 'notice-1',
-        notificationType: 'OVERDUE_WARNING',
-        channel: 'IN_APP',
-        title: '通知标题1',
-        content: '通知内容1',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
-        relatedId: 'borrow-1',
-        relatedType: 'BORROW_RECORD',
-        sentAt: '2026-03-16T08:00:00',
-        createdAt: '2026-03-16T08:00:00',
-      },
-      {
-        id: 'notice-2',
+    store.list = [
+      createNotification('notice-1', { relatedId: 'borrow-1' }),
+      createNotification('notice-2', {
         notificationType: 'RESERVATION_REMINDER',
         channel: 'EMAIL',
-        title: '通知标题2',
-        content: '通知内容2',
-        status: 'STATUS_PLACEHOLDER',
-        readFlag: 0,
-        readAt: null,
-        templateVars: null,
-        retryCount: 0,
         relatedId: 'reservation-1',
         relatedType: 'RESERVATION',
         sentAt: '2026-03-16T09:00:00',
         createdAt: '2026-03-16T09:00:00',
-      },
+      }),
     ]
+    store.query = {
+      page: 3,
+      size: 5,
+      notificationType: 'OVERDUE_WARNING',
+    }
     store.unreadCount = 2
 
     await store.markAllAsRead()
 
+    expect(markAllNotificationsReadMock).toHaveBeenCalledTimes(1)
+    expect(getNotificationListMock).toHaveBeenCalledWith(store.query)
     expect(store.unreadCount).toBe(0)
-    expect(store.notifications[0]?.readFlag).toBe(1)
-    expect(store.notifications[0]?.readAt).toBe('2026-03-16T09:00:00')
-    expect(store.notifications[1]?.readFlag).toBe(0)
-    expect(store.notifications[1]?.readAt).toBeNull()
+    expect(store.list[0]?.readFlag).toBe(1)
+    expect(store.list[0]?.readAt).toBe('2026-03-16T09:00:00')
+    expect(store.list[1]?.readFlag).toBe(0)
+    expect(store.list[1]?.readAt).toBeNull()
+    expect(store.total).toBe(2)
   })
 
   it('starts and stops unread count polling with a stable single timer handle', async () => {

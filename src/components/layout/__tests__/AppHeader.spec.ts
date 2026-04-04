@@ -132,7 +132,8 @@ function mountHeader() {
         ElAvatar: { template: '<div><slot /></div>' },
         ElBadge: {
           props: ['hidden', 'value'],
-          template: '<div><slot />{{ hidden ? 0 : value }}</div>',
+          template:
+            '<div class="el-badge-stub" :data-hidden="String(hidden)" :data-value="String(value)"><slot />{{ hidden ? 0 : value }}</div>',
         },
         ElBreadcrumb: {
           props: ['separator'],
@@ -213,7 +214,7 @@ describe('AppHeader', () => {
     expect(source).not.toContain('触发器图标固定为 16px 盒模型')
   })
 
-  it('Task 1 为用户菜单补齐稳定 trigger、菜单 testId 与前置图标合同', () => {
+  it('用户菜单补齐稳定 trigger、菜单 testId 与前置图标合同', () => {
     const source = readComponentSource('AppHeader')
 
     expect(source).toContain('data-testid="user-menu-trigger"')
@@ -334,6 +335,91 @@ describe('AppHeader', () => {
     await wrapper.get('[data-testid="notification-entry"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith('/notifications')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('通知角标继续只消费共享 unreadCount，不受分页 list/total/query 形态影响', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    notificationStore.unreadCount = 7
+    notificationStore.total = 58
+    notificationStore.query = {
+      page: 3,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+
+    const fetchNotificationListSpy = vi
+      .spyOn(notificationStore, 'fetchNotificationList')
+      .mockResolvedValue([])
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(7)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+
+    expect(wrapper.get('.el-badge-stub').attributes('data-value')).toBe('7')
+    expect(wrapper.get('.el-badge-stub').attributes('data-hidden')).toBe('false')
+    expect(fetchNotificationListSpy).not.toHaveBeenCalled()
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('在右侧工具区展示三态主题入口并默认跟随系统', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const themeEntry = wrapper.get('[data-testid="theme-entry"]')
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+    const dropdownComponents = wrapper.findAllComponents({ name: 'AppDropdown' })
+
+    expect(themeEntry.attributes('data-theme-preference')).toBe('system')
+    expect(themeEntry.attributes('data-resolved-theme')).toBeTruthy()
+    expect(wrapper.find('.app-header__theme-switcher').exists()).toBe(true)
+    expect(themeEntry.text()).toContain('跟随系统')
+    expect(dropdownTriggers).toHaveLength(2)
+    expect(dropdownTriggers[0]?.find('.app-dropdown-stub__arrow').exists()).toBe(true)
+
+    const themeDropdownItems = dropdownComponents[0]?.props('items') as
+      | Array<{ key: string; active?: boolean; meta?: string; testId?: string }>
+      | undefined
+
+    expect(themeDropdownItems?.find((item) => item.key === 'system')).toMatchObject({
+      active: true,
+      meta: '当前',
+      testId: 'theme-option-system',
+    })
+
+    expect(wrapper.find('[data-testid="theme-option-light"]').exists()).toBe(false)
+
+    await themeEntry.trigger('click')
+
+    expect(wrapper.get('[data-testid="theme-option-light"]').text()).toContain('浅色')
+    expect(wrapper.get('[data-testid="theme-option-dark"]').text()).toContain('深色')
+    expect(wrapper.get('[data-testid="theme-option-system"]').text()).toContain('跟随系统')
 
     await cleanupMountedHeader(wrapper)
   })
@@ -490,6 +576,42 @@ describe('AppHeader', () => {
       await cleanupMountedHeader(wrapper)
     },
   )
+
+  it('用户菜单把退出登录映射为危险项，避免头部自行维护私有危险样式', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+    const dropdownComponents = wrapper.findAllComponents({ name: 'AppDropdown' })
+    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+
+    expect(dropdownComponents).toHaveLength(2)
+    expect(dropdownTriggers[1]?.find('.app-dropdown-stub__arrow').exists()).toBe(true)
+
+    const userMenuItems = dropdownComponents[1]?.props('items') as
+      | Array<{ key: string; danger?: boolean }>
+      | undefined
+
+    expect(userMenuItems?.find((item) => item.key === 'logout')?.danger).toBe(true)
+
+    await dropdownTriggers[1]!.trigger('click')
+
+    expect(wrapper.find('.app-dropdown__item--danger').text()).toContain('退出登录')
+
+    await cleanupMountedHeader(wrapper)
+  })
 
   it('用户菜单提供稳定 selector、前置图标与危险项合同', async () => {
     const authStore = useAuthStore()
@@ -743,6 +865,47 @@ describe('AppHeader', () => {
     expect(pushMock).not.toHaveBeenCalled()
 
     await cleanupMountedHeader(wrapper)
+  })
+
+  it('轮询仍完全委托给 notification store，头部自身不会创建第二套 timer', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const fetchNotificationListSpy = vi
+      .spyOn(notificationStore, 'fetchNotificationList')
+      .mockResolvedValue([])
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(4)
+    const startPollingSpy = vi
+      .spyOn(notificationStore, 'startPolling')
+      .mockImplementation(() => undefined)
+    const stopPollingSpy = vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+
+    await flushPromises()
+
+    expect(fetchNotificationListSpy).not.toHaveBeenCalled()
+    expect(startPollingSpy).toHaveBeenCalledTimes(1)
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+    await flushPromises()
+
+    expect(stopPollingSpy).toHaveBeenCalledTimes(1)
+    expect(clearIntervalSpy).not.toHaveBeenCalled()
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
   })
 
   it('组件卸载早于未读数请求完成时不会重新启动轮询', async () => {

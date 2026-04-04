@@ -1,4 +1,14 @@
 /**
+ * 通知列表查询参数。
+ * 对应后端 `NotificationController#list`，分页参数从 1 开始计数，并允许按通知类型做可选筛选。
+ */
+export interface NotificationListQuery {
+  page?: number
+  size?: number
+  notificationType?: string
+}
+
+/**
  * 通知响应 DTO。
  * 对应后端 `NotificationResponse`。
  * 通知中心需要依赖 `createdAt` 排序和回放问题排查，因此这里必须完整对齐后端真实字段，不能继续沿用缺字段的旧口径。
@@ -18,6 +28,15 @@ export interface NotificationResponse {
   relatedType: string | null
   sentAt: string | null
   createdAt: string | null
+}
+
+/**
+ * 通知分页响应 DTO。
+ * 对应后端 `NotificationPageResponse`，请求层已经解包统一响应壳，这里只保留真正的分页体。
+ */
+export interface NotificationPageResponse {
+  total: number
+  records: NotificationResponse[]
 }
 
 /**

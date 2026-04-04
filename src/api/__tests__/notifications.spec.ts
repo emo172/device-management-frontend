@@ -25,16 +25,24 @@ describe('notifications api', () => {
     putMock.mockReset()
   })
 
-  it('loads notification list and unread count', async () => {
-    const listResponse = [{ id: 'notification-1', readFlag: 0 }]
+  it('loads paged notification list with query params and unread count', async () => {
+    const query = {
+      page: 2,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+    const listResponse = {
+      total: 35,
+      records: [{ id: 'notification-1', readFlag: 0 }],
+    }
     const countResponse = { unreadCount: 3 }
     getMock.mockResolvedValueOnce(listResponse)
     getMock.mockResolvedValueOnce(countResponse)
 
-    await expect(getNotificationList()).resolves.toBe(listResponse)
+    await expect(getNotificationList(query)).resolves.toBe(listResponse)
     await expect(getUnreadNotificationCount()).resolves.toBe(countResponse)
 
-    expect(getMock).toHaveBeenNthCalledWith(1, '/notifications')
+    expect(getMock).toHaveBeenNthCalledWith(1, '/notifications', { params: query })
     expect(getMock).toHaveBeenNthCalledWith(2, '/notifications/unread-count')
   })
 
