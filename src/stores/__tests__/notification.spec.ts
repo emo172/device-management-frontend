@@ -89,6 +89,41 @@ describe('notification store', () => {
     expect(store.unreadCount).toBe(3)
   })
 
+  it('keeps previous query and list when loading a new page fails', async () => {
+    const previousQuery = {
+      page: 1,
+      size: 10,
+      notificationType: 'FIRST_APPROVAL_TODO',
+    }
+    const nextQuery = {
+      page: 2,
+      size: 20,
+      notificationType: 'OVERDUE_WARNING',
+    }
+
+    getNotificationListMock.mockRejectedValueOnce(new Error('network error'))
+
+    const store = useNotificationStore()
+    store.query = previousQuery
+    store.list = [createNotification('notice-1', { notificationType: 'FIRST_APPROVAL_TODO' })]
+    store.notifications = store.list
+    store.total = 1
+
+    await expect(store.fetchNotificationList(nextQuery)).rejects.toThrow('network error')
+
+    expect(getNotificationListMock).toHaveBeenCalledWith(nextQuery)
+    expect(store.query).toEqual(previousQuery)
+    expect(store.list).toEqual([
+      expect.objectContaining({
+        id: 'notice-1',
+        notificationType: 'FIRST_APPROVAL_TODO',
+      }),
+    ])
+    expect(store.notifications).toEqual(store.list)
+    expect(store.total).toBe(1)
+    expect(store.loading).toBe(false)
+  })
+
   it('marks one notification as read and only updates the current page row', async () => {
     markNotificationReadMock.mockResolvedValue({
       notificationId: 'notice-1',

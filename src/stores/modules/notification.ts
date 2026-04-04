@@ -47,10 +47,10 @@ export const useNotificationStore = defineStore('notification', {
      */
     async fetchNotificationList(query: notificationApi.NotificationListQuery = createDefaultQuery()) {
       this.loading = true
-      this.query = { ...query }
 
       try {
         const result = await notificationApi.getNotificationList(query)
+        this.query = { ...query }
         this.list = result.records
         this.notifications = result.records
         this.total = result.total
