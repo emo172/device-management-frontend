@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { Bell, Fold, Monitor, Moon, Setting, Sunny, SwitchButton } from '@element-plus/icons-vue'
+import {
+  Bell,
+  Fold,
+  Monitor,
+  Moon,
+  Setting,
+  Sunny,
+  SwitchButton,
+  User,
+} from '@element-plus/icons-vue'
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -88,17 +97,21 @@ const userMenuItems: AppDropdownItem[] = [
   {
     key: 'profile',
     label: '个人中心',
-    icon: Setting,
+    icon: User,
+    testId: 'user-menu-profile',
   },
   {
     key: 'password',
     label: '修改密码',
+    icon: Setting,
+    testId: 'user-menu-password',
   },
   {
     key: 'logout',
     label: '退出登录',
     icon: SwitchButton,
     danger: true,
+    testId: 'user-menu-logout',
   },
 ]
 
@@ -263,7 +276,11 @@ async function handleUserMenuSelect(item: AppDropdownItem) {
 
         <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口。 -->
         <div class="app-header__user-zone">
-          <AppDropdown :items="userMenuItems" @select="handleUserMenuSelect">
+          <AppDropdown
+            data-testid="user-menu-trigger"
+            :items="userMenuItems"
+            @select="handleUserMenuSelect"
+          >
             <template #trigger>
               <el-avatar class="app-header__avatar">{{ displayName.slice(0, 1) }}</el-avatar>
               <span>{{ displayName }}</span>

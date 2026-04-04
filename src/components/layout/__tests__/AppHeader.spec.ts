@@ -10,6 +10,7 @@ import { useAppStore } from '@/stores/modules/app'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useNotificationStore } from '@/stores/modules/notification'
 import { UserRole } from '@/enums/UserRole'
+import type { ResolvedTheme, ThemePreference } from '@/utils/themeMode'
 
 const pushMock = vi.fn()
 const routeState = {
@@ -48,6 +49,45 @@ vi.mock('vue-router', async (importOriginal) => {
 
 const AppHeader = (await import('../AppHeader.vue')).default
 
+const themePreferenceCases: Array<{
+  preference: ThemePreference
+  label: string
+  resolvedTheme: ResolvedTheme
+}> = [
+  {
+    preference: 'light',
+    label: '浅色',
+    resolvedTheme: 'light',
+  },
+  {
+    preference: 'dark',
+    label: '深色',
+    resolvedTheme: 'dark',
+  },
+  {
+    preference: 'system',
+    label: '跟随系统',
+    resolvedTheme: 'light',
+  },
+]
+
+const systemThemeBoundaryCases: Array<{
+  scenario: string
+  systemPrefersDark: boolean
+  resolvedTheme: ResolvedTheme
+}> = [
+  {
+    scenario: '系统浅色',
+    systemPrefersDark: false,
+    resolvedTheme: 'light',
+  },
+  {
+    scenario: '系统深色',
+    systemPrefersDark: true,
+    resolvedTheme: 'dark',
+  },
+]
+
 function readComponentSource(componentName: string) {
   return readFileSync(resolve(process.cwd(), `src/components/layout/${componentName}.vue`), 'utf-8')
 }
@@ -77,6 +117,7 @@ const AppDropdownStub = defineComponent({
     '</button>' +
     '<div v-if="open" class="app-dropdown-stub__menu">' +
     '<button v-for="item in items" :key="item.key" class="app-dropdown-stub__item" :class="{ \'app-dropdown__item--active\': item.active && !item.danger, \'app-dropdown__item--danger\': item.danger }" :data-testid="item.testId" type="button" @click="$emit(\'select\', item); open = false">' +
+    '<span class="app-dropdown-stub__icon" :data-icon-present="item.icon ? \'true\' : \'false\'"></span>' +
     '<span class="app-dropdown-stub__label">{{ item.label }}</span>' +
     '<span v-if="item.meta" class="app-dropdown-stub__meta">{{ item.meta }}</span>' +
     '</button>' +
@@ -163,6 +204,29 @@ describe('AppHeader', () => {
     expect(source).not.toContain('app-header__theme-button')
     expect(source).not.toContain('app-header__theme-option--active')
     expect(source).not.toContain('app-header__user-trigger')
+  })
+
+  it('主题触发器不再维护计划外的私有 icon hook 与本地尺寸合同', () => {
+    const source = readComponentSource('AppHeader')
+
+    expect(source).not.toContain('app-header__theme-trigger-icon')
+    expect(source).not.toContain('app-header__theme-trigger-icon-glyph')
+    expect(source).not.toContain('触发器图标固定为 16px 盒模型')
+  })
+
+  it('用户菜单补齐稳定 trigger、菜单 testId 与前置图标合同', () => {
+    const source = readComponentSource('AppHeader')
+
+    expect(source).toContain('data-testid="user-menu-trigger"')
+    expect(source).toMatch(
+      /key: 'profile'[\s\S]*label: '个人中心'[\s\S]*icon: User[\s\S]*testId: 'user-menu-profile'/,
+    )
+    expect(source).toMatch(
+      /key: 'password'[\s\S]*label: '修改密码'[\s\S]*icon: Setting[\s\S]*testId: 'user-menu-password'/,
+    )
+    expect(source).toMatch(
+      /key: 'logout'[\s\S]*label: '退出登录'[\s\S]*icon: SwitchButton[\s\S]*danger: true[\s\S]*testId: 'user-menu-logout'/,
+    )
   })
 
   it('展示当前页面标题与面包屑上下文', async () => {
@@ -360,6 +424,159 @@ describe('AppHeader', () => {
     await cleanupMountedHeader(wrapper)
   })
 
+  it.each(themePreferenceCases)(
+    '主题菜单当前项通过 active + meta 表达：$preference',
+    async ({ preference, label, resolvedTheme }) => {
+      const authStore = useAuthStore()
+      authStore.setCurrentUser({
+        email: 'admin@example.com',
+        phone: '13800138000',
+        realName: '系统管理员',
+        role: UserRole.SYSTEM_ADMIN,
+        userId: 'admin-1',
+        username: 'admin',
+      })
+
+      const appStore = useAppStore()
+      appStore.setThemePreference(preference)
+
+      const notificationStore = useNotificationStore()
+      vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+      vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+      vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+      const wrapper = mountHeader()
+      const themeEntry = wrapper.get('[data-testid="theme-entry"]')
+      const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
+      const dropdownComponents = wrapper.findAllComponents({ name: 'AppDropdown' })
+      const themeDropdownItems = dropdownComponents[0]?.props('items') as
+        | Array<{ key: string; active?: boolean; meta?: string; testId?: string }>
+        | undefined
+
+      expect(wrapper.find('.app-header__theme-switcher').exists()).toBe(true)
+      expect(themeEntry.attributes('data-theme-preference')).toBe(preference)
+      expect(themeEntry.attributes('data-resolved-theme')).toBe(resolvedTheme)
+      expect(themeEntry.text()).toContain(label)
+      expect(dropdownTriggers).toHaveLength(2)
+      expect(dropdownTriggers[0]?.find('.app-dropdown-stub__arrow').exists()).toBe(true)
+      expect(themeDropdownItems?.filter((item) => item.active).map((item) => item.key)).toEqual([
+        preference,
+      ])
+      expect(themeDropdownItems?.find((item) => item.key === preference)?.meta).toBe('当前')
+      expect(
+        themeDropdownItems
+          ?.filter((item) => item.key !== preference)
+          .every((item) => item.meta === undefined),
+      ).toBe(true)
+      expect(wrapper.find('[data-testid="theme-option-light"]').exists()).toBe(false)
+
+      await themeEntry.trigger('click')
+
+      expect(wrapper.get('[data-testid="theme-option-light"]').text()).toContain('浅色')
+      expect(wrapper.get('[data-testid="theme-option-dark"]').text()).toContain('深色')
+      expect(wrapper.get('[data-testid="theme-option-system"]').text()).toContain('跟随系统')
+      expect(
+        wrapper
+          .get('[data-testid="theme-option-light"]')
+          .find('[data-icon-present="true"]')
+          .exists(),
+      ).toBe(true)
+      expect(
+        wrapper
+          .get('[data-testid="theme-option-dark"]')
+          .find('[data-icon-present="true"]')
+          .exists(),
+      ).toBe(true)
+      expect(
+        wrapper
+          .get('[data-testid="theme-option-system"]')
+          .find('[data-icon-present="true"]')
+          .exists(),
+      ).toBe(true)
+      expect(
+        wrapper
+          .findAll('.app-dropdown__item--active')
+          .map((item) => item.attributes('data-testid')),
+      ).toEqual([`theme-option-${preference}`])
+      expect(wrapper.get(`[data-testid="theme-option-${preference}"]`).text()).toContain('当前')
+      expect(wrapper.findAll('.app-dropdown-stub__meta').map((item) => item.text())).toEqual([
+        '当前',
+      ])
+      expect(
+        wrapper.get('[data-testid="theme-option-light"]').find('.app-dropdown-stub__meta').exists(),
+      ).toBe(preference === 'light')
+      expect(
+        wrapper.get('[data-testid="theme-option-dark"]').find('.app-dropdown-stub__meta').exists(),
+      ).toBe(preference === 'dark')
+      expect(
+        wrapper
+          .get('[data-testid="theme-option-system"]')
+          .find('.app-dropdown-stub__meta')
+          .exists(),
+      ).toBe(preference === 'system')
+
+      await cleanupMountedHeader(wrapper)
+    },
+  )
+
+  it.each(systemThemeBoundaryCases)(
+    'themePreference=system 时在 $scenario 下仍只高亮 system 选项',
+    async ({ systemPrefersDark, resolvedTheme }) => {
+      const authStore = useAuthStore()
+      authStore.setCurrentUser({
+        email: 'admin@example.com',
+        phone: '13800138000',
+        realName: '系统管理员',
+        role: UserRole.SYSTEM_ADMIN,
+        userId: 'admin-1',
+        username: 'admin',
+      })
+
+      const appStore = useAppStore()
+      appStore.setThemePreference('system')
+      appStore.refreshResolvedTheme(systemPrefersDark)
+
+      const notificationStore = useNotificationStore()
+      vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+      vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+      vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+      const wrapper = mountHeader()
+      const themeEntry = wrapper.get('[data-testid="theme-entry"]')
+
+      await themeEntry.trigger('click')
+
+      expect(themeEntry.attributes('data-theme-preference')).toBe('system')
+      expect(themeEntry.attributes('data-resolved-theme')).toBe(resolvedTheme)
+      expect(
+        wrapper
+          .findAll('.app-dropdown__item--active')
+          .map((item) => item.attributes('data-testid')),
+      ).toEqual(['theme-option-system'])
+      expect(wrapper.get('[data-testid="theme-option-system"]').classes()).toContain(
+        'app-dropdown__item--active',
+      )
+      expect(wrapper.get('[data-testid="theme-option-light"]').classes()).not.toContain(
+        'app-dropdown__item--active',
+      )
+      expect(wrapper.get('[data-testid="theme-option-dark"]').classes()).not.toContain(
+        'app-dropdown__item--active',
+      )
+      expect(wrapper.get('[data-testid="theme-option-system"]').text()).toContain('当前')
+      expect(wrapper.findAll('.app-dropdown-stub__meta').map((item) => item.text())).toEqual([
+        '当前',
+      ])
+      expect(
+        wrapper.get('[data-testid="theme-option-light"]').find('.app-dropdown-stub__meta').exists(),
+      ).toBe(false)
+      expect(
+        wrapper.get('[data-testid="theme-option-dark"]').find('.app-dropdown-stub__meta').exists(),
+      ).toBe(false)
+
+      await cleanupMountedHeader(wrapper)
+    },
+  )
+
   it('用户菜单把退出登录映射为危险项，避免头部自行维护私有危险样式', async () => {
     const authStore = useAuthStore()
     authStore.setCurrentUser({
@@ -392,6 +609,42 @@ describe('AppHeader', () => {
     await dropdownTriggers[1]!.trigger('click')
 
     expect(wrapper.find('.app-dropdown__item--danger').text()).toContain('退出登录')
+
+    await cleanupMountedHeader(wrapper)
+  })
+
+  it('用户菜单提供稳定 selector、前置图标与危险项合同', async () => {
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'admin@example.com',
+      phone: '13800138000',
+      realName: '系统管理员',
+      role: UserRole.SYSTEM_ADMIN,
+      userId: 'admin-1',
+      username: 'admin',
+    })
+
+    const notificationStore = useNotificationStore()
+    vi.spyOn(notificationStore, 'fetchUnreadCount').mockResolvedValue(0)
+    vi.spyOn(notificationStore, 'startPolling').mockImplementation(() => undefined)
+    vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
+
+    const wrapper = mountHeader()
+
+    await wrapper.get('[data-testid="user-menu-trigger"]').trigger('click')
+
+    expect(
+      wrapper.get('[data-testid="user-menu-profile"]').find('[data-icon-present="true"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.get('[data-testid="user-menu-password"]').find('[data-icon-present="true"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.get('[data-testid="user-menu-logout"]').find('[data-icon-present="true"]').exists(),
+    ).toBe(true)
+    expect(wrapper.get('[data-testid="user-menu-logout"]').classes()).toContain(
+      'app-dropdown__item--danger',
+    )
 
     await cleanupMountedHeader(wrapper)
   })
