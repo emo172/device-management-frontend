@@ -117,9 +117,12 @@ function handleItemSelect(item: AppDropdownItem) {
           >
             <!-- item 插槽只接管菜单项内部排版，禁用态、危险态和外层 class 仍由包装组件统一收口。 -->
             <slot name="item" :item="item">
-              <component :is="item.icon" v-if="item.icon" class="app-dropdown__icon" />
-              <span class="app-dropdown__label">{{ item.label }}</span>
-              <span v-if="item.meta" class="app-dropdown__meta">{{ item.meta }}</span>
+              <!-- 共享 dropdown item 行结构由包装层统一定义成图标列、文案列和右侧补充列，业务层只负责提供 icon/label/meta 数据。 -->
+              <span class="app-dropdown__content">
+                <component :is="item.icon" v-if="item.icon" class="app-dropdown__icon" />
+                <span class="app-dropdown__label">{{ item.label }}</span>
+                <span v-if="item.meta" class="app-dropdown__meta">{{ item.meta }}</span>
+              </span>
             </slot>
           </el-dropdown-item>
         </el-dropdown-menu>
@@ -174,10 +177,13 @@ function handleItemSelect(item: AppDropdownItem) {
   transform: rotate(45deg) translateY(-1px);
 }
 
-.app-dropdown__item {
-  display: inline-flex;
+.app-dropdown__content {
+  --app-dropdown-icon-column-width: 16px;
+
+  display: grid;
   align-items: center;
-  gap: 8px;
+  grid-template-columns: var(--app-dropdown-icon-column-width, 16px) minmax(0, 1fr) auto;
+  column-gap: 8px;
   inline-size: 100%;
 }
 
@@ -196,11 +202,23 @@ function handleItemSelect(item: AppDropdownItem) {
   align-items: center;
 }
 
+.app-dropdown__icon {
+  grid-column: 1;
+  inline-size: var(--app-dropdown-icon-column-width, 16px);
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .app-dropdown__label {
-  flex: 1;
+  grid-column: 2;
+  min-width: 0;
 }
 
 .app-dropdown__meta {
+  grid-column: 3;
+  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
   color: var(--el-text-color-secondary, #909399);
   font-size: 12px;
 }

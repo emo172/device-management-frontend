@@ -109,6 +109,22 @@ function createReservationDetailResponse(
   }
 }
 
+const elButtonStub = {
+  emits: ['click'],
+  template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+}
+
+const elIconStub = {
+  template: '<i class="el-icon-stub"><slot /></i>',
+}
+
+function createElTableColumnStub(row: ReservationListItemResponse = reservationRecord) {
+  return {
+    data: () => ({ row }),
+    template: '<div class="el-table-column-stub"><slot :row="row" /></div>',
+  }
+}
+
 describe('reservation list view', () => {
   beforeEach(() => {
     pushMock.mockReset()
@@ -152,13 +168,10 @@ describe('reservation list view', () => {
           EmptyState: { template: '<div><slot /></div>' },
           Pagination: { template: '<div class="pagination-stub"></div>' },
           ReservationCard: { template: '<article></article>' },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: {
@@ -174,6 +187,64 @@ describe('reservation list view', () => {
     expect(filterPanel.find('.console-filter-panel__fields').exists()).toBe(true)
     expect(filterPanel.find('.console-filter-panel__actions').exists()).toBe(true)
     expect(wrapper.find('.console-toolbar-shell').exists()).toBe(false)
+  })
+
+  it('操作列详情按钮挂接统一语义类和显式图标，设备名链接保持原语义', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const reservationStore = useReservationStore()
+    reservationStore.list = [reservationRecord]
+    reservationStore.total = 1
+
+    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({
+      total: 1,
+      records: [reservationRecord],
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          ReservationCard: { template: '<article></article>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
+          ElTable: { template: '<div><slot /></div>' },
+          ElTableColumn: createElTableColumnStub(),
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    const detailButton = wrapper.get('.app-detail-action')
+    const linkButton = wrapper.get('.reservation-list-view__link')
+
+    expect(detailButton.text()).toContain('详情')
+    expect(detailButton.find('.el-icon-stub').exists()).toBe(true)
+    expect(detailButton.find('svg').exists()).toBe(true)
+    expect(linkButton.classes()).not.toContain('app-detail-action')
   })
 
   it('普通用户进入页面会拉取列表，并支持详情跳转与取消动作', async () => {
@@ -228,13 +299,10 @@ describe('reservation list view', () => {
             template:
               '<article>{{ allowUserActions ? "user" : "admin" }}<button class="detail-btn" @click="$emit(\'detail\', reservation.id)">detail</button><button class="cancel-btn" @click="$emit(\'cancel\', reservation.id)">cancel</button></article>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: {
@@ -307,13 +375,10 @@ describe('reservation list view', () => {
             template:
               '<article><button class="cancel-btn" @click="$emit(\'cancel\', reservation.id)">cancel</button></article>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: {
@@ -367,13 +432,10 @@ describe('reservation list view', () => {
             props: ['reservation', 'allowUserActions'],
             template: '<article>{{ allowUserActions ? "user" : "admin" }}</article>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: {
@@ -427,13 +489,10 @@ describe('reservation list view', () => {
             props: ['reservation', 'allowUserActions'],
             template: '<article>{{ allowUserActions ? "user" : "admin" }}</article>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: {
@@ -477,13 +536,10 @@ describe('reservation list view', () => {
           EmptyState: { template: '<div><slot /></div>' },
           Pagination: { template: '<div class="pagination-stub"></div>' },
           ReservationCard: { template: '<article></article>' },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: createElTableColumnStub(),
         },
         directives: {
           loading: { mounted() {}, updated() {} },
@@ -528,6 +584,23 @@ describe('reservation list view', () => {
     )
     expect(source).toMatch(
       /\.reservation-list-view__card-grid\s*>\s*\*\s*\{[\s\S]*?min-width:\s*0;/,
+    )
+  })
+
+  it('详情按钮源码使用 app-detail-action 与显式 View 图标，签到/取消与设备名链接不继承详情语义类', () => {
+    const source = readReservationViewSource('List.vue')
+
+    expect(source).toMatch(
+      /<el-button\s+text\s+type="primary"\s+class="app-detail-action"\s+@click="handleDetail\(scope\.row\.id\)"[\s\S]*?<el-icon><View\s*\/><\/el-icon>[\s\S]*?详情[\s\S]*?<\/el-button>/,
+    )
+    expect(source).toContain('class="reservation-list-view__link"')
+    expect(source).not.toContain('class="reservation-list-view__link app-detail-action"')
+    expect(source).not.toContain('class="app-detail-action reservation-list-view__link"')
+    expect(source).not.toMatch(
+      /<el-button[^>]*class="app-detail-action"[^>]*@click="handleCheckIn\(scope\.row\.id\)"/,
+    )
+    expect(source).not.toMatch(
+      /<el-button[^>]*class="app-detail-action"[^>]*@click="handleCancel\(scope\.row\.id\)"/,
     )
   })
 })

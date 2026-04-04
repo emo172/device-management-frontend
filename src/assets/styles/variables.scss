@@ -97,6 +97,17 @@
   --app-tone-danger-border: rgba(190, 24, 93, 0.24);
   --app-tone-danger-solid: #be185d;
 
+  // 详情按钮需要稳定保持“品牌浅底 + 明确边框”的中等强调，不能和创建/处理类实心主按钮抢主视觉层级。
+  --app-detail-action-text: var(--app-tone-brand-text);
+  --app-detail-action-text-strong: var(--app-tone-brand-text-strong);
+  --app-detail-action-surface: var(--app-tone-brand-surface);
+  --app-detail-action-surface-strong: var(--app-tone-brand-surface-strong);
+  --app-detail-action-border: var(--app-tone-brand-border);
+  --app-detail-action-focus-ring: var(--app-focus-ring);
+  --app-detail-action-icon-size: 14px;
+  --app-detail-action-gap: 4px;
+  --app-detail-action-padding-inline: 8px;
+
   // 兼容当前仓库里已经落地的旧变量命名，避免本任务提前触发页面级大面积联动。
   --app-color-primary: var(--app-tone-brand-solid);
   // 主按钮在亮暗两套品牌实色下对比度不同，因此保留独立 contrast token 给错误页与主 CTA 复用。

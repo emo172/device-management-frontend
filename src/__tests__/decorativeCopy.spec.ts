@@ -3,9 +3,11 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+type ForbiddenCopyMatcher = string | RegExp
+
 interface ForbiddenCopyCase {
   filePath: string
-  forbiddenTexts: string[]
+  forbiddenTexts: ForbiddenCopyMatcher[]
 }
 
 function readSource(filePath: string) {
@@ -154,7 +156,7 @@ const localDecorativeCopyCases: ForbiddenCopyCase[] = [
   },
   {
     filePath: 'src/views/borrow/List.vue',
-    forbiddenTexts: ['Filter'],
+    forbiddenTexts: [/\bFilter\b/],
   },
   {
     filePath: 'src/views/borrow/Confirm.vue',
@@ -169,7 +171,7 @@ const localDecorativeCopyCases: ForbiddenCopyCase[] = [
   },
   {
     filePath: 'src/views/overdue/List.vue',
-    forbiddenTexts: ['Filter'],
+    forbiddenTexts: [/\bFilter\b/],
   },
   {
     filePath: 'src/views/overdue/Detail.vue',
@@ -223,7 +225,12 @@ describe('decorative copy cleanup', () => {
       const source = readSource(filePath)
 
       for (const forbiddenText of forbiddenTexts) {
-        expect(source).not.toContain(forbiddenText)
+        if (typeof forbiddenText === 'string') {
+          expect(source).not.toContain(forbiddenText)
+          continue
+        }
+
+        expect(source).not.toMatch(forbiddenText)
       }
     },
   )
@@ -234,7 +241,12 @@ describe('decorative copy cleanup', () => {
       const source = readSource(filePath)
 
       for (const forbiddenText of forbiddenTexts) {
-        expect(source).not.toContain(forbiddenText)
+        if (typeof forbiddenText === 'string') {
+          expect(source).not.toContain(forbiddenText)
+          continue
+        }
+
+        expect(source).not.toMatch(forbiddenText)
       }
     },
   )

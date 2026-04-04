@@ -137,10 +137,11 @@ const commonGlobal = {
         '<span class="overdue-type-stub">{{ type ? OverdueHandleTypeLabel[type] : "未处理" }}</span>',
     },
     ElButton: {
+      inheritAttrs: false,
       props: ['type', 'loading', 'disabled'],
       emits: ['click'],
       template:
-        '<button :disabled="disabled" :data-type="type" :data-loading="loading" @click="$emit(\'click\')"><slot /></button>',
+        '<button v-bind="$attrs" :disabled="disabled" :data-type="type" :data-loading="loading" @click="$emit(\'click\')"><slot /></button>',
     },
     ElIcon: {
       template: '<i><slot /></i>',
@@ -220,6 +221,21 @@ describe('overdue pages', () => {
     expect(wrapper.text()).toContain(pendingRecord.deviceName)
     expect(wrapper.text()).toContain(pendingRecord.userName)
     expect(wrapper.text()).toContain('处理逾期')
+
+    const detailActions = wrapper.findAll('.overdue-list-view__table-actions .app-detail-action')
+    const handleAction = wrapper
+      .findAll('.overdue-list-view__table-actions button')
+      .find((node) => node.text().includes('处理逾期'))
+    const recordLink = wrapper.get('.overdue-list-view__link')
+
+    expect(detailActions).toHaveLength(2)
+    expect(detailActions[0]?.text()).toContain('详情')
+    expect(detailActions[0]?.attributes('data-type')).toBe('primary')
+    expect(detailActions[0]?.find('i').exists()).toBe(true)
+    expect(detailActions[0]?.find('svg').exists()).toBe(true)
+    expect(handleAction).toBeTruthy()
+    expect(handleAction?.classes()).not.toContain('app-detail-action')
+    expect(recordLink.classes()).not.toContain('app-detail-action')
   })
 
   it('逾期列表页改用统一筛选卡片后，查询与重置仍会驱动处理状态请求', async () => {

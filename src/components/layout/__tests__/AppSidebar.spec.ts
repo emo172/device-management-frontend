@@ -211,7 +211,9 @@ describe('AppSidebar', () => {
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.app-sidebar__role-panel--collapsed').exists()).toBe(true)
-      expect(wrapper.findAll('.app-sidebar__menu-tooltip-trigger').length).toBeGreaterThan(0)
+      expect(
+        wrapper.findAll('.app-sidebar__menu-item .app-sidebar__menu-icon').length,
+      ).toBeGreaterThan(0)
 
       const consoleOutput = [
         stringifyConsoleCalls(consoleWarnSpy),

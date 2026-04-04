@@ -98,10 +98,61 @@ function handleVisibleChange(visible: boolean) {
   padding-inline-start: 12px;
 }
 
+.app-select :deep(.el-select__selection) {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
 .app-select :deep(.el-select__placeholder),
 .app-select :deep(.el-select__selected-item),
 .app-select :deep(.el-select__tags) {
+  min-width: 0;
   margin-inline-start: 0;
+}
+
+// 空态 placeholder 继续保留提示色；真正已选态会落在 `.el-select__selected-item.el-select__placeholder`，不能沿用 0 宽提示分支的几何约束。
+.app-select :deep(.el-select__placeholder) {
+  color: var(--app-text-placeholder, var(--el-text-color-placeholder, #a8abb2));
+}
+
+// Element Plus 单选已选态会保留一个空白 input-wrapper 作为 sibling；这里把它压缩到 0 宽并隐藏，避免继续抢占文本空间。
+.app-select :deep(.el-select__input-wrapper.is-hidden) {
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+// 普通 selected-item 与“已选态 placeholder 分支”都需要共享文本收缩合同，避免选中设备名落在 0 宽节点中不可见。
+.app-select :deep(.el-select__selected-item:not(.el-select__input-wrapper)) {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--app-text-primary, var(--el-text-color-primary, #303133));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-select :deep(.el-select__selected-item.el-select__placeholder) {
+  position: static;
+  inset: auto;
+  transform: none;
+  width: auto;
+  max-width: 100%;
+}
+
+.app-select :deep(.el-select__selected-item.el-select__placeholder > span) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-select__control {

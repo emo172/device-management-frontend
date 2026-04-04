@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RefreshRight } from '@element-plus/icons-vue'
+import { RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -243,11 +243,13 @@ onBeforeUnmount(() => {
         <!-- 卡片区与表格区都保留管理入口，确保系统管理员在不同浏览密度下都能触发同一组动作。 -->
         <div class="user-card__actions">
           <el-button
+            class="app-detail-action"
             data-testid="user-detail-trigger"
             text
             type="primary"
             @click="handleDetail(user.id)"
           >
+            <el-icon><View /></el-icon>
             查看详情
           </el-button>
           <el-button
@@ -323,7 +325,15 @@ onBeforeUnmount(() => {
             <template #default="scope">
               <!-- 路由本身只允许 SYSTEM_ADMIN 进入，这里仍保留显式注释，提醒后续维护时不要把管理按钮放给其他角色。 -->
               <div class="user-list-view__table-actions">
-                <el-button text type="primary" @click="handleDetail(scope.row.id)">详情</el-button>
+                <el-button
+                  class="app-detail-action"
+                  text
+                  type="primary"
+                  @click="handleDetail(scope.row.id)"
+                >
+                  <el-icon><View /></el-icon>
+                  详情
+                </el-button>
                 <el-button text type="warning" @click="handleToggleStatus(scope.row)">
                   {{ scope.row.status === 1 ? '禁用' : '启用' }}
                 </el-button>

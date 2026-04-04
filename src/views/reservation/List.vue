@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, RefreshRight } from '@element-plus/icons-vue'
+import { Plus, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -204,7 +204,16 @@ onMounted(() => {
           <el-table-column label="操作" min-width="300" fixed="right">
             <template #default="scope">
               <div class="reservation-list-view__table-actions">
-                <el-button text type="primary" @click="handleDetail(scope.row.id)">详情</el-button>
+                <!-- 操作列详情入口统一挂共享语义类和显式图标，便于接入全局详情动作样式，同时保持设备名链接与自助动作语义独立。 -->
+                <el-button
+                  text
+                  type="primary"
+                  class="app-detail-action"
+                  @click="handleDetail(scope.row.id)"
+                >
+                  <el-icon><View /></el-icon>
+                  详情
+                </el-button>
 
                 <!-- 只有 USER 可以在列表页直接发起签到/取消；管理员只做浏览与后续审核入口分流。 -->
                 <template v-if="isUser">

@@ -141,6 +141,75 @@
   color: var(--app-tone-brand-text-strong);
 }
 
+// 详情动作统一收口到 app-detail-action，plain / text / link 只在这里提升为“浅底 + 边框”的中强调查看入口。
+.el-button--primary.is-plain.app-detail-action,
+.el-button--primary.is-text.app-detail-action,
+.el-button--primary.is-link.app-detail-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-detail-action-gap);
+  padding-inline: var(--app-detail-action-padding-inline);
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface);
+  color: var(--app-detail-action-text);
+}
+
+.el-button--primary.is-plain.app-detail-action:hover,
+.el-button--primary.is-text.app-detail-action:hover,
+.el-button--primary.is-link.app-detail-action:hover {
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface-strong);
+  color: var(--app-detail-action-text-strong);
+}
+
+.el-button--primary.is-plain.app-detail-action:focus-visible,
+.el-button--primary.is-text.app-detail-action:focus-visible,
+.el-button--primary.is-link.app-detail-action:focus-visible {
+  border-color: var(--app-detail-action-border);
+  background: var(--app-detail-action-surface-strong);
+  color: var(--app-detail-action-text-strong);
+  box-shadow: var(--app-detail-action-focus-ring);
+}
+
+.el-button--primary.is-plain.app-detail-action.is-disabled,
+.el-button--primary.is-text.app-detail-action.is-disabled,
+.el-button--primary.is-link.app-detail-action.is-disabled,
+.el-button--primary.is-plain.app-detail-action.is-disabled:hover,
+.el-button--primary.is-text.app-detail-action.is-disabled:hover,
+.el-button--primary.is-link.app-detail-action.is-disabled:hover,
+.el-button--primary.is-plain.app-detail-action.is-disabled:focus-visible,
+.el-button--primary.is-text.app-detail-action.is-disabled:focus-visible,
+.el-button--primary.is-link.app-detail-action.is-disabled:focus-visible {
+  border-color: var(--app-border-soft);
+  background: var(--el-disabled-bg-color);
+  color: var(--el-disabled-text-color);
+  box-shadow: none;
+}
+
+// 详情图标采用固定 14px 盒模型与 4px 间距，兼容显式 <el-icon><View /></el-icon> 结构，避免依赖 Element Plus 默认间距漂移。
+.app-detail-action .el-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--app-detail-action-icon-size);
+  block-size: var(--app-detail-action-icon-size);
+  flex-shrink: 0;
+  font-size: var(--app-detail-action-icon-size);
+}
+
+// Element Plus 会把默认插槽包进按钮内部 span，真实 4px 间距必须落在这个 wrapper 上，不能只依赖外层 button gap。
+.el-button.app-detail-action > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-detail-action-gap);
+}
+
+.el-button.app-detail-action > span > .el-icon + span {
+  margin-left: 0;
+}
+
 .el-button--success {
   border-color: var(--app-tone-success-solid);
   background: var(--app-tone-success-solid);
@@ -398,6 +467,28 @@
 .el-dropdown-menu__item .app-dropdown__meta {
   display: inline-flex;
   align-items: center;
+}
+
+// 菜单图标固定为统一的 16px 盒模型，避免主题图标、设置图标和退出图标因字形边界不同出现左右跳动。
+.el-dropdown-menu__item .app-dropdown__icon {
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  flex-shrink: 0;
+}
+
+// teleported dropdown 只能由共享全局选择器维护，label 必须允许收缩，避免面板脱离 header 祖先后再次被私有布局样式绑死。
+.el-dropdown-menu__item .app-dropdown__label {
+  min-width: 0;
+}
+
+// teleported dropdown 的右侧补充信息继续走共享全局合同，避免布局组件私有样式失控并把 meta 语义漂移成普通正文。
+.el-dropdown-menu__item .app-dropdown__meta {
+  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--app-text-secondary);
+  font-size: 12px;
 }
 
 .el-option:hover,

@@ -81,6 +81,78 @@ describe('AppDropdown', () => {
     expect(wrapper.find('.app-dropdown__item--danger').exists()).toBe(true)
   })
 
+  it('把共享菜单项稳定为 icon 列、label 列、meta 列三段式合同', async () => {
+    const { component, error } = await loadAppDropdown()
+
+    expect(error).toBeNull()
+    expect(component).toBeTruthy()
+
+    if (!component) {
+      return
+    }
+
+    const wrapper = mount(component, {
+      attachTo: document.body,
+      props: {
+        teleported: false,
+        items: [
+          {
+            key: 'system',
+            label: '跟随系统',
+            icon: Bell,
+            meta: '当前',
+            testId: 'theme-option-system',
+          },
+          {
+            key: 'logout',
+            label: '退出登录',
+            danger: true,
+            testId: 'user-menu-logout',
+          },
+        ],
+      },
+      global: {
+        stubs: dropdownTestStubs,
+      },
+    })
+
+    const firstItemContent = wrapper.get(
+      '[data-testid="theme-option-system"] .app-dropdown__content',
+    )
+    const secondItemContent = wrapper.get('[data-testid="user-menu-logout"] .app-dropdown__content')
+
+    expect(
+      firstItemContent
+        .findAll('.app-dropdown__icon, .app-dropdown__label, .app-dropdown__meta')
+        .map((segment) => segment.classes()[0]),
+    ).toEqual(['app-dropdown__icon', 'app-dropdown__label', 'app-dropdown__meta'])
+    expect(
+      secondItemContent
+        .findAll('.app-dropdown__icon, .app-dropdown__label, .app-dropdown__meta')
+        .map((segment) => segment.classes()[0]),
+    ).toEqual(['app-dropdown__label'])
+
+    const firstItemContentStyle = window.getComputedStyle(firstItemContent.element as HTMLElement)
+    const firstItemIconStyle = window.getComputedStyle(
+      firstItemContent.get('.app-dropdown__icon').element as HTMLElement,
+    )
+    const firstItemLabelStyle = window.getComputedStyle(
+      firstItemContent.get('.app-dropdown__label').element as HTMLElement,
+    )
+    const firstItemMetaStyle = window.getComputedStyle(
+      firstItemContent.get('.app-dropdown__meta').element as HTMLElement,
+    )
+
+    expect(firstItemContentStyle.display).toBe('grid')
+    expect(firstItemContentStyle.gridTemplateColumns).not.toBe('none')
+    expect(firstItemIconStyle.justifyContent).toBe('center')
+    expect(firstItemLabelStyle.minWidth).toBe('0px')
+    expect(firstItemMetaStyle.justifyContent).toBe('flex-end')
+    expect(firstItemMetaStyle.textAlign).toBe('right')
+
+    wrapper.unmount()
+  })
+
   it('当 active 与 danger 同时存在时由 danger 优先', async () => {
     const { component, error } = await loadAppDropdown()
 

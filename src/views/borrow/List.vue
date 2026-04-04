@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { View } from '@element-plus/icons-vue'
 import { computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -171,7 +172,6 @@ onMounted(() => {
             </option>
           </select>
         </label>
-
       </div>
 
       <template #actions>
@@ -229,7 +229,16 @@ onMounted(() => {
                 </td>
                 <td>
                   <div class="borrow-list-view__table-actions">
-                    <el-button text type="primary" @click="handleDetail(record.id)">详情</el-button>
+                    <!-- 显式详情按钮统一挂语义类，供共享主题收口样式，不影响首列记录链接与归还确认动作。 -->
+                    <el-button
+                      text
+                      type="primary"
+                      class="app-detail-action"
+                      @click="handleDetail(record.id)"
+                    >
+                      <el-icon><View /></el-icon>
+                      详情
+                    </el-button>
 
                     <!-- 归还确认只能由设备管理员发起，且仅对仍处于借用中的正式记录展示。 -->
                     <el-button

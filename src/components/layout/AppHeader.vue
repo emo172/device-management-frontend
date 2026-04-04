@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { Bell, Fold, Monitor, Moon, Setting, Sunny, SwitchButton } from '@element-plus/icons-vue'
+import {
+  Bell,
+  Fold,
+  Monitor,
+  Moon,
+  Setting,
+  Sunny,
+  SwitchButton,
+  User,
+} from '@element-plus/icons-vue'
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -66,39 +75,44 @@ const currentThemeOption = computed(() => {
 })
 
 /**
- * 头部主题菜单统一映射到 AppDropdown 契约，确保测试锚点、当前态和辅助文案都跟随共享包装层流转，
- * 避免头部继续维护一套只服务本地样式的私有菜单项结构。
+ * 主题菜单当前态必须严格跟随用户显式选择的 `themePreference`，
+ * 且当前项要同时输出 `active` 与 `meta: 当前`，这样 `system` 不会因为运行时解析漂移，
+ * 主题下拉也能继续给用户稳定的“当前选择”辅助提示。
  */
 const themeDropdownItems = computed<AppDropdownItem[]>(() =>
   themeOptions.map((option) => ({
     key: option.preference,
     label: option.label,
     icon: option.icon,
-    meta: option.preference === appStore.themePreference ? '当前' : undefined,
     active: option.preference === appStore.themePreference,
+    meta: option.preference === appStore.themePreference ? '当前' : undefined,
     testId: `theme-option-${option.preference}`,
   })),
 )
 
 /**
- * 用户菜单同样收口到共享 dropdown item 契约，让危险项语义由包装层统一表达，
- * 这样退出登录不需要在头部额外维护红色 class 或单独的菜单结构。
+ * 所有头部用户菜单项必须提供前置图标，危险态只由包装层统一表达，
+ * 这样个人中心、修改密码和退出登录都能复用统一的 dropdown 行结构，避免头部再维护私有视觉分支。
  */
 const userMenuItems: AppDropdownItem[] = [
   {
     key: 'profile',
     label: '个人中心',
-    icon: Setting,
+    icon: User,
+    testId: 'user-menu-profile',
   },
   {
     key: 'password',
     label: '修改密码',
+    icon: Setting,
+    testId: 'user-menu-password',
   },
   {
     key: 'logout',
     label: '退出登录',
     icon: SwitchButton,
     danger: true,
+    testId: 'user-menu-logout',
   },
 ]
 
@@ -237,7 +251,8 @@ async function handleUserMenuSelect(item: AppDropdownItem) {
             @select="handleThemeSelect"
           >
             <template #trigger>
-              <el-icon><component :is="currentThemeOption.icon" /></el-icon>
+              <!-- 主题 trigger 只沿用共享 dropdown 壳层展示当前主题图标与文案，不再维护头部私有触发器尺寸合同。 -->
+              <el-icon aria-hidden="true"><component :is="currentThemeOption.icon" /></el-icon>
               <span class="app-header__theme-label">{{ currentThemeOption.label }}</span>
             </template>
           </AppDropdown>
@@ -263,7 +278,11 @@ async function handleUserMenuSelect(item: AppDropdownItem) {
 
         <!-- 用户区仅承接个人中心、改密和退出，避免头部出现越权的管理型入口。 -->
         <div class="app-header__user-zone">
-          <AppDropdown :items="userMenuItems" @select="handleUserMenuSelect">
+          <AppDropdown
+            data-testid="user-menu-trigger"
+            :items="userMenuItems"
+            @select="handleUserMenuSelect"
+          >
             <template #trigger>
               <el-avatar class="app-header__avatar">{{ displayName.slice(0, 1) }}</el-avatar>
               <span>{{ displayName }}</span>

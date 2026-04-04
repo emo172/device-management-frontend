@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, RefreshRight } from '@element-plus/icons-vue'
+import { Plus, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -195,7 +195,16 @@ onMounted(() => {
           <el-table-column label="操作" min-width="260" fixed="right">
             <template #default="scope">
               <div class="device-list-view__table-actions">
-                <el-button text type="primary" @click="handleDetail(scope.row.id)">详情</el-button>
+                <!-- 操作列详情入口统一挂共享语义类和显式图标，便于接入全局详情动作样式，同时不影响首列实体链接。 -->
+                <el-button
+                  text
+                  type="primary"
+                  class="app-detail-action"
+                  @click="handleDetail(scope.row.id)"
+                >
+                  <el-icon><View /></el-icon>
+                  详情
+                </el-button>
 
                 <!-- 编辑、删除、状态变更都必须与后端 DEVICE_ADMIN 权限收口保持一致。 -->
                 <template v-if="isDeviceAdmin">

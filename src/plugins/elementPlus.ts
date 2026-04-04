@@ -1,5 +1,6 @@
 import type { App, Plugin } from 'vue'
 
+import { ElAlert } from 'element-plus/es/components/alert/index.mjs'
 import { ElAvatar } from 'element-plus/es/components/avatar/index.mjs'
 import { ElBadge } from 'element-plus/es/components/badge/index.mjs'
 import { ElBreadcrumb, ElBreadcrumbItem } from 'element-plus/es/components/breadcrumb/index.mjs'
@@ -12,6 +13,7 @@ import {
   ElMain,
 } from 'element-plus/es/components/container/index.mjs'
 import { ElDescriptions } from 'element-plus/es/components/descriptions/index.mjs'
+import { ElDatePicker } from 'element-plus/es/components/date-picker/index.mjs'
 import { ElDialog } from 'element-plus/es/components/dialog/index.mjs'
 import {
   ElDropdown,
@@ -27,6 +29,7 @@ import { ElInputNumber } from 'element-plus/es/components/input-number/index.mjs
 import { ElLoadingDirective } from 'element-plus/es/components/loading/index.mjs'
 import { ElMenu, ElMenuItem } from 'element-plus/es/components/menu/index.mjs'
 import { ElPagination } from 'element-plus/es/components/pagination/index.mjs'
+import { ElRadioButton, ElRadioGroup } from 'element-plus/es/components/radio/index.mjs'
 import { ElScrollbar } from 'element-plus/es/components/scrollbar/index.mjs'
 import { ElSelect } from 'element-plus/es/components/select/index.mjs'
 import { ElTable } from 'element-plus/es/components/table/index.mjs'
@@ -45,6 +48,7 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
  */
 const elementPlusPlugins: Plugin[] = [
   ElAside,
+  ElAlert,
   ElAvatar,
   ElBadge,
   ElBreadcrumb,
@@ -53,6 +57,7 @@ const elementPlusPlugins: Plugin[] = [
   ElCard,
   ElContainer,
   ElDescriptions,
+  ElDatePicker,
   ElDialog,
   ElDropdown,
   ElDropdownItem,
@@ -87,6 +92,13 @@ export function installElementPlus(app: App) {
   elementPlusPlugins.forEach((plugin) => {
     app.use(plugin)
   })
+
+  /**
+   * Element Plus 的 `ElRadioGroup` / `ElRadioButton` 属于 no-op install 组件。
+   * 创建页直接使用这两个标签时，若仍走 `app.use()` 将不会真正注册，运行态会继续报 unresolved component。
+   */
+  app.component('ElRadioButton', ElRadioButton)
+  app.component('ElRadioGroup', ElRadioGroup)
 
   /**
    * `v-loading` 并不是模板组件，而是设备列表等页面直接依赖的指令。

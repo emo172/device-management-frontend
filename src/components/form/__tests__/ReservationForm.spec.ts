@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineComponent, ref } from 'vue'
+import { computed, defineComponent, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 const formComponentModules = import.meta.glob('../*.vue')
@@ -72,14 +72,62 @@ const invalidDurationInitialValue: ReservationFormValue = {
   remark: '',
 }
 
-const appSelectStub = {
+interface SelectOptionSnapshot {
+  label: string
+  value: string
+}
+
+function collectSelectOptionSnapshots(nodes: Array<{ children?: unknown; props?: unknown }>) {
+  const options: SelectOptionSnapshot[] = []
+
+  nodes.forEach((node) => {
+    if (Array.isArray(node.children)) {
+      options.push(
+        ...collectSelectOptionSnapshots(
+          node.children as Array<{ children?: unknown; props?: unknown }>,
+        ),
+      )
+    }
+
+    const props = node.props as Record<string, unknown> | null | undefined
+
+    if (typeof props?.value === 'string' && typeof props?.label === 'string') {
+      options.push({
+        value: props.value,
+        label: props.label,
+      })
+    }
+  })
+
+  return options
+}
+
+const appSelectStub = defineComponent({
   name: 'AppSelect',
   inheritAttrs: false,
   props: ['modelValue', 'placeholder', 'disabled'],
   emits: ['update:modelValue'],
+  setup(props, { emit, slots }) {
+    const selectedLabel = computed(() => {
+      const options = collectSelectOptionSnapshots(
+        (slots.default?.() as Array<{ children?: unknown; props?: unknown }> | undefined) ?? [],
+      )
+
+      return options.find((option) => option.value === props.modelValue)?.label ?? ''
+    })
+
+    function handleChange(event: Event) {
+      emit('update:modelValue', (event.target as HTMLSelectElement).value)
+    }
+
+    return {
+      handleChange,
+      selectedLabel,
+    }
+  },
   template:
-    '<div class="app-select-stub" :class="$attrs.class" :style="$attrs.style" :data-placeholder="placeholder"><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="$emit(\'update:modelValue\', $event.target.value)"><slot /></select></div>',
-}
+    '<div class="app-select-stub" :class="$attrs.class" :style="$attrs.style" :data-placeholder="placeholder" :data-selected-label="selectedLabel"><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="handleChange"><slot /></select><span class="app-select-stub__selected-label">{{ selectedLabel }}</span></div>',
+})
 
 function createComponentStubs(options?: { interactiveTimeRangePicker?: boolean }) {
   const { interactiveTimeRangePicker = true } = options ?? {}
@@ -225,6 +273,73 @@ describe('ReservationForm', () => {
       purpose: '课程实验',
       remark: '',
     })
+  })
+
+  it('设备下拉在选中后显示设备名称并保留 string deviceId', async () => {
+    const { module, error } = await loadReservationForm()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const { wrapper, getSubmittedValue } = mountReservationFormHarness(module.default)
+    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
+
+    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
+      '示波器（DEV-001）',
+    )
+    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('示波器（DEV-001）')
+
+    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-2')
+
+    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
+      '频谱仪（DEV-002）',
+    )
+    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('频谱仪（DEV-002）')
+
+    await wrapper.get('.reservation-form__submit').trigger('click')
+
+    expect(getSubmittedValue()).toEqual({
+      deviceId: 'device-2',
+      startTime: '2026-03-18T09:00:00',
+      endTime: '2026-03-18T10:00:00',
+      purpose: '课程实验',
+      remark: '',
+    })
+    expect(typeof getSubmittedValue()?.deviceId).toBe('string')
+  })
+
+  it('设备下拉在清空冲突提示后仍显示已选设备文案', async () => {
+    const { module, error } = await loadReservationForm()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const { wrapper } = mountReservationFormHarness(module.default)
+    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
+
+    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-2')
+
+    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('1')
+    expect(wrapper.get('.conflict-warning-stub').text()).not.toContain('该设备在所选时间段已被预约')
+    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
+      '频谱仪（DEV-002）',
+    )
+
+    await wrapper.get('.time-range-picker').trigger('click')
+
+    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('2')
+    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
+      '频谱仪（DEV-002）',
+    )
+    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('频谱仪（DEV-002）')
   })
 
   it('本地时间规则不满足时阻止提交并展示提醒', async () => {
