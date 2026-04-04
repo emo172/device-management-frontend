@@ -19,7 +19,11 @@ function findStyleRule(selectorText: string) {
     .flatMap((styleSheet) => Array.from(styleSheet.cssRules ?? []))
     .find(
       (rule): rule is CSSStyleRule =>
-        rule instanceof CSSStyleRule && rule.selectorText === selectorText,
+        rule instanceof CSSStyleRule &&
+        rule.selectorText
+          .split(',')
+          .map((selector) => selector.trim())
+          .includes(selectorText),
     )
 }
 
@@ -221,5 +225,204 @@ describe('console theme styles', () => {
     expect(primaryPlainRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
     expect(dangerTextRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
     expect(infoLinkRules.some((rule) => rule.style.background === 'transparent')).toBe(true)
+  })
+
+  it('为详情动作建立隔离的中强调契约，并收口 primary plain/text/link 真实变体', () => {
+    const variablesSource = readStyleSource('src/assets/styles/variables.scss')
+    const overrideSource = readStyleSource('src/assets/styles/element-override.scss')
+
+    ;[
+      '--app-detail-action-text',
+      '--app-detail-action-text-strong',
+      '--app-detail-action-surface',
+      '--app-detail-action-surface-strong',
+      '--app-detail-action-border',
+    ].forEach((token) => {
+      expect(extractTokenValue(variablesSource, ':root', token)).toMatch(/^var\(--app-tone-brand-/)
+      expect(extractTokenValue(variablesSource, "\\[data-theme='dark'\\]", token)).toBeUndefined()
+    })
+
+    expect(extractTokenValue(variablesSource, ':root', '--app-detail-action-focus-ring')).toBe(
+      'var(--app-focus-ring)',
+    )
+    expect(
+      extractTokenValue(
+        variablesSource,
+        "\\[data-theme='dark'\\]",
+        '--app-detail-action-focus-ring',
+      ),
+    ).toBeUndefined()
+
+    expect(extractTokenValue(variablesSource, ':root', '--app-detail-action-icon-size')).toBe(
+      '14px',
+    )
+    expect(extractTokenValue(variablesSource, ':root', '--app-detail-action-gap')).toBe('4px')
+    expect(extractTokenValue(variablesSource, ':root', '--app-detail-action-padding-inline')).toBe(
+      '8px',
+    )
+
+    const genericPrimaryPlainButton = document.createElement('button')
+    genericPrimaryPlainButton.className = 'el-button el-button--primary is-plain'
+
+    const genericPrimaryTextButton = document.createElement('button')
+    genericPrimaryTextButton.className = 'el-button el-button--primary is-text'
+
+    const detailPlainButton = document.createElement('button')
+    detailPlainButton.className = 'el-button el-button--primary is-plain app-detail-action'
+
+    const detailTextButton = document.createElement('button')
+    detailTextButton.className = 'el-button el-button--primary is-text app-detail-action'
+
+    const detailLinkButton = document.createElement('button')
+    detailLinkButton.className = 'el-button el-button--primary is-link app-detail-action'
+
+    const detailTextContent = document.createElement('span')
+
+    const detailTextIcon = document.createElement('i')
+    detailTextIcon.className = 'el-icon'
+
+    detailTextContent.append(detailTextIcon, document.createTextNode('详情'))
+    detailTextButton.append(detailTextContent)
+
+    const detailWrappedLabelButton = document.createElement('button')
+    detailWrappedLabelButton.className = 'el-button el-button--primary is-text app-detail-action'
+
+    const detailWrappedContent = document.createElement('span')
+    const detailWrappedIcon = document.createElement('i')
+    detailWrappedIcon.className = 'el-icon'
+    const detailWrappedLabel = document.createElement('span')
+    detailWrappedLabel.textContent = '查看详情'
+
+    detailWrappedContent.append(detailWrappedIcon, detailWrappedLabel)
+    detailWrappedLabelButton.append(detailWrappedContent)
+
+    const disabledDetailActionButton = document.createElement('button')
+    disabledDetailActionButton.className =
+      'el-button el-button--primary is-text app-detail-action is-disabled'
+
+    document.body.append(
+      genericPrimaryPlainButton,
+      genericPrimaryTextButton,
+      detailPlainButton,
+      detailTextButton,
+      detailWrappedLabelButton,
+      detailLinkButton,
+      disabledDetailActionButton,
+    )
+
+    const detailPlainBaseRule = findStyleRule('.el-button--primary.is-plain.app-detail-action')
+    const detailTextBaseRule = findStyleRule('.el-button--primary.is-text.app-detail-action')
+    const detailLinkBaseRule = findStyleRule('.el-button--primary.is-link.app-detail-action')
+    const detailTextHoverRule = findStyleRule('.el-button--primary.is-text.app-detail-action:hover')
+    const detailTextFocusRule = findStyleRule(
+      '.el-button--primary.is-text.app-detail-action:focus-visible',
+    )
+    const detailDisabledRules = findStyleRulesContaining('.app-detail-action.is-disabled')
+    const detailIconRule = findStyleRule('.app-detail-action .el-icon')
+    const detailContentRule = findStyleRule('.el-button.app-detail-action > span')
+    const detailIconSpacingRule = findStyleRule(
+      '.el-button.app-detail-action > span > .el-icon + span',
+    )
+    const genericPrimaryPlainRules = findStyleRulesContaining(
+      '.el-button--primary.is-plain',
+    ).filter((rule) => !rule.selectorText.includes('.app-detail-action'))
+    const genericPrimaryTextRules = findStyleRulesContaining('.el-button--primary.is-text').filter(
+      (rule) => !rule.selectorText.includes('.app-detail-action'),
+    )
+
+    ;[detailPlainBaseRule, detailTextBaseRule, detailLinkBaseRule].forEach((rule) => {
+      expect(rule?.style.borderColor).toBe('var(--app-detail-action-border)')
+      expect(rule?.style.background).toBe('var(--app-detail-action-surface)')
+      expect(rule?.style.color).toBe('var(--app-detail-action-text)')
+      expect(rule?.style.gap).toBe('var(--app-detail-action-gap)')
+      expect(rule?.style.paddingInline).toBe('var(--app-detail-action-padding-inline)')
+    })
+
+    expect(detailTextHoverRule?.style.background).toBe('var(--app-detail-action-surface-strong)')
+    expect(detailTextHoverRule?.style.color).toBe('var(--app-detail-action-text-strong)')
+
+    expect(detailTextFocusRule?.style.background).toBe('var(--app-detail-action-surface-strong)')
+    expect(detailTextFocusRule?.style.color).toBe('var(--app-detail-action-text-strong)')
+    expect(detailTextFocusRule?.style.boxShadow).toBe('var(--app-detail-action-focus-ring)')
+
+    expect(detailDisabledRules).toHaveLength(1)
+    expect(detailDisabledRules[0]?.style.background).toBe('var(--el-disabled-bg-color)')
+    expect(detailDisabledRules[0]?.style.color).toBe('var(--el-disabled-text-color)')
+    expect(detailDisabledRules[0]?.style.boxShadow).toBe('none')
+
+    expect(overrideSource).toContain('.el-button--primary.is-text.app-detail-action')
+    expect(overrideSource).toContain('.el-button--primary.is-link.app-detail-action')
+    expect(genericPrimaryPlainRules.some((rule) => rule.style.background === 'transparent')).toBe(
+      true,
+    )
+    expect(genericPrimaryTextRules.some((rule) => rule.style.background === 'transparent')).toBe(
+      true,
+    )
+    expect(
+      genericPrimaryPlainRules.every((rule) => !rule.cssText.includes('--app-detail-action-')),
+    ).toBe(true)
+    expect(
+      genericPrimaryTextRules.every((rule) => !rule.cssText.includes('--app-detail-action-')),
+    ).toBe(true)
+
+    expect(detailIconRule?.style.inlineSize).toBe('var(--app-detail-action-icon-size)')
+    expect(detailIconRule?.style.blockSize).toBe('var(--app-detail-action-icon-size)')
+    expect(detailIconRule?.style.display).toBe('inline-flex')
+    expect(detailIconRule?.style.alignItems).toBe('center')
+    expect(detailIconRule?.style.justifyContent).toBe('center')
+    expect(detailIconRule?.style.flexShrink).toBe('0')
+    expect(detailIconRule?.style.fontSize).toBe('var(--app-detail-action-icon-size)')
+    expect(detailContentRule?.style.display).toBe('inline-flex')
+    expect(detailContentRule?.style.alignItems).toBe('center')
+    expect(detailContentRule?.style.justifyContent).toBe('center')
+    expect(detailContentRule?.style.gap).toBe('var(--app-detail-action-gap)')
+    expect(detailIconSpacingRule?.style.marginLeft).toBe('0px')
+
+    const detailTextButtonStyle = getComputedStyle(detailTextButton)
+    const detailTextContentStyle = getComputedStyle(detailTextContent)
+    const detailTextIconStyle = getComputedStyle(detailTextIcon)
+    const detailWrappedLabelStyle = getComputedStyle(detailWrappedLabel)
+    expectCssValue(detailTextButtonStyle.gap, ['4px', 'var(--app-detail-action-gap)'])
+    expectCssValue(detailTextButtonStyle.paddingInline, [
+      '8px',
+      'var(--app-detail-action-padding-inline)',
+    ])
+    expectCssValue(detailTextContentStyle.gap, ['4px', 'var(--app-detail-action-gap)'])
+    expect(detailTextIconStyle.display).toBe('inline-flex')
+    expect(detailTextIconStyle.alignItems).toBe('center')
+    expect(detailTextIconStyle.justifyContent).toBe('center')
+    expectCssValue(detailTextIconStyle.inlineSize, ['14px', 'var(--app-detail-action-icon-size)'])
+    expectCssValue(detailTextIconStyle.blockSize, ['14px', 'var(--app-detail-action-icon-size)'])
+    expect(detailTextIconStyle.flexShrink).toBe('0')
+    expect(detailWrappedLabelStyle.marginLeft).toBe('0px')
+
+    expect(detailPlainBaseRule?.style.background).not.toBe('transparent')
+    expect(detailDisabledRules[0]?.style.background).not.toBe(detailTextBaseRule?.style.background)
+  })
+
+  it('为 teleported dropdown 图标锁定固定尺寸与居中盒模型，避免主题菜单图标抖动', () => {
+    const styleSource = readStyleSource('src/assets/styles/element-override.scss')
+    const dropdownIconRules = findStyleRulesContaining(
+      '.el-dropdown-menu__item .app-dropdown__icon',
+    )
+    const dropdownItem = document.createElement('button')
+    dropdownItem.className = 'el-dropdown-menu__item'
+
+    const icon = document.createElement('span')
+    icon.className = 'app-dropdown__icon'
+    dropdownItem.append(icon)
+    document.body.append(dropdownItem)
+
+    expect(styleSource).toContain('.el-dropdown-menu__item .app-dropdown__icon')
+    expect(dropdownIconRules.some((rule) => rule.style.justifyContent === 'center')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.inlineSize === '16px')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.blockSize === '16px')).toBe(true)
+    expect(dropdownIconRules.some((rule) => rule.style.flexShrink === '0')).toBe(true)
+
+    const iconStyle = getComputedStyle(icon)
+    expect(iconStyle.display).toBe('inline-flex')
+    expect(iconStyle.alignItems).toBe('center')
+    expect(iconStyle.justifyContent).toBe('center')
+    expect(iconStyle.flexShrink).toBe('0')
   })
 })

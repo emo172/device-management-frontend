@@ -666,13 +666,9 @@ describe('AppHeader', () => {
     vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
 
     const wrapper = mountHeader()
-    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
 
-    await dropdownTriggers[1]!.trigger('click')
-    await wrapper
-      .findAll('.app-dropdown-stub__item')
-      .find((item) => item.text().includes('个人中心'))!
-      .trigger('click')
+    await wrapper.get('[data-testid="user-menu-trigger"]').trigger('click')
+    await wrapper.get('[data-testid="user-menu-profile"]').trigger('click')
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith('/profile')
@@ -697,13 +693,9 @@ describe('AppHeader', () => {
     vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
 
     const wrapper = mountHeader()
-    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
 
-    await dropdownTriggers[1]!.trigger('click')
-    await wrapper
-      .findAll('.app-dropdown-stub__item')
-      .find((item) => item.text().includes('修改密码'))!
-      .trigger('click')
+    await wrapper.get('[data-testid="user-menu-trigger"]').trigger('click')
+    await wrapper.get('[data-testid="user-menu-password"]').trigger('click')
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({ path: '/profile', query: { tab: 'password' } })
@@ -729,13 +721,9 @@ describe('AppHeader', () => {
     vi.spyOn(notificationStore, 'stopPolling').mockImplementation(() => undefined)
 
     const wrapper = mountHeader()
-    const dropdownTriggers = wrapper.findAll('.app-dropdown-stub__trigger')
 
-    await dropdownTriggers[1]!.trigger('click')
-    await wrapper
-      .findAll('.app-dropdown-stub__item')
-      .find((item) => item.text().includes('退出登录'))!
-      .trigger('click')
+    await wrapper.get('[data-testid="user-menu-trigger"]').trigger('click')
+    await wrapper.get('[data-testid="user-menu-logout"]').trigger('click')
     await flushPromises()
 
     expect(logoutSpy).toHaveBeenCalledTimes(1)

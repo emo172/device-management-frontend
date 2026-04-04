@@ -100,9 +100,11 @@ describe('ReservationCard', () => {
         stubs: {
           CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
           ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElIcon: { template: '<i class="el-icon"><slot /></i>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              '<button v-bind="$attrs" :data-button-type="$attrs.type" @click="$emit(\'click\')"><slot /></button>',
           },
           ElTag: { template: '<span><slot /></span>' },
         },
@@ -111,8 +113,16 @@ describe('ReservationCard', () => {
 
     expect(wrapper.text()).toContain('签到')
     expect(wrapper.text()).not.toContain('取消预约')
+    const detailButton = wrapper.get('.reservation-card__detail')
+    expect(detailButton.classes()).toContain('app-detail-action')
+    expect(detailButton.attributes('data-button-type')).toBe('primary')
+    expect(detailButton.find('.el-icon').exists()).toBe(true)
+    expect(detailButton.find('svg').exists()).toBe(true)
+    expect(wrapper.get('.reservation-card__check-in').classes()).not.toContain('app-detail-action')
 
+    await detailButton.trigger('click')
     await wrapper.get('.reservation-card__check-in').trigger('click')
+    expect(wrapper.emitted('detail')).toEqual([['reservation-1']])
     expect(wrapper.emitted('check-in')).toEqual([['reservation-1']])
   })
 
@@ -137,9 +147,11 @@ describe('ReservationCard', () => {
         stubs: {
           CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
           ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElIcon: { template: '<i class="el-icon"><slot /></i>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              '<button v-bind="$attrs" :data-button-type="$attrs.type" @click="$emit(\'click\')"><slot /></button>',
           },
           ElTag: { template: '<span><slot /></span>' },
         },
@@ -147,6 +159,13 @@ describe('ReservationCard', () => {
     })
 
     expect(wrapper.text()).toContain('取消预约')
+    const detailButton = wrapper.get('.reservation-card__detail')
+    expect(detailButton.classes()).toContain('app-detail-action')
+    expect(detailButton.attributes('data-button-type')).toBe('primary')
+    expect(detailButton.find('.el-icon').exists()).toBe(true)
+    expect(detailButton.find('svg').exists()).toBe(true)
+    expect(wrapper.get('.reservation-card__cancel').classes()).not.toContain('app-detail-action')
+
     await wrapper.get('.reservation-card__cancel').trigger('click')
     expect(wrapper.emitted('cancel')).toEqual([['reservation-1']])
 
@@ -193,9 +212,11 @@ describe('ReservationCard', () => {
         stubs: {
           CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
           ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElIcon: { template: '<i class="el-icon"><slot /></i>' },
           ElButton: {
             emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
+            template:
+              '<button v-bind="$attrs" :data-button-type="$attrs.type" @click="$emit(\'click\')"><slot /></button>',
           },
           ElTag: { template: '<span><slot /></span>' },
         },

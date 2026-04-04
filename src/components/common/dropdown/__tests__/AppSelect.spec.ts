@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { computed, defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import { installElementPlus } from '@/plugins/elementPlus'
@@ -40,14 +40,65 @@ const selectTestStubs = {
     props: ['modelValue', 'disabled', 'placeholder'],
     emits: ['update:modelValue', 'change', 'visible-change'],
     inheritAttrs: false,
-    template:
-      '<div class="el-select-stub" v-bind="$attrs"><slot name="prefix" /><slot /></div>',
+    template: '<div class="el-select-stub" v-bind="$attrs"><slot name="prefix" /><slot /></div>',
   }),
 }
 
 const TestLeadingIcon = defineComponent({
   name: 'TestLeadingIcon',
   template: '<svg class="test-leading-icon" aria-hidden="true" />',
+})
+
+interface SelectOptionSnapshot {
+  label: string
+  value: string
+}
+
+function collectSelectOptionSnapshots(nodes: Array<{ children?: unknown; props?: unknown }>) {
+  const options: SelectOptionSnapshot[] = []
+
+  nodes.forEach((node) => {
+    if (Array.isArray(node.children)) {
+      options.push(
+        ...collectSelectOptionSnapshots(
+          node.children as Array<{ children?: unknown; props?: unknown }>,
+        ),
+      )
+    }
+
+    const props = node.props as Record<string, unknown> | null | undefined
+
+    if (typeof props?.value === 'string' && typeof props?.label === 'string') {
+      options.push({
+        value: props.value,
+        label: props.label,
+      })
+    }
+  })
+
+  return options
+}
+
+const interactiveSingleSelectStub = defineComponent({
+  name: 'ElSelect',
+  props: ['modelValue', 'disabled', 'placeholder'],
+  emits: ['update:modelValue', 'change', 'visible-change'],
+  inheritAttrs: false,
+  setup(props, { slots }) {
+    const selectedLabel = computed(() => {
+      const options = collectSelectOptionSnapshots(
+        (slots.default?.() as Array<{ children?: unknown; props?: unknown }> | undefined) ?? [],
+      )
+
+      return options.find((option) => option.value === props.modelValue)?.label ?? ''
+    })
+
+    return {
+      selectedLabel,
+    }
+  },
+  template:
+    '<div class="el-select-stub" v-bind="$attrs"><div class="el-select__wrapper"><div class="el-select__selection"><template v-if="modelValue"><div class="el-select__selected-item el-select__input-wrapper is-hidden"><input class="el-select__input" aria-hidden="true" value="" /></div><div class="el-select__selected-item el-select__placeholder"><span>{{ selectedLabel }}</span></div></template><div v-else class="el-select__placeholder"><span>{{ placeholder }}</span></div></div><slot name="prefix" /><slot /></div></div>',
 })
 
 describe('AppSelect', () => {
@@ -120,6 +171,86 @@ describe('AppSelect', () => {
     expect(select.attributes('aria-label')).toBe('通知类型筛选')
     expect(select.attributes('popper-class')).toBeUndefined()
     expect(select.attributes('popperClass')).toBeUndefined()
+  })
+
+  it('在单选模式下显示已选文案且不覆盖 placeholder', async () => {
+    const { component, error } = await loadAppSelect()
+
+    expect(error).toBeNull()
+    expect(component).toBeTruthy()
+
+    if (!component) {
+      return
+    }
+
+    const wrapper = mount(component, {
+      props: {
+        modelValue: 'device-1',
+        placeholder: '请选择可预约设备',
+      },
+      slots: {
+        default:
+          '<el-option label="示波器（DEV-001）" value="device-1" /><el-option label="频谱仪（DEV-002）" value="device-2" />',
+      },
+      global: {
+        stubs: {
+          ElSelect: interactiveSingleSelectStub,
+          ElOption: {
+            props: ['label', 'value'],
+            template: '<option :value="value">{{ label }}</option>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.get('.el-select__selected-item.el-select__placeholder').text()).toBe(
+      '示波器（DEV-001）',
+    )
+    expect(wrapper.get('.el-select__input-wrapper.is-hidden').text()).toBe('')
+
+    const emptyWrapper = mount(component, {
+      props: {
+        modelValue: '',
+        placeholder: '请选择可预约设备',
+      },
+      slots: {
+        default:
+          '<el-option label="示波器（DEV-001）" value="device-1" /><el-option label="频谱仪（DEV-002）" value="device-2" />',
+      },
+      global: {
+        stubs: {
+          ElSelect: interactiveSingleSelectStub,
+          ElOption: {
+            props: ['label', 'value'],
+            template: '<option :value="value">{{ label }}</option>',
+          },
+        },
+      },
+    })
+
+    expect(emptyWrapper.find('.el-select__selected-item.el-select__placeholder').exists()).toBe(
+      false,
+    )
+    expect(emptyWrapper.get('.el-select__placeholder').text()).toBe('请选择可预约设备')
+
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/common/dropdown/AppSelect.vue'),
+      'utf-8',
+    )
+
+    expect(source).toContain('.app-select :deep(.el-select__selection)')
+    expect(source).toContain('.app-select :deep(.el-select__input-wrapper.is-hidden)')
+    expect(source).toContain('.app-select :deep(.el-select__selected-item.el-select__placeholder)')
+    expect(source).toContain(
+      'color: var(--app-text-primary, var(--el-text-color-primary, #303133));',
+    )
+    expect(source).toContain('visibility: hidden;')
+    expect(source).toContain('position: static;')
+    expect(source).toContain('transform: none;')
+    expect(source).toContain('width: auto;')
+    expect(source).toContain('overflow: hidden;')
+    expect(source).toContain('text-overflow: ellipsis;')
+    expect(source).toContain('white-space: nowrap;')
   })
 
   it('转发 change 和 visible-change 事件，且无前缀时不保留占位', async () => {

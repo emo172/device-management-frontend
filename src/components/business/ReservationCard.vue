@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { View } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 
 import type { ReservationListItemResponse } from '@/api/reservations'
@@ -59,7 +60,14 @@ const showCancelHint = computed(
     </div>
 
     <div class="reservation-card__actions">
-      <el-button class="reservation-card__detail" text @click="emit('detail', reservation.id)">
+      <!-- 卡片详情入口统一强调为共享只读查看动作，用户自助签到/取消继续保留各自业务语义与色彩层级。 -->
+      <el-button
+        class="reservation-card__detail app-detail-action"
+        text
+        type="primary"
+        @click="emit('detail', reservation.id)"
+      >
+        <el-icon><View /></el-icon>
         详情
       </el-button>
 

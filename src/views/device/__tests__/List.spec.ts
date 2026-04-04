@@ -62,6 +62,20 @@ const deviceRecord = {
   location: 'A-201',
 }
 
+const elButtonStub = {
+  emits: ['click'],
+  template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
+}
+
+const elIconStub = {
+  template: '<i class="el-icon-stub"><slot /></i>',
+}
+
+const elTableColumnStub = {
+  data: () => ({ row: deviceRecord }),
+  template: '<div class="el-table-column-stub"><slot :row="row" /></div>',
+}
+
 describe('device list view', () => {
   beforeEach(() => {
     pushMock.mockReset()
@@ -116,13 +130,10 @@ describe('device list view', () => {
             template:
               '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: elTableColumnStub,
         },
         directives: {
           loading: {
@@ -144,6 +155,97 @@ describe('device list view', () => {
     expect(wrapper.text()).toContain('设备分类')
     expect(wrapper.text()).toContain('高精度示波器-admin')
     expect(wrapper.text()).toContain('/files/devices/device-1.png')
+  })
+
+  it('操作列详情按钮挂接统一语义类和显式图标，编辑按钮与设备名称链接保持原语义', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'device-admin@example.com',
+      phone: '13800138000',
+      realName: '设备管理员',
+      role: UserRole.DEVICE_ADMIN,
+      userId: 'device-admin-1',
+      username: 'device-admin',
+    })
+
+    const deviceStore = useDeviceStore()
+    deviceStore.list = [deviceRecord]
+    deviceStore.total = 1
+
+    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
+      total: 1,
+      records: [deviceRecord],
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          ConfirmDialog: { template: '<div></div>' },
+          DeviceCard: {
+            props: ['device', 'showAdminActions'],
+            template:
+              '<article class="device-card-stub">{{ device.name }}-{{ showAdminActions ? "admin" : "readonly" }}-{{ device.imageUrl }}</article>',
+          },
+          DeviceStatusTag: {
+            props: ['status'],
+            template: '<span>{{ status }}</span>',
+          },
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          SearchBar: {
+            props: ['title', 'description', 'eyebrow', 'label'],
+            template:
+              '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
+          },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
+          ElTable: { template: '<div><slot /></div>' },
+          ElTableColumn: elTableColumnStub,
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    const detailButton = wrapper.get('.app-detail-action')
+    const linkButton = wrapper.get('.device-list-view__link')
+    const editButton = wrapper
+      .findAll('button')
+      .find((buttonWrapper) => buttonWrapper.text().trim() === '编辑')
+
+    expect(detailButton.text()).toContain('详情')
+    expect(detailButton.find('.el-icon-stub').exists()).toBe(true)
+    expect(detailButton.find('svg').exists()).toBe(true)
+    expect(linkButton.classes()).not.toContain('app-detail-action')
+    expect(editButton).toBeTruthy()
+    expect(editButton?.classes()).not.toContain('app-detail-action')
+  })
+
+  it('详情按钮源码使用 app-detail-action 与显式 View 图标，不污染设备名称链接或编辑按钮', () => {
+    const source = readDeviceViewSource('List.vue')
+
+    expect(source).toMatch(
+      /<el-button\s+text\s+type="primary"\s+class="app-detail-action"\s+@click="handleDetail\(scope\.row\.id\)"[\s\S]*?<el-icon><View\s*\/><\/el-icon>[\s\S]*?详情[\s\S]*?<\/el-button>/,
+    )
+    expect(source).toContain('class="device-list-view__link"')
+    expect(source).not.toContain('class="device-list-view__link app-detail-action"')
+    expect(source).not.toContain('class="app-detail-action device-list-view__link"')
+    expect(source).not.toMatch(
+      /<el-button[^>]*class="app-detail-action"[^>]*@click="handleEdit\(scope\.row\.id\)"/,
+    )
   })
 
   it('列表页源码改为消费主题 token，避免 hero 与表格链接在深色下残留浅色渐变和硬编码蓝色', () => {
@@ -208,13 +310,10 @@ describe('device list view', () => {
             template:
               '<div class="console-filter-panel search-bar-stub">{{ eyebrow }}|{{ title }}|{{ description }}|{{ label }}</div>',
           },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElIcon: { template: '<i><slot /></i>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
           ElTable: { template: '<div><slot /></div>' },
-          ElTableColumn: { template: '<div><slot :row="{}" /></div>' },
+          ElTableColumn: elTableColumnStub,
         },
         directives: {
           loading: {
