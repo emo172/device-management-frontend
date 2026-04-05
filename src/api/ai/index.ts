@@ -5,6 +5,7 @@ import type {
   AiChatResponse,
   AiHistoryDetailResponse,
   AiHistorySummaryResponse,
+  AiSpeechTranscriptionResponse,
 } from './types'
 
 export type {
@@ -12,6 +13,7 @@ export type {
   AiChatResponse,
   AiHistoryDetailResponse,
   AiHistorySummaryResponse,
+  AiSpeechTranscriptionResponse,
 } from './types'
 
 /**
@@ -20,6 +22,20 @@ export type {
  */
 export function chatWithAi(data: AiChatRequest) {
   return request.post<AiChatResponse, AiChatRequest>('/ai/chat', data)
+}
+
+/**
+ * 上传录音文件并换取中文转写文本。
+ * 对应 `POST /api/ai/speech/transcriptions`，前端只把浏览器产出的录音以 multipart/form-data 透传给后端，
+ * 不直连 Azure 等语音供应商。
+ */
+export function transcribeAiSpeech(file: Blob | File) {
+  const formData = new FormData()
+  const filename = file instanceof File && file.name ? file.name : 'voice.webm'
+
+  formData.append('file', file, filename)
+
+  return request.post<AiSpeechTranscriptionResponse, FormData>('/ai/speech/transcriptions', formData)
 }
 
 /**
@@ -36,4 +52,14 @@ export function getAiHistoryList() {
  */
 export function getAiHistoryDetail(historyId: string) {
   return request.get<AiHistoryDetailResponse>(`/ai/history/${historyId}`)
+}
+
+/**
+ * 拉取当前用户拥有的 AI 历史回复语音。
+ * 对应 `GET /api/ai/history/{id}/speech`，必须走二进制 blob，避免把受保护音频能力退化成公开 URL。
+ */
+export function getAiHistorySpeech(historyId: string) {
+  return request.get<Blob>(`/ai/history/${historyId}/speech`, {
+    responseType: 'blob',
+  })
 }
