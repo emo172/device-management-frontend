@@ -1,42 +1,17 @@
-import { existsSync, readdirSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const configFilePath = fileURLToPath(import.meta.url)
 const repoRoot = dirname(configFilePath)
 
 /**
- * task 7 只需要最小本地冒烟能力。
- * 这里优先复用本机已缓存的 Playwright Chromium，避免因为外网波动再次阻塞 smoke 验证。
+ * 语音 smoke 默认走 Playwright 自带的浏览器解析能力。
+ * 只有 CI 或特殊环境显式传入路径时才覆盖，避免把作者本机缓存目录写死进仓库。
  */
-function resolveChromiumExecutablePath() {
-  const cachedBrowserRoot = join(homedir(), '.cache', 'ms-playwright')
-
-  if (!existsSync(cachedBrowserRoot)) {
-    throw new Error(`未找到 Playwright 浏览器缓存目录：${cachedBrowserRoot}`)
-  }
-
-  const chromiumCandidates = readdirSync(cachedBrowserRoot)
-    .filter((entry) => entry.startsWith('chromium-'))
-    .sort()
-    .reverse()
-
-  for (const candidate of chromiumCandidates) {
-    const chromiumRoot = join(cachedBrowserRoot, candidate)
-    const linux64Path = join(chromiumRoot, 'chrome-linux64', 'chrome')
-    const legacyLinuxPath = join(chromiumRoot, 'chrome-linux', 'chrome')
-
-    if (existsSync(linux64Path)) {
-      return linux64Path
-    }
-
-    if (existsSync(legacyLinuxPath)) {
-      return legacyLinuxPath
-    }
-  }
-
-  throw new Error(`未在 ${cachedBrowserRoot} 下找到可执行的 Chromium 浏览器`)
+export function resolveChromiumExecutablePath(env = process.env) {
+  const executablePath = env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
+  return executablePath ? executablePath : null
 }
 
 export const voiceSmokeConfig = {

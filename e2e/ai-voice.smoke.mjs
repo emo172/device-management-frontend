@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { chromium } from 'playwright-core'
+import { chromium } from '@playwright/test'
 
 import { voiceSmokeConfig } from '../playwright.voice-smoke.config.mjs'
 
@@ -611,8 +611,10 @@ async function main() {
 
   const browser = await chromium.launch({
     args: voiceSmokeConfig.browserLaunchArgs,
-    executablePath: voiceSmokeConfig.browserExecutablePath,
     headless: true,
+    ...(voiceSmokeConfig.browserExecutablePath
+      ? { executablePath: voiceSmokeConfig.browserExecutablePath }
+      : {}),
   })
 
   try {
