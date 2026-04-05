@@ -1,10 +1,21 @@
 /**
  * AI 对话请求 DTO。
- * 对应后端 `AiChatRequest`，当前仅支持文本消息，`sessionId` 可为空以开启新会话。
+ * 对应后端 `AiChatRequest`，主对话接口仍只接收文本消息，语音录音需先转写后再复用该接口续接会话。
  */
 export interface AiChatRequest {
   sessionId?: string
   message: string
+}
+
+/**
+ * AI 语音转写响应 DTO。
+ * 对应后端 `AiSpeechTranscriptionResponse`，只承载转写文本和语音服务元信息，
+ * 前端随后仍需复用既有文本对话接口完成整轮聊天，不把语音链路塞回文本响应模型。
+ */
+export interface AiSpeechTranscriptionResponse {
+  transcript: string
+  locale: string
+  provider: string
 }
 
 /**
@@ -34,7 +45,7 @@ export interface AiHistorySummaryResponse {
 
 /**
  * AI 历史详情 DTO。
- * 对应后端 `AiHistoryDetailResponse`，保留结构化信息与错误信息，便于后续详情抽屉扩展。
+ * 对应后端 `AiHistoryDetailResponse`，保留结构化信息与错误信息；其中 `aiResponse` 同时作为历史语音按需合成的数据源。
  */
 export interface AiHistoryDetailResponse {
   id: string
