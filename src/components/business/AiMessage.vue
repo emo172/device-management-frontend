@@ -2,8 +2,15 @@
 import { computed } from 'vue'
 
 import type { AiChatMessage } from '@/composables/useAiChat'
+import { AI_MESSAGE_PLAY_TEST_ID } from '@/constants/ai'
 import { AiIntentType, AiIntentTypeLabel, AiIntentTypeTagType } from '@/enums'
 import { formatDateTime } from '@/utils/date'
+
+interface AiMessagePlaybackState {
+  isLoading: boolean
+  isPlaying: boolean
+  errorMessage: string | null
+}
 
 /**
  * AI 单条消息组件。
@@ -11,9 +18,22 @@ import { formatDateTime } from '@/utils/date'
  */
 const props = defineProps<{
   message: AiChatMessage
+  playbackState?: AiMessagePlaybackState | null
+}>()
+
+const emit = defineEmits<{
+  'toggle-playback': [historyId: string]
 }>()
 
 const isAssistant = computed(() => props.message.role === 'assistant')
+const canPlayVoice = computed(() => isAssistant.value && Boolean(props.message.historyId))
+const playbackButtonLabel = computed(() => {
+  if (props.playbackState?.isLoading) {
+    return '加载语音中...'
+  }
+
+  return props.playbackState?.isPlaying ? '停止播放' : '播放语音'
+})
 
 function resolveIntentLabel(intent?: string) {
   if (!intent) {
@@ -29,6 +49,14 @@ function resolveIntentTagType(intent?: string): StatusTagType {
   }
 
   return AiIntentTypeTagType[intent as AiIntentType] ?? 'info'
+}
+
+function handleTogglePlayback() {
+  if (!props.message.historyId) {
+    return
+  }
+
+  emit('toggle-playback', props.message.historyId)
 }
 </script>
 
@@ -56,10 +84,24 @@ function resolveIntentTagType(intent?: string): StatusTagType {
         <el-tag size="small" type="warning" effect="plain">
           执行：{{ message.executeResult || '未返回' }}
         </el-tag>
+        <!-- 只有落库后的 AI 回复才有 historyId，可安全走受保护语音接口；用户消息和失败消息都不展示播放入口。 -->
+        <button
+          v-if="canPlayVoice"
+          :data-testid="AI_MESSAGE_PLAY_TEST_ID"
+          class="ai-message__play-button"
+          type="button"
+          @click="handleTogglePlayback"
+        >
+          {{ playbackButtonLabel }}
+        </button>
       </div>
       <div v-else-if="message.status === 'failed'" class="ai-message__meta">
         <el-tag size="small" type="danger" effect="light">发送失败</el-tag>
       </div>
+
+      <p v-if="playbackState?.errorMessage" class="ai-message__playback-error">
+        {{ playbackState.errorMessage }}
+      </p>
     </div>
   </article>
 </template>
@@ -128,5 +170,34 @@ function resolveIntentTagType(intent?: string): StatusTagType {
 
 .ai-message__meta {
   margin-top: 14px;
+}
+
+.ai-message__play-button {
+  border: 1px solid var(--app-detail-action-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-detail-action-surface);
+  color: var(--app-detail-action-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.ai-message__play-button:hover {
+  background: var(--app-detail-action-surface-strong);
+  color: var(--app-detail-action-text-strong);
+}
+
+.ai-message__play-button:focus-visible {
+  outline: none;
+  box-shadow: var(--app-detail-action-focus-ring);
+}
+
+.ai-message__playback-error {
+  margin: 12px 0 0;
+  color: var(--app-tone-danger-text);
+  font-size: 13px;
+  line-height: 1.6;
 }
 </style>
