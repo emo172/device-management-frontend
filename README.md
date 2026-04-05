@@ -10,8 +10,9 @@
 - 设备与分类
 - 预约 / 审批 / 签到
 - 借还 / 逾期 / 通知
+- AI 对话与语音辅助链路
 
-首轮仍不包含 AI、统计、Prompt 模板和批量预约结果页。
+首轮仍不包含统计、Prompt 模板和批量预约结果页。
 
 ## 联调真相源
 
@@ -63,6 +64,15 @@ npm run dev
 - 借还、逾期、通知页面遵循“名称优先、缺失回退 ID”，不在前端伪造后端未返回的名字字段
 - 前端主展示与写接口统一使用 `DEVICE_ONLY` / `DEVICE_THEN_SYSTEM`、`SELF` / `ON_BEHALF`、`NOT_CHECKED_IN` / `CHECKED_IN` / `CHECKED_IN_TIMEOUT`；旧别名只保留在兼容解析入口
 
+## AI 语音 v1 边界
+
+- 后端 `speech.enabled` 是语音总开关，关闭时聊天页会继续保留文字对话与历史查看，不把不可用状态伪装成故障
+- v1 语音 provider 仅对接 Azure Speech，部署前至少需要准备 `SPEECH_AZURE_REGION` 与 `SPEECH_AZURE_KEY`
+- 当前发布阻塞浏览器矩阵仅覆盖桌面版 Chrome / Edge，不要把 Safari 或移动端写成已正式支持
+- 语音转写会经过第三方云语音服务处理，但原始录音不做持久化存储
+- 历史播放会按需基于 `chat_history.aiResponse` 生成，不预存整段历史音频
+- 第三方云语音的合规 / 隐私审批是上线前置条件，当前仓库文档不代表审批已经完成
+
 ## 验证命令
 
 ```bash
@@ -75,6 +85,12 @@ npm run test:unit
 
 ```bash
 npm run type-check && npm run build && npm run test:unit
+```
+
+如需补做桌面版 Chrome / Edge 的语音冒烟，可额外运行：
+
+```bash
+npm run test:smoke:voice
 ```
 
 ## WSL2 说明

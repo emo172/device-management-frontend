@@ -1,6 +1,8 @@
 import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const transcribeAiSpeechMock = vi.fn()
+
 const aiStoreState = reactive({
   currentSessionId: null as string | null,
 })
@@ -20,8 +22,13 @@ vi.mock('@/stores/modules/ai', () => ({
   }),
 }))
 
+vi.mock('@/api/ai', () => ({
+  transcribeAiSpeech: transcribeAiSpeechMock,
+}))
+
 describe('useAiChat', () => {
   beforeEach(() => {
+    transcribeAiSpeechMock.mockReset()
     chatMock.mockReset()
     resetConversationStateMock.mockClear()
     aiStoreState.currentSessionId = null

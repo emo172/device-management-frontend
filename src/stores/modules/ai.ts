@@ -24,7 +24,8 @@ function createDefaultState(): AiState {
 
 /**
  * AI 对话域状态。
- * 只承接真实存在的文本对话、历史列表和历史详情能力，为后续 USER 侧 AI 页面提供最小可用数据层。
+ * 只承接真实存在的对话、历史列表和历史详情能力。
+ * 语音录音仍先转写回文本发送，历史播报也只按需读取现有 `aiResponse`，避免 Store 虚构原始录音或预生成音频状态。
  */
 export const useAiStore = defineStore('ai', {
   state: (): AiState => createDefaultState(),
