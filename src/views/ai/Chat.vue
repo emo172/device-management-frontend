@@ -114,6 +114,12 @@ function handleResetConversation() {
   draftMessage.value = ''
   voiceErrorMessage.value = null
   voicePermissionDenied.value = false
+
+  /**
+   * 新会话会清空当前消息列表。
+   * 这里要同步停掉旧语音播放，避免页面已经没有停止入口时仍继续播报上一轮回复。
+   */
+  speechPlayback.stopPlayback()
   resetConversation()
 }
 

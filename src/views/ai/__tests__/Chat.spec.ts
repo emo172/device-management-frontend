@@ -47,6 +47,7 @@ const aiChatState = reactive({
 const sendMessageMock = vi.fn()
 const sendVoiceMessageMock = vi.fn()
 const resetConversationMock = vi.fn()
+const stopPlaybackMock = vi.fn()
 const togglePlaybackMock = vi.fn()
 const getPlaybackStateMock = vi.fn(() => 'idle')
 
@@ -139,6 +140,7 @@ vi.mock('@/composables/useAiChat', () => ({
 
 vi.mock('@/composables/useAiSpeechPlayback', () => ({
   useAiSpeechPlayback: () => ({
+    stopPlayback: stopPlaybackMock,
     togglePlayback: togglePlaybackMock,
     getPlaybackState: getPlaybackStateMock,
   }),
@@ -244,6 +246,7 @@ describe('Ai Chat view', () => {
     sendMessageMock.mockReset()
     sendVoiceMessageMock.mockReset()
     resetConversationMock.mockReset()
+    stopPlaybackMock.mockReset()
     togglePlaybackMock.mockReset()
     getPlaybackStateMock.mockReset()
     getPlaybackStateMock.mockReturnValue('idle')
@@ -294,6 +297,7 @@ describe('Ai Chat view', () => {
     expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
 
     await wrapper.get('.reset-button').trigger('click')
+    expect(stopPlaybackMock).toHaveBeenCalledTimes(1)
     expect(resetConversationMock).toHaveBeenCalledTimes(1)
   })
 
