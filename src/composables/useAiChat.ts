@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 
 import type { AiChatResponse } from '@/api/ai'
+import { transcribeAiSpeech } from '@/api/ai'
 import { useAiStore } from '@/stores/modules/ai'
 
 export type AiChatMessageRole = 'user' | 'assistant'
@@ -23,6 +24,22 @@ export interface AiChatMessage {
 }
 
 function resolveErrorMessage(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response &&
+    'data' in error.response &&
+    typeof error.response.data === 'object' &&
+    error.response.data &&
+    'message' in error.response.data &&
+    typeof error.response.data.message === 'string' &&
+    error.response.data.message
+  ) {
+    return error.response.data.message
+  }
+
   if (error instanceof Error && error.message) {
     return error.message
   }
@@ -71,17 +88,9 @@ export function useAiChat() {
   const loading = ref(false)
   const errorMessage = ref<string | null>(null)
 
-  async function sendMessage(rawMessage: string) {
-    const message = rawMessage.trim()
-
-    if (!message || loading.value) {
-      return null
-    }
-
+  async function dispatchMessage(message: string) {
     const userMessage = createUserMessage(message)
     messages.value.push(userMessage)
-    loading.value = true
-    errorMessage.value = null
 
     try {
       const result = await aiStore.chat({
@@ -100,6 +109,46 @@ export function useAiChat() {
        * 否则页面会残留一条看似“已发送”的消息，用户也无法判断这次请求究竟有没有成功送达后端。
        */
       userMessage.status = 'failed'
+      errorMessage.value = resolveErrorMessage(error)
+      return null
+    }
+  }
+
+  async function sendMessage(rawMessage: string) {
+    const message = rawMessage.trim()
+
+    if (!message || loading.value) {
+      return null
+    }
+
+    loading.value = true
+    errorMessage.value = null
+
+    try {
+      return await dispatchMessage(message)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function sendVoiceMessage(audioFile: Blob | File) {
+    if (loading.value) {
+      return null
+    }
+
+    loading.value = true
+    errorMessage.value = null
+
+    try {
+      const { transcript } = await transcribeAiSpeech(audioFile)
+      const message = transcript.trim()
+
+      if (!message) {
+        return null
+      }
+
+      return await dispatchMessage(message)
+    } catch (error) {
       errorMessage.value = resolveErrorMessage(error)
       return null
     } finally {
@@ -126,6 +175,7 @@ export function useAiChat() {
     loading,
     errorMessage,
     sendMessage,
+    sendVoiceMessage,
     resetConversation,
   }
 }
