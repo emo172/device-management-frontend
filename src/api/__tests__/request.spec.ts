@@ -80,6 +80,43 @@ describe('request service', () => {
     expect(String(capturedContentType)).not.toBe('application/json')
   })
 
+  it('returns blob payload directly for protected binary endpoints', async () => {
+    const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' })
+
+    service.defaults.adapter = async (config) => ({
+      data: audioBlob,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    })
+
+    await expect(service.get<Blob>('/ai/history/history-1/speech', { responseType: 'blob' })).resolves.toBe(
+      audioBlob,
+    )
+  })
+
+  it('parses blob business errors into stable message text', async () => {
+    service.defaults.adapter = async () => {
+      return Promise.reject({
+        config: {
+          responseType: 'blob',
+        },
+        response: {
+          status: 400,
+          data: new Blob([JSON.stringify({ message: 'AI 历史语音播放失败，请稍后重试' })], {
+            type: 'application/json',
+          }),
+        },
+      })
+    }
+
+    await expect(
+      service.get<Blob>('/ai/history/history-1/speech', { responseType: 'blob' }),
+    ).rejects.toThrow('AI 历史语音播放失败，请稍后重试')
+    expect(messageErrorMock).toHaveBeenCalledWith('AI 历史语音播放失败，请稍后重试')
+  })
+
   it('rejects business error and shows message', async () => {
     service.defaults.adapter = async (config) => ({
       data: {

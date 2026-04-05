@@ -13,6 +13,33 @@ import { getAccessToken } from '@/utils/token'
 
 type RawApiResponse<T> = AxiosResponse<ApiResponse<T>>
 
+function isBlobResponse(config?: RequestConfig) {
+  return config?.responseType === 'blob'
+}
+
+async function resolveBlobErrorMessage(data: unknown) {
+  if (!(data instanceof Blob)) {
+    return null
+  }
+
+  if (data.type && !data.type.includes('json') && !data.type.startsWith('text/')) {
+    return null
+  }
+
+  const rawText = (await data.text()).trim()
+
+  if (!rawText) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(rawText) as { message?: unknown }
+    return typeof parsed.message === 'string' && parsed.message ? parsed.message : rawText
+  } catch {
+    return rawText
+  }
+}
+
 /**
  * 请求层附加配置。
  * `skipUnauthorizedHandler` 只开放给 `/auth/me` 这类需要由上层补充更精确 redirect 的请求，
@@ -55,6 +82,11 @@ export interface RequestInstance extends Omit<
 
 async function unwrapResponseData<T>(requestPromise: Promise<RawApiResponse<T>>): Promise<T> {
   const response = await requestPromise
+
+  if (isBlobResponse(response.config as RequestConfig)) {
+    return response.data as T
+  }
+
   return response.data.data
 }
 
@@ -103,6 +135,10 @@ rawService.interceptors.request.use(
  */
 rawService.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<unknown>>) => {
+    if (isBlobResponse(response.config as RequestConfig)) {
+      return response
+    }
+
     const { code, message } = response.data
 
     if (code === 0) {
@@ -115,9 +151,12 @@ rawService.interceptors.response.use(
   },
   async (error: AxiosError<ApiResponse<unknown>>) => {
     const status = error.response?.status
+    const requestConfig = error.config as RequestConfig | undefined
     const responseMessage = error.response?.data?.message
-    const shouldHandleUnauthorized = !(error.config as RequestConfig | undefined)
-      ?.skipUnauthorizedHandler
+    const blobResponseMessage = await resolveBlobErrorMessage(error.response?.data)
+    const resolvedMessage = blobResponseMessage || responseMessage
+    const shouldHandleUnauthorized = !requestConfig?.skipUnauthorizedHandler
+    const shouldRejectWithParsedMessage = isBlobResponse(requestConfig)
 
     if (status === 401 && shouldHandleUnauthorized) {
       await runUnauthorizedHandler()
@@ -129,17 +168,20 @@ rawService.interceptors.response.use(
     }
 
     if (status === 403) {
-      ElMessage.error('没有权限执行此操作')
-      return Promise.reject(error)
+      const errorMessage = resolvedMessage || '没有权限执行此操作'
+      ElMessage.error(errorMessage)
+      return Promise.reject(shouldRejectWithParsedMessage ? new Error(errorMessage) : error)
     }
 
     if (status === 400) {
-      ElMessage.error(responseMessage || '请求参数错误')
-      return Promise.reject(error)
+      const errorMessage = resolvedMessage || '请求参数错误'
+      ElMessage.error(errorMessage)
+      return Promise.reject(shouldRejectWithParsedMessage ? new Error(errorMessage) : error)
     }
 
-    ElMessage.error(responseMessage || '网络错误，请稍后重试')
-    return Promise.reject(error)
+    const errorMessage = resolvedMessage || '网络错误，请稍后重试'
+    ElMessage.error(errorMessage)
+    return Promise.reject(shouldRejectWithParsedMessage ? new Error(errorMessage) : error)
   },
 )
 
