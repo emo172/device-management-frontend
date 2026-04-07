@@ -1,4 +1,14 @@
 /**
+ * AI 能力开关响应 DTO。
+ * 对应后端 `AiCapabilitiesResponse`，只返回当前用户在前端是否允许使用文本对话与语音输入转写入口。
+ * 其中 `speechEnabled` 不承载历史播放、TTS 或供应商细节，避免把功能开关和页面访问规则混在一起。
+ */
+export interface AiCapabilitiesResponse {
+  chatEnabled: boolean
+  speechEnabled: boolean
+}
+
+/**
  * AI 对话请求 DTO。
  * 对应后端 `AiChatRequest`，主对话接口仍只接收文本消息，语音录音需先转写后再复用该接口续接会话。
  */
@@ -45,7 +55,7 @@ export interface AiHistorySummaryResponse {
 
 /**
  * AI 历史详情 DTO。
- * 对应后端 `AiHistoryDetailResponse`，保留结构化信息与错误信息；其中 `aiResponse` 同时作为历史语音按需合成的数据源。
+ * 对应后端 `AiHistoryDetailResponse`，保留结构化信息与错误信息。
  */
 export interface AiHistoryDetailResponse {
   id: string

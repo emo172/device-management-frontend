@@ -2,7 +2,16 @@ import { defineStore } from 'pinia'
 
 import * as aiApi from '@/api/ai'
 
+function createDefaultCapabilities(): aiApi.AiCapabilitiesResponse {
+  return {
+    chatEnabled: false,
+    speechEnabled: false,
+  }
+}
+
 interface AiState {
+  capabilities: aiApi.AiCapabilitiesResponse
+  capabilitiesLoaded: boolean
   historyList: aiApi.AiHistorySummaryResponse[]
   currentHistory: aiApi.AiHistoryDetailResponse | null
   currentResult: aiApi.AiChatResponse | null
@@ -13,6 +22,8 @@ interface AiState {
 
 function createDefaultState(): AiState {
   return {
+    capabilities: createDefaultCapabilities(),
+    capabilitiesLoaded: false,
     historyList: [],
     currentHistory: null,
     currentResult: null,
@@ -25,12 +36,29 @@ function createDefaultState(): AiState {
 /**
  * AI 对话域状态。
  * 只承接真实存在的对话、历史列表和历史详情能力。
- * 语音录音仍先转写回文本发送，历史播报也只按需读取现有 `aiResponse`，避免 Store 虚构原始录音或预生成音频状态。
+ * `speechEnabled` 在 Store 内只代表语音输入转写入口，避免把“语音能力”泛化成额外的混合状态。
  */
 export const useAiStore = defineStore('ai', {
   state: (): AiState => createDefaultState(),
 
   actions: {
+    /**
+     * AI 页面进入时先拉取当前用户能力开关，避免前端把“尚未拿到后端结果”误判成默认可用。
+     * 一旦请求失败，Store 会继续保持 fail-closed 默认值，并把异常抛给上层决定是否提示用户重试。
+     */
+    async fetchCapabilities() {
+      try {
+        const capabilities = await aiApi.getAiCapabilities()
+        this.capabilities = capabilities
+        this.capabilitiesLoaded = true
+        return capabilities
+      } catch (error) {
+        this.capabilities = createDefaultCapabilities()
+        this.capabilitiesLoaded = false
+        throw error
+      }
+    },
+
     /**
      * 历史列表是 AI 页面左侧会话入口，后端只返回当前登录用户自己的数据，Store 不额外拼管理员能力。
      */

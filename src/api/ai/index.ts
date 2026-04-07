@@ -1,6 +1,7 @@
 import request from '@/api/request'
 
 import type {
+  AiCapabilitiesResponse,
   AiChatRequest,
   AiChatResponse,
   AiHistoryDetailResponse,
@@ -9,12 +10,22 @@ import type {
 } from './types'
 
 export type {
+  AiCapabilitiesResponse,
   AiChatRequest,
   AiChatResponse,
   AiHistoryDetailResponse,
   AiHistorySummaryResponse,
   AiSpeechTranscriptionResponse,
 } from './types'
+
+/**
+ * 查询当前用户的 AI 能力开关。
+ * 对应 `GET /api/ai/capabilities`，前端只读取文本对话与语音能力布尔值，
+ * 若请求失败则上层必须保持 fail-closed，不能把未知状态当成默认可用。
+ */
+export function getAiCapabilities() {
+  return request.get<AiCapabilitiesResponse>('/ai/capabilities')
+}
 
 /**
  * 发起 AI 文本对话。
@@ -26,16 +37,20 @@ export function chatWithAi(data: AiChatRequest) {
 
 /**
  * 上传录音文件并换取中文转写文本。
- * 对应 `POST /api/ai/speech/transcriptions`，前端只把浏览器产出的录音以 multipart/form-data 透传给后端，
- * 不直连 Azure 等语音供应商。
+ * 对应 `POST /api/ai/speech/transcriptions`，前端只把浏览器产出的 WAV 录音以 multipart/form-data 透传给后端，
+ * 不直连第三方语音供应商；当调用方未提供可复用文件名时，也统一回退成 `voice.wav`，避免 helper 层残留旧 WebM 语义。
  */
 export function transcribeAiSpeech(file: Blob | File) {
   const formData = new FormData()
-  const filename = file instanceof File && file.name ? file.name : 'voice.webm'
+  const fallbackFilename = 'voice.wav'
+  const filename = file instanceof File && file.name ? file.name : fallbackFilename
 
   formData.append('file', file, filename)
 
-  return request.post<AiSpeechTranscriptionResponse, FormData>('/ai/speech/transcriptions', formData)
+  return request.post<AiSpeechTranscriptionResponse, FormData>(
+    '/ai/speech/transcriptions',
+    formData,
+  )
 }
 
 /**
@@ -52,14 +67,4 @@ export function getAiHistoryList() {
  */
 export function getAiHistoryDetail(historyId: string) {
   return request.get<AiHistoryDetailResponse>(`/ai/history/${historyId}`)
-}
-
-/**
- * 拉取当前用户拥有的 AI 历史回复语音。
- * 对应 `GET /api/ai/history/{id}/speech`，必须走二进制 blob，避免把受保护音频能力退化成公开 URL。
- */
-export function getAiHistorySpeech(historyId: string) {
-  return request.get<Blob>(`/ai/history/${historyId}/speech`, {
-    responseType: 'blob',
-  })
 }

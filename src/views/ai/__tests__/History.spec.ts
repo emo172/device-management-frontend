@@ -8,11 +8,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const aiViewModules = import.meta.glob('../*.vue')
 
 const aiStoreState = reactive({
+  capabilities: {
+    chatEnabled: false,
+    speechEnabled: false,
+  },
+  capabilitiesLoaded: false,
   historyList: [] as Array<Record<string, string | null>>,
   currentHistory: null as Record<string, string | number | null> | null,
   loading: false,
 })
 
+const fetchCapabilitiesMock = vi.fn()
 const fetchHistoryListMock = vi.fn()
 const fetchHistoryDetailMock = vi.fn()
 const clearCurrentHistoryMock = vi.fn(() => {
@@ -25,6 +31,12 @@ function readAiSource(relativePath: string) {
 
 vi.mock('@/stores/modules/ai', () => ({
   useAiStore: () => ({
+    get capabilities() {
+      return aiStoreState.capabilities
+    },
+    get capabilitiesLoaded() {
+      return aiStoreState.capabilitiesLoaded
+    },
     get historyList() {
       return aiStoreState.historyList
     },
@@ -35,6 +47,7 @@ vi.mock('@/stores/modules/ai', () => ({
       return aiStoreState.loading
     },
     clearCurrentHistory: clearCurrentHistoryMock,
+    fetchCapabilities: fetchCapabilitiesMock,
     fetchHistoryList: fetchHistoryListMock,
     fetchHistoryDetail: fetchHistoryDetailMock,
   }),
@@ -48,9 +61,15 @@ vi.mock('@/stores/modules/app', () => ({
 
 describe('Ai History view', () => {
   beforeEach(() => {
+    fetchCapabilitiesMock.mockReset()
     fetchHistoryListMock.mockReset()
     fetchHistoryDetailMock.mockReset()
     clearCurrentHistoryMock.mockClear()
+    aiStoreState.capabilities = {
+      chatEnabled: false,
+      speechEnabled: false,
+    }
+    aiStoreState.capabilitiesLoaded = false
     aiStoreState.loading = false
     aiStoreState.historyList = [
       {
@@ -71,6 +90,14 @@ describe('Ai History view', () => {
       },
     ]
     aiStoreState.currentHistory = null
+    fetchCapabilitiesMock.mockImplementation(async () => {
+      aiStoreState.capabilities = {
+        chatEnabled: true,
+        speechEnabled: true,
+      }
+      aiStoreState.capabilitiesLoaded = true
+      return aiStoreState.capabilities
+    })
     fetchHistoryListMock.mockResolvedValue(aiStoreState.historyList)
     fetchHistoryDetailMock.mockImplementation(async (historyId: string) => {
       aiStoreState.currentHistory = {
@@ -132,6 +159,8 @@ describe('Ai History view', () => {
     expect(fetchHistoryListMock).toHaveBeenCalledTimes(1)
     expect(clearCurrentHistoryMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('历史会话')
+    expect(wrapper.text()).toContain('转写后回填输入框，请确认后发送')
+    expect(wrapper.text()).toContain('历史页只保留用户输入、AI 回复、执行结果与错误信息等文字记录。')
     expect(wrapper.text()).toContain('帮我预约明天上午的示波器')
 
     await wrapper.get('[data-history-id="history-2"]').trigger('click')

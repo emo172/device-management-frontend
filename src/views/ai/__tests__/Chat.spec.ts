@@ -45,49 +45,95 @@ const aiChatState = reactive({
 })
 
 const sendMessageMock = vi.fn()
-const sendVoiceMessageMock = vi.fn()
+const transcribeVoiceMessageMock = vi.fn()
 const resetConversationMock = vi.fn()
-const stopPlaybackMock = vi.fn()
-const togglePlaybackMock = vi.fn()
-const getPlaybackStateMock = vi.fn(() => 'idle')
+const fetchCapabilitiesMock = vi.fn()
 
-class FakeMediaRecorder extends EventTarget {
-  static supportedTypes = new Set<string>(['audio/webm;codecs=opus', 'audio/webm'])
-  static isTypeSupportedCalls: string[] = []
+const aiStoreState = reactive({
+  capabilities: {
+    chatEnabled: false,
+    speechEnabled: false,
+  },
+  capabilitiesLoaded: false,
+})
 
-  static isTypeSupported(type: string) {
-    FakeMediaRecorder.isTypeSupportedCalls.push(type)
-    return FakeMediaRecorder.supportedTypes.has(type)
+class FakeAudioBuffer {
+  readonly numberOfChannels: number
+
+  constructor(private readonly channels: Float32Array[]) {
+    this.numberOfChannels = channels.length
   }
 
-  readonly stream: MediaStream
-  readonly mimeType: string
-  state: RecordingState = 'inactive'
-  private readonly chunk: Blob
+  getChannelData(index: number) {
+    return this.channels[index] ?? new Float32Array()
+  }
+}
 
-  constructor(stream: MediaStream, options?: MediaRecorderOptions) {
-    super()
-    this.stream = stream
-    this.mimeType = options?.mimeType ?? 'audio/webm'
-    this.chunk = new Blob(['voice'], { type: this.mimeType })
+class FakeAudioNode {
+  connect(_target?: unknown) {
+    return undefined
   }
 
-  start() {
-    this.state = 'recording'
+  disconnect() {
+    return undefined
   }
+}
 
-  stop() {
-    if (this.state === 'inactive') {
-      return
+class FakeGainNode extends FakeAudioNode {
+  gain = { value: 1 }
+}
+
+class FakeScriptProcessorNode extends FakeAudioNode {
+  onaudioprocess: ((event: { inputBuffer: FakeAudioBuffer }) => void) | null = null
+
+  emitChunk() {
+    this.onaudioprocess?.({
+      inputBuffer: new FakeAudioBuffer([
+        new Float32Array([0, 0.25, -0.25, 0.5]),
+        new Float32Array([0, -0.25, 0.25, -0.5]),
+      ]),
+    })
+  }
+}
+
+class FakeMediaStreamAudioSourceNode extends FakeAudioNode {
+  override connect(target?: unknown) {
+    if (target instanceof FakeScriptProcessorNode) {
+      target.emitChunk()
     }
 
-    this.state = 'inactive'
+    return undefined
+  }
+}
 
-    const dataEvent = new Event('dataavailable') as Event & { data: Blob }
-    dataEvent.data = this.chunk
+class FakeAudioContext {
+  static instances: FakeAudioContext[] = []
 
-    this.dispatchEvent(dataEvent)
-    this.dispatchEvent(new Event('stop'))
+  readonly sampleRate = 48_000
+  readonly destination = new FakeAudioNode()
+
+  constructor() {
+    FakeAudioContext.instances.push(this)
+  }
+
+  async resume() {
+    return undefined
+  }
+
+  createMediaStreamSource(_stream: MediaStream) {
+    return new FakeMediaStreamAudioSourceNode() as unknown as MediaStreamAudioSourceNode
+  }
+
+  createScriptProcessor() {
+    return new FakeScriptProcessorNode() as unknown as ScriptProcessorNode
+  }
+
+  createGain() {
+    return new FakeGainNode() as unknown as GainNode
+  }
+
+  async close() {
+    return undefined
   }
 }
 
@@ -97,11 +143,16 @@ function readAiSource(relativePath: string) {
 
 function createMediaStreamStub() {
   const stopTrackMock = vi.fn()
+  const track = {
+    stop: stopTrackMock,
+    getSettings: () => ({ sampleRate: 48_000 }),
+  }
 
   return {
     stopTrackMock,
     stream: {
-      getTracks: () => [{ stop: stopTrackMock }],
+      getAudioTracks: () => [track],
+      getTracks: () => [track],
     } as unknown as MediaStream,
   }
 }
@@ -119,10 +170,13 @@ function mockMediaDevices(implementation: () => Promise<MediaStream>) {
   return getUserMedia
 }
 
-function installMediaRecorder(supportedTypes: string[] = ['audio/webm;codecs=opus', 'audio/webm']) {
-  FakeMediaRecorder.supportedTypes = new Set(supportedTypes)
-  FakeMediaRecorder.isTypeSupportedCalls = []
-  vi.stubGlobal('MediaRecorder', FakeMediaRecorder)
+function installAudioContext() {
+  FakeAudioContext.instances = []
+  vi.stubGlobal('AudioContext', FakeAudioContext)
+  Object.defineProperty(window, 'AudioContext', {
+    configurable: true,
+    value: FakeAudioContext,
+  })
 }
 
 vi.mock('@/composables/useAiChat', () => ({
@@ -133,16 +187,20 @@ vi.mock('@/composables/useAiChat', () => ({
     messages: computed(() => aiChatState.messages),
     latestResult: computed(() => aiChatState.latestResult),
     sendMessage: sendMessageMock,
-    sendVoiceMessage: sendVoiceMessageMock,
+    transcribeVoiceMessage: transcribeVoiceMessageMock,
     resetConversation: resetConversationMock,
   }),
 }))
 
-vi.mock('@/composables/useAiSpeechPlayback', () => ({
-  useAiSpeechPlayback: () => ({
-    stopPlayback: stopPlaybackMock,
-    togglePlayback: togglePlaybackMock,
-    getPlaybackState: getPlaybackStateMock,
+vi.mock('@/stores/modules/ai', () => ({
+  useAiStore: () => ({
+    get capabilities() {
+      return aiStoreState.capabilities
+    },
+    get capabilitiesLoaded() {
+      return aiStoreState.capabilitiesLoaded
+    },
+    fetchCapabilities: fetchCapabilitiesMock,
   }),
 }))
 
@@ -157,6 +215,8 @@ function createChatBoxStub() {
     props: [
       'loading',
       'modelValue',
+      'chatDisabled',
+      'chatStatusText',
       'recording',
       'transcribing',
       'voiceStatusText',
@@ -167,10 +227,11 @@ function createChatBoxStub() {
     template:
       '<div>' +
       '<span class="draft-value">{{ modelValue }}</span>' +
+      '<span class="chat-status">{{ chatStatusText }}</span>' +
       `<span data-testid="${AI_VOICE_STATUS_TEST_ID}" class="voice-status">{{ voiceStatusText }}</span>` +
       `<span data-testid="${AI_VOICE_ERROR_TEST_ID}" class="voice-error">{{ voiceErrorMessage || '' }}</span>` +
       '<button class="type-button" @click="$emit(\'update:modelValue\', \'帮我看明天可借设备\')">输入</button>' +
-      '<button class="send-button" @click="$emit(\'submit\', modelValue)">发送</button>' +
+      '<button class="send-button" :data-chat-disabled="chatDisabled ? \'true\' : \'false\'" @click="$emit(\'submit\', modelValue)">发送</button>' +
       '<button class="reset-button" @click="$emit(\'reset\')">重置</button>' +
       `<button class="record-button" data-testid="${AI_VOICE_RECORD_TOGGLE_TEST_ID}" :data-disabled="voiceToggleDisabled ? 'true' : 'false'" @click="$emit('toggle-recording')">{{ recording ? '停止录音' : transcribing ? '转写中' : '开始录音' }}</button>` +
       '<span class="recording-flag">{{ recording ? \'recording\' : \'idle\' }}</span>' +
@@ -186,9 +247,11 @@ function createGlobalStubs(chatBoxStub = createChatBoxStub()) {
       template: '<a><slot /></a>',
     }),
     AiMessage: {
-      props: ['message', 'playbackState'],
-      emits: ['toggle-playback'],
-      template: '<article class="message-stub">{{ message.content }}</article>',
+      props: ['message'],
+      template:
+        '<article class="message-stub">' +
+        '<span class="message-content">{{ message.content }}</span>' +
+        '</article>',
     },
     EmptyState: { template: '<div class="empty-state-stub"><slot /></div>' },
     AiChatBox: chatBoxStub,
@@ -215,11 +278,15 @@ async function loadChatView() {
 async function mountChatView(chatBoxStub = createChatBoxStub()) {
   const module = await loadChatView()
 
-  return mount(module.default, {
+  const wrapper = mount(module.default, {
     global: {
       stubs: createGlobalStubs(chatBoxStub),
     },
   })
+
+  await flushPromises()
+
+  return wrapper
 }
 
 async function loadDefaultLayout() {
@@ -242,14 +309,31 @@ describe('Ai Chat view', () => {
   beforeEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      value: undefined,
+    })
 
     sendMessageMock.mockReset()
-    sendVoiceMessageMock.mockReset()
+    transcribeVoiceMessageMock.mockReset()
     resetConversationMock.mockReset()
-    stopPlaybackMock.mockReset()
-    togglePlaybackMock.mockReset()
-    getPlaybackStateMock.mockReset()
-    getPlaybackStateMock.mockReturnValue('idle')
+    fetchCapabilitiesMock.mockReset()
+
+    aiStoreState.capabilities = {
+      chatEnabled: false,
+      speechEnabled: false,
+    }
+    aiStoreState.capabilitiesLoaded = false
+
+    fetchCapabilitiesMock.mockImplementation(async () => {
+      aiStoreState.capabilities = {
+        chatEnabled: true,
+        speechEnabled: true,
+      }
+      aiStoreState.capabilitiesLoaded = true
+
+      return aiStoreState.capabilities
+    })
 
     aiChatState.loading = false
     aiChatState.sessionId = 'session-1'
@@ -285,10 +369,11 @@ describe('Ai Chat view', () => {
     expect(wrapper.find('.conversation-shell__main').exists()).toBe(true)
     expect(wrapper.text()).toContain('AI 对话助手')
     expect(wrapper.text()).toContain('桌面版 Chrome / Edge')
-    expect(wrapper.text()).toContain('自动回退到文字输入与查看路径')
+    expect(wrapper.text()).toContain('自动回退到文字输入与历史查看路径')
     expect(wrapper.text()).toContain('HELP')
     expect(wrapper.text()).toContain('GUIDE')
     expect(wrapper.text()).toContain('你好，我可以帮你查询设备与预约。')
+    expect(wrapper.findAll('.message-stub button')).toHaveLength(0)
 
     await wrapper.get('.type-button').trigger('click')
     await wrapper.get('.send-button').trigger('click')
@@ -297,11 +382,85 @@ describe('Ai Chat view', () => {
     expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
 
     await wrapper.get('.reset-button').trigger('click')
-    expect(stopPlaybackMock).toHaveBeenCalledTimes(1)
     expect(resetConversationMock).toHaveBeenCalledTimes(1)
   })
 
-  it('浏览器不支持 MediaRecorder 时仍保留文字聊天能力', async () => {
+  it('后端关闭聊天能力时，仍保留页面与历史入口但阻断文字发送链路', async () => {
+    fetchCapabilitiesMock.mockImplementation(async () => {
+      aiStoreState.capabilities = {
+        chatEnabled: false,
+        speechEnabled: true,
+      }
+      aiStoreState.capabilitiesLoaded = true
+
+      return aiStoreState.capabilities
+    })
+
+    const wrapper = await mountChatView()
+
+    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
+    expect(wrapper.find('.ai-chat-view__history-link').exists()).toBe(true)
+    expect(wrapper.get('.chat-status').text()).toContain('AI 对话暂未开启，当前仅支持查看历史会话。')
+    expect(wrapper.get('.send-button').attributes('data-chat-disabled')).toBe('true')
+    expect(getRecordButton(wrapper).attributes('data-disabled')).toBe('true')
+
+    await wrapper.get('.type-button').trigger('click')
+    await wrapper.get('.send-button').trigger('click')
+    await flushPromises()
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('后端关闭语音能力时给出中文降级提示，但仍允许继续发送文字消息', async () => {
+    fetchCapabilitiesMock.mockImplementation(async () => {
+      aiStoreState.capabilities = {
+        chatEnabled: true,
+        speechEnabled: false,
+      }
+      aiStoreState.capabilitiesLoaded = true
+
+      return aiStoreState.capabilities
+    })
+
+    const wrapper = await mountChatView()
+
+    expect(getVoiceStatus(wrapper).text()).toContain('语音功能暂未开启，可继续输入文字消息。')
+    expect(getRecordButton(wrapper).attributes('data-disabled')).toBe('true')
+
+    await wrapper.get('.type-button').trigger('click')
+    await wrapper.get('.send-button').trigger('click')
+    await flushPromises()
+
+    expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
+  })
+
+  it('能力加载失败时保持页面与历史入口可见，并按 fail-closed 阻断聊天与录音', async () => {
+    const getUserMediaMock = mockMediaDevices(() => Promise.resolve(createMediaStreamStub().stream))
+
+    fetchCapabilitiesMock.mockRejectedValueOnce(new Error('能力接口加载失败'))
+
+    const wrapper = await mountChatView()
+
+    expect(wrapper.find('.conversation-shell').exists()).toBe(true)
+    expect(wrapper.find('.ai-chat-view__history-link').exists()).toBe(true)
+    expect(wrapper.get('.chat-status').text()).toContain(
+      'AI 能力加载失败，当前已关闭文字发送与语音录音，可先查看历史会话。',
+    )
+    expect(getVoiceStatus(wrapper).text()).toContain(
+      'AI 能力加载失败，当前语音录音暂不可用，可先查看历史会话。',
+    )
+    expect(getRecordButton(wrapper).attributes('data-disabled')).toBe('true')
+
+    await wrapper.get('.type-button').trigger('click')
+    await wrapper.get('.send-button').trigger('click')
+    await getRecordButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(getUserMediaMock).not.toHaveBeenCalled()
+  })
+
+  it('浏览器不支持 Web Audio 录音时仍保留文字聊天能力', async () => {
     const wrapper = await mountChatView()
 
     expect(getVoiceStatus(wrapper).text()).toContain('当前浏览器不支持录音，可继续输入文字消息。')
@@ -314,14 +473,14 @@ describe('Ai Chat view', () => {
     expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
   })
 
-  it('录音 60 秒后自动停止，并把 blob 交回既有 sendVoiceMessage 链路', async () => {
+  it('录音 60 秒后自动停止，只把 transcript 回填到空草稿并等待手动发送', async () => {
     vi.useFakeTimers()
 
     const { stream, stopTrackMock } = createMediaStreamStub()
     const getUserMediaMock = mockMediaDevices(() => Promise.resolve(stream))
 
-    installMediaRecorder(['audio/webm'])
-    sendVoiceMessageMock.mockResolvedValueOnce({ id: 'history-voice-1' })
+    installAudioContext()
+    transcribeVoiceMessageMock.mockResolvedValueOnce('查询今天空闲设备')
 
     const wrapper = await mountChatView()
 
@@ -329,24 +488,25 @@ describe('Ai Chat view', () => {
     await flushPromises()
 
     expect(getUserMediaMock).toHaveBeenCalledWith({ audio: true })
-    expect(getVoiceStatus(wrapper).text()).toContain('正在录音，最多 60 秒后自动提交。')
+    expect(getVoiceStatus(wrapper).text()).toContain('正在录音，最多 60 秒后自动停止并转写。')
 
     vi.advanceTimersByTime(60_000)
     await flushPromises()
 
-    expect(sendVoiceMessageMock).toHaveBeenCalledTimes(1)
+    expect(transcribeVoiceMessageMock).toHaveBeenCalledTimes(1)
 
-    const audioBlob = sendVoiceMessageMock.mock.calls[0]?.[0] as Blob
+    const audioBlob = transcribeVoiceMessageMock.mock.calls[0]?.[0] as Blob
 
     expect(audioBlob).toBeInstanceOf(Blob)
-    expect(audioBlob.type).toBe('audio/webm')
-    expect(FakeMediaRecorder.isTypeSupportedCalls).toEqual(['audio/webm;codecs=opus', 'audio/webm'])
+    expect(audioBlob.type).toBe('audio/wav')
     expect(stopTrackMock).toHaveBeenCalledTimes(1)
-    expect(getVoiceStatus(wrapper).text()).toContain('点击开始录音，最长 60 秒；转写成功后会自动发送。')
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(wrapper.get('.draft-value').element.textContent).toBe('查询今天空闲设备')
+    expect(getVoiceStatus(wrapper).text()).toContain('转写后回填输入框，请确认后发送。')
   })
 
   it('拒绝麦克风权限后给出中文提示，但不阻塞文字输入', async () => {
-    installMediaRecorder()
+    installAudioContext()
     const getUserMediaMock = mockMediaDevices(() =>
       Promise.reject(new DOMException('Permission denied', 'NotAllowedError')),
     )
@@ -368,33 +528,60 @@ describe('Ai Chat view', () => {
   })
 
   it('语音转写失败时展示错误文案，并恢复到可继续文字输入的状态', async () => {
-    installMediaRecorder()
+    installAudioContext()
     const { stream } = createMediaStreamStub()
 
     mockMediaDevices(() => Promise.resolve(stream))
-    sendVoiceMessageMock.mockImplementationOnce(async () => {
+    transcribeVoiceMessageMock.mockImplementationOnce(async () => {
       aiChatState.errorMessage = '语音功能未开启'
       return null
     })
 
     const wrapper = await mountChatView()
 
-    await getRecordButton(wrapper).trigger('click')
-    await flushPromises()
+    await wrapper.get('.type-button').trigger('click')
+    expect(wrapper.get('.draft-value').element.textContent).toBe('帮我看明天可借设备')
 
     await getRecordButton(wrapper).trigger('click')
     await flushPromises()
 
-    expect(sendVoiceMessageMock).toHaveBeenCalledTimes(1)
+    await getRecordButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(transcribeVoiceMessageMock).toHaveBeenCalledTimes(1)
     expect(getVoiceError(wrapper).text()).toContain('语音功能未开启')
     expect(wrapper.get('.recording-flag').text()).toBe('idle')
     expect(wrapper.get('.transcribing-flag').text()).toBe('stable')
+    expect(wrapper.get('.draft-value').element.textContent).toBe('帮我看明天可借设备')
 
-    await wrapper.get('.type-button').trigger('click')
     await wrapper.get('.send-button').trigger('click')
     await flushPromises()
 
     expect(sendMessageMock).toHaveBeenCalledWith('帮我看明天可借设备')
+  })
+
+  it('草稿非空时会按换行追加 transcript，并继续等待用户手动发送', async () => {
+    installAudioContext()
+    const { stream } = createMediaStreamStub()
+
+    mockMediaDevices(() => Promise.resolve(stream))
+    transcribeVoiceMessageMock.mockResolvedValueOnce('再补一句语音内容')
+
+    const wrapper = await mountChatView()
+
+    await wrapper.get('.type-button').trigger('click')
+    expect(wrapper.get('.draft-value').element.textContent).toBe('帮我看明天可借设备')
+
+    await getRecordButton(wrapper).trigger('click')
+    await flushPromises()
+
+    await getRecordButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(transcribeVoiceMessageMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(wrapper.get('.draft-value').element.textContent).toBe('帮我看明天可借设备\n再补一句语音内容')
+    expect(getVoiceStatus(wrapper).text()).toContain('转写后回填输入框，请确认后发送。')
   })
 
   it('长会话时消息区仍保留局部滚动容器，避免整段消息把页面主滚动完全挤占', async () => {
@@ -492,5 +679,22 @@ describe('Ai Chat view', () => {
     const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
 
     expect(source).not.toMatch(hardcodedColorPattern)
+  })
+
+  it('聊天页源码已移除 MediaRecorder 与 audio/webm 录音契约', () => {
+    const source = readAiSource('src/views/ai/Chat.vue')
+
+    expect(source).toContain('useAiVoiceRecorder')
+    expect(source).not.toContain('MediaRecorder')
+    expect(source).not.toContain('audio/webm')
+  })
+
+  it('聊天页源码已移除播放组合式函数与播放提示文案', () => {
+    const source = readAiSource('src/views/ai/Chat.vue')
+
+    expect(source).not.toContain('toggle-playback')
+    expect(source).not.toContain('playback-state')
+    expect(source).not.toContain('speech-playback-available')
+    expect(source).not.toContain('speech-playback-unavailable-message')
   })
 })

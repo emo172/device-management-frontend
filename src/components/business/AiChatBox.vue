@@ -14,6 +14,8 @@ import {
 const props = withDefaults(
   defineProps<{
     modelValue: string
+    chatDisabled?: boolean
+    chatStatusText?: string
     loading?: boolean
     recording?: boolean
     transcribing?: boolean
@@ -22,10 +24,12 @@ const props = withDefaults(
     voiceToggleDisabled?: boolean
   }>(),
   {
+    chatDisabled: false,
+    chatStatusText: '回车发送，Shift + Enter 换行',
     loading: false,
     recording: false,
     transcribing: false,
-    voiceStatusText: '点击开始录音，最长 60 秒；转写成功后会自动发送。',
+    voiceStatusText: '点击开始录音，最长 60 秒；转写后回填输入框，请确认后发送。',
     voiceErrorMessage: null,
     voiceToggleDisabled: false,
   },
@@ -38,8 +42,19 @@ const emit = defineEmits<{
   'toggle-recording': []
 }>()
 
-const isInputDisabled = computed(() => props.loading || props.recording || props.transcribing)
+/**
+ * 输入区是否可用只消费页面基于 Store 下发的集中能力结论。
+ * 组件本身不再推测后端能力，避免出现与 `/api/ai/capabilities` 脱节的本地影子状态。
+ */
+const isInputDisabled = computed(
+  () => props.chatDisabled || props.loading || props.recording || props.transcribing,
+)
 const canSubmit = computed(() => props.modelValue.trim().length > 0 && !isInputDisabled.value)
+const textareaPlaceholder = computed(() =>
+  props.chatDisabled
+    ? '当前 AI 对话暂不可用，可先查看历史会话。'
+    : '输入你的设备查询、预约建议或取消问题，AI 会先识别意图再返回结果。',
+)
 
 const voiceToggleLabel = computed(() => {
   if (props.recording) {
@@ -103,7 +118,7 @@ function handleToggleRecording() {
       :value="modelValue"
       class="ai-chat-box__textarea"
       :disabled="isInputDisabled"
-      placeholder="输入你的设备查询、预约建议或取消问题，AI 会先识别意图再返回结果。"
+      :placeholder="textareaPlaceholder"
       rows="4"
       @input="handleInput"
       @keydown.enter.exact.prevent="handleSubmit"
@@ -111,7 +126,7 @@ function handleToggleRecording() {
 
     <div class="ai-chat-box__footer">
       <div class="ai-chat-box__meta">
-        <p class="ai-chat-box__tip">回车发送，Shift + Enter 换行</p>
+        <p class="ai-chat-box__tip">{{ chatStatusText }}</p>
         <p
           :data-testid="AI_VOICE_STATUS_TEST_ID"
           :class="['ai-chat-box__voice-status', voiceStatusClassName]"
@@ -137,7 +152,7 @@ function handleToggleRecording() {
           </el-button>
           <!-- 录音入口附近必须稳定显示隐私边界，避免用户误以为浏览器录音会在本地或服务端长期留存。 -->
           <p class="ai-chat-box__privacy-hint">
-            语音会交由第三方云语音服务处理，原始录音不做持久化存储。
+            语音会先在浏览器内整理为 WAV，再交由第三方云语音服务处理，原始录音不做持久化存储。
           </p>
         </div>
         <el-button :disabled="isInputDisabled" @click="handleReset">开启新会话</el-button>

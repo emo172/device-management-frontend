@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-const { chatWithAiMock, getAiHistoryDetailMock, getAiHistoryListMock } = vi.hoisted(() => ({
-  chatWithAiMock: vi.fn(),
-  getAiHistoryDetailMock: vi.fn(),
-  getAiHistoryListMock: vi.fn(),
-}))
+const { chatWithAiMock, getAiCapabilitiesMock, getAiHistoryDetailMock, getAiHistoryListMock } =
+  vi.hoisted(() => ({
+    chatWithAiMock: vi.fn(),
+    getAiCapabilitiesMock: vi.fn(),
+    getAiHistoryDetailMock: vi.fn(),
+    getAiHistoryListMock: vi.fn(),
+  }))
 
 vi.mock('@/api/ai', () => ({
   chatWithAi: chatWithAiMock,
+  getAiCapabilities: getAiCapabilitiesMock,
   getAiHistoryDetail: getAiHistoryDetailMock,
   getAiHistoryList: getAiHistoryListMock,
 }))
@@ -29,8 +32,45 @@ describe('ai store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     chatWithAiMock.mockReset()
+    getAiCapabilitiesMock.mockReset()
     getAiHistoryDetailMock.mockReset()
     getAiHistoryListMock.mockReset()
+  })
+
+  it('loads ai capabilities and marks them as ready after a successful fetch', async () => {
+    getAiCapabilitiesMock.mockResolvedValue({
+      chatEnabled: true,
+      speechEnabled: false,
+    })
+
+    const store = useAiStore()
+
+    expect(store.capabilitiesLoaded).toBe(false)
+    expect(store.capabilities.chatEnabled).toBe(false)
+    expect(store.capabilities.speechEnabled).toBe(false)
+
+    await store.fetchCapabilities()
+
+    expect(store.capabilitiesLoaded).toBe(true)
+    expect(store.capabilities).toEqual({
+      chatEnabled: true,
+      speechEnabled: false,
+    })
+  })
+
+  it('keeps ai capabilities fail-closed when the capabilities request fails', async () => {
+    const capabilitiesError = new Error('能力接口加载失败')
+    getAiCapabilitiesMock.mockRejectedValue(capabilitiesError)
+
+    const store = useAiStore()
+
+    await expect(store.fetchCapabilities()).rejects.toThrow('能力接口加载失败')
+
+    expect(store.capabilitiesLoaded).toBe(false)
+    expect(store.capabilities).toEqual({
+      chatEnabled: false,
+      speechEnabled: false,
+    })
   })
 
   it('loads ai history list and detail', async () => {

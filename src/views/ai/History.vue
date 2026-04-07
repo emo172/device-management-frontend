@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 
 import EmptyState from '@/components/common/EmptyState.vue'
-import { useAiSpeechPlayback } from '@/composables/useAiSpeechPlayback'
-import { AI_HISTORY_PLAY_TEST_ID } from '@/constants/ai'
 import ConversationShell from '@/components/layout/ConversationShell.vue'
 import { useAiStore } from '@/stores/modules/ai'
 import { formatDateTime } from '@/utils/date'
@@ -14,7 +12,6 @@ import { formatDateTime } from '@/utils/date'
  * 既满足页内可用交互，又不假设存在整段会话消息回放接口。
  */
 const aiStore = useAiStore()
-const speechPlayback = useAiSpeechPlayback()
 const activeHistoryId = ref<string | null>(null)
 let historySelectionToken = 0
 
@@ -63,25 +60,6 @@ onMounted(() => {
   activeHistoryId.value = null
   void loadHistoryList()
 })
-
-watch(
-  () => aiStore.currentHistory?.id,
-  (currentHistoryId, previousHistoryId) => {
-    if (currentHistoryId !== previousHistoryId) {
-      speechPlayback.stopPlayback()
-    }
-  },
-)
-
-function handleToggleHistoryPlayback() {
-  const historyId = aiStore.currentHistory?.id
-
-  if (!historyId) {
-    return
-  }
-
-  void speechPlayback.togglePlayback(historyId)
-}
 </script>
 
 <template>
@@ -91,8 +69,8 @@ function handleToggleHistoryPlayback() {
         <p class="ai-history-view__eyebrow">会话历史</p>
         <h1 class="ai-history-view__title">历史会话</h1>
         <p class="ai-history-view__description">
-          这里回看你已经发起过的 AI 记录。点击某条摘要后，右侧会展示那一轮用户输入、AI
-          回复、执行结果与错误信息；播放语音时会按需根据当前 AI 回复生成，不长期保存原始录音。
+          这里回看你已经发起过的 AI 记录。语音只在对话页用于转写，转写后回填输入框，请确认后发送；
+          历史页只保留用户输入、AI 回复、执行结果与错误信息等文字记录。
         </p>
       </div>
 
@@ -159,30 +137,7 @@ function handleToggleHistoryPlayback() {
             <div>
               <dt>AI 回复</dt>
               <dd>
-                <div class="ai-history-view__response-block">
-                  <p class="ai-history-view__response-text">{{ aiStore.currentHistory.aiResponse }}</p>
-                  <!-- 历史语音入口只放在右侧详情区，点击后按需把当前 AI 回复合成为语音，避免左侧摘要列表每行都引入额外交互噪音。 -->
-                  <button
-                    :data-testid="AI_HISTORY_PLAY_TEST_ID"
-                    class="ai-history-view__play-button"
-                    type="button"
-                    @click="handleToggleHistoryPlayback"
-                  >
-                    {{
-                      speechPlayback.getPlaybackState(aiStore.currentHistory.id).isLoading
-                        ? '加载语音中...'
-                        : speechPlayback.getPlaybackState(aiStore.currentHistory.id).isPlaying
-                          ? '停止播放'
-                          : '播放语音'
-                    }}
-                  </button>
-                </div>
-                <p
-                  v-if="speechPlayback.getPlaybackState(aiStore.currentHistory.id).errorMessage"
-                  class="ai-history-view__playback-error"
-                >
-                  {{ speechPlayback.getPlaybackState(aiStore.currentHistory.id).errorMessage }}
-                </p>
+                <p class="ai-history-view__response-text">{{ aiStore.currentHistory.aiResponse }}</p>
               </dd>
             </div>
             <div>
@@ -359,42 +314,7 @@ function handleToggleHistoryPlayback() {
   white-space: pre-wrap;
 }
 
-.ai-history-view__response-block {
-  display: grid;
-  gap: 12px;
-}
-
 .ai-history-view__response-text {
   margin: 0;
-}
-
-.ai-history-view__play-button {
-  justify-self: flex-start;
-  border: 1px solid var(--app-detail-action-border);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-detail-action-surface);
-  color: var(--app-detail-action-text);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.4;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.ai-history-view__play-button:hover {
-  background: var(--app-detail-action-surface-strong);
-  color: var(--app-detail-action-text-strong);
-}
-
-.ai-history-view__play-button:focus-visible {
-  outline: none;
-  box-shadow: var(--app-detail-action-focus-ring);
-}
-
-.ai-history-view__playback-error {
-  margin: 10px 0 0;
-  color: var(--app-tone-danger-text);
-  font-size: 13px;
-  line-height: 1.6;
 }
 </style>

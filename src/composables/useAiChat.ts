@@ -131,7 +131,7 @@ export function useAiChat() {
     }
   }
 
-  async function sendVoiceMessage(audioFile: Blob | File) {
+  async function transcribeVoiceMessage(audioFile: Blob | File) {
     if (loading.value) {
       return null
     }
@@ -147,7 +147,7 @@ export function useAiChat() {
         return null
       }
 
-      return await dispatchMessage(message)
+      return message
     } catch (error) {
       errorMessage.value = resolveErrorMessage(error)
       return null
@@ -175,7 +175,7 @@ export function useAiChat() {
     loading,
     errorMessage,
     sendMessage,
-    sendVoiceMessage,
+    transcribeVoiceMessage,
     resetConversation,
   }
 }
