@@ -48,11 +48,16 @@ function createDeferred() {
 
 function createSmokeScenario(overrides = {}) {
   return {
+    capabilities: {
+      chatEnabled: true,
+      speechEnabled: true,
+    },
     chatRequests: [],
     historyDetails: {},
     historyList: [],
-    speechResponses: {},
+    requestOrder: [],
     transcriptionResponses: [],
+    transcriptionRequests: [],
     ...overrides,
   }
 }
@@ -143,17 +148,6 @@ function startServer() {
   }
 }
 
-function resolveHistoryIdFromSpeechPath(pathname) {
-  const prefix = '/api/ai/history/'
-  const suffix = '/speech'
-
-  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) {
-    return null
-  }
-
-  return pathname.slice(prefix.length, pathname.length - suffix.length)
-}
-
 function resolveHistoryIdFromDetailPath(pathname) {
   const prefix = '/api/ai/history/'
 
@@ -199,7 +193,25 @@ async function registerApiStubs(page, scenario) {
       return
     }
 
+    if (method === 'GET' && pathname === '/api/ai/capabilities') {
+      await route.fulfill({
+        body: JSON.stringify(createApiEnvelope(scenario.capabilities)),
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+
     if (method === 'POST' && pathname === '/api/ai/speech/transcriptions') {
+      const multipartBodyText = request.postDataBuffer()?.toString('utf8') ?? ''
+
+      scenario.requestOrder.push('transcription')
+      scenario.transcriptionRequests.push({ bodyText: multipartBodyText })
+
+      assert.match(multipartBodyText, /filename="voice\.wav"/, '语音转写上传必须使用 voice.wav 文件名')
+      assert.match(multipartBodyText, /Content-Type: audio\/wav/i, '语音转写上传必须声明 audio/wav')
+      assert.doesNotMatch(multipartBodyText, /audio\/webm/i, '语音转写上传不应残留 audio/webm 契约')
+
       const nextResponse = scenario.transcriptionResponses.shift()
 
       if (!nextResponse) {
@@ -229,6 +241,8 @@ async function registerApiStubs(page, scenario) {
 
     if (method === 'POST' && pathname === '/api/ai/chat') {
       const payload = request.postDataJSON()
+
+      scenario.requestOrder.push('chat')
       scenario.chatRequests.push(payload)
 
       assert.equal(typeof payload?.message, 'string', 'AI chat 请求必须带上 message 字段')
@@ -245,36 +259,6 @@ async function registerApiStubs(page, scenario) {
       await route.fulfill({
         body: JSON.stringify(createApiEnvelope(scenario.historyList)),
         contentType: 'application/json',
-        status: 200,
-      })
-      return
-    }
-
-    if (method === 'GET' && pathname.endsWith('/speech')) {
-      const historyId = resolveHistoryIdFromSpeechPath(pathname)
-
-      if (!historyId) {
-        throw new Error(`无法解析历史语音请求：${pathname}`)
-      }
-
-      const speechResponse = scenario.speechResponses[historyId]
-
-      if (!speechResponse) {
-        throw new Error(`未为历史语音 ${historyId} 配置响应`)
-      }
-
-      if (speechResponse.type === 'error') {
-        await route.fulfill({
-          body: JSON.stringify(createApiFailure(speechResponse.message)),
-          contentType: 'application/json',
-          status: speechResponse.status ?? 500,
-        })
-        return
-      }
-
-      await route.fulfill({
-        body: Buffer.from(speechResponse.body),
-        contentType: speechResponse.contentType,
         status: 200,
       })
       return
@@ -338,40 +322,89 @@ async function createSmokePage(browser, scenario) {
 
       const smokeState = window[browserStateKey]
 
-      class FakeMediaRecorder extends EventTarget {
-        static isTypeSupported(type) {
-          return type === 'audio/webm;codecs=opus' || type === 'audio/webm'
+      class FakeAudioBuffer {
+        constructor(channels) {
+          this.channels = channels
+          this.numberOfChannels = channels.length
         }
 
-        constructor(stream, options = {}) {
-          super()
-          this.mimeType = options.mimeType || 'audio/webm'
-          this.state = 'inactive'
-          this.stream = stream
-        }
-
-        start() {
-          this.state = 'recording'
-        }
-
-        stop() {
-          if (this.state === 'inactive') {
-            return
-          }
-
-          this.state = 'inactive'
-
-          const chunkEvent = new Event('dataavailable')
-          chunkEvent.data = new Blob([smokeState.recordedChunkText], { type: this.mimeType })
-          this.dispatchEvent(chunkEvent)
-          this.dispatchEvent(new Event('stop'))
+        getChannelData(index) {
+          return this.channels[index] ?? new Float32Array()
         }
       }
 
-      Object.defineProperty(window, 'MediaRecorder', {
+      class FakeAudioNode {
+        connect() {
+          return undefined
+        }
+
+        disconnect() {
+          return undefined
+        }
+      }
+
+      class FakeGainNode extends FakeAudioNode {
+        gain = { value: 1 }
+      }
+
+      class FakeScriptProcessorNode extends FakeAudioNode {
+        onaudioprocess = null
+
+        emitChunk() {
+          this.onaudioprocess?.({
+            inputBuffer: new FakeAudioBuffer([
+              new Float32Array([0, 0.25, -0.25, 0.5]),
+              new Float32Array([0, -0.25, 0.25, -0.5]),
+            ]),
+          })
+        }
+      }
+
+      class FakeMediaStreamAudioSourceNode extends FakeAudioNode {
+        connect(target) {
+          if (target instanceof FakeScriptProcessorNode) {
+            target.emitChunk()
+          }
+
+          return undefined
+        }
+      }
+
+      class FakeAudioContext {
+        sampleRate = 48_000
+        destination = new FakeAudioNode()
+
+        async resume() {
+          return undefined
+        }
+
+        createMediaStreamSource() {
+          return new FakeMediaStreamAudioSourceNode()
+        }
+
+        createScriptProcessor() {
+          return new FakeScriptProcessorNode()
+        }
+
+        createGain() {
+          return new FakeGainNode()
+        }
+
+        async close() {
+          return undefined
+        }
+      }
+
+      Object.defineProperty(window, 'AudioContext', {
         configurable: true,
         writable: true,
-        value: FakeMediaRecorder,
+        value: FakeAudioContext,
+      })
+
+      Object.defineProperty(window, 'webkitAudioContext', {
+        configurable: true,
+        writable: true,
+        value: FakeAudioContext,
       })
 
       Object.defineProperty(navigator, 'mediaDevices', {
@@ -383,6 +416,16 @@ async function createSmokePage(browser, scenario) {
             }
 
             return {
+              getAudioTracks() {
+                return [
+                  {
+                    stop() {},
+                    getSettings() {
+                      return { sampleRate: 48_000 }
+                    },
+                  },
+                ]
+              },
               getTracks() {
                 return [
                   {
@@ -394,14 +437,6 @@ async function createSmokePage(browser, scenario) {
           },
         },
       })
-
-      HTMLMediaElement.prototype.play = async function play() {
-        if (smokeState.audioPlayMode === 'reject') {
-          throw new Error('NotAllowedError')
-        }
-
-        return undefined
-      }
     },
     {
       browserStateKey: voiceSmokeConfig.browserStateKey,
@@ -475,18 +510,11 @@ async function runHappyPath(browser) {
         userInput: transcriptText,
       },
     ],
-    speechResponses: {
-      [happyHistoryId]: {
-        body: 'happy-audio',
-        contentType: 'audio/mpeg',
-        type: 'success',
-      },
-    },
     transcriptionResponses: [
       {
         data: {
           locale: 'zh-CN',
-          provider: 'smoke-provider',
+          provider: 'iflytek',
           transcript: transcriptText,
         },
         delay: transcriptGate.promise,
@@ -498,42 +526,57 @@ async function runHappyPath(browser) {
   const { context, page } = await createSmokePage(browser, scenario)
   const recordToggleSelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.recordToggle}"]`
   const statusSelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.status}"]`
-  const messagePlaySelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.messagePlay}"]`
-  const historyPlaySelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.historyPlay}"]`
 
   try {
     await page.goto(`${voiceSmokeConfig.server.baseURL}/ai`)
-    await waitForText(page, statusSelector, '点击开始录音，最长 60 秒；转写成功后会自动发送。')
+    await waitForText(page, statusSelector, '点击开始录音，最长 60 秒；转写后回填输入框，请确认后发送。')
 
     await page.click(recordToggleSelector)
-    await waitForText(page, statusSelector, '正在录音，最多 60 秒后自动提交。')
+    await waitForText(page, statusSelector, '正在录音，最多 60 秒后自动停止并转写。')
     await waitForButtonLabel(page, recordToggleSelector, '停止录音')
 
     await page.click(recordToggleSelector)
-    await waitForText(page, statusSelector, '正在转写语音并发送，请稍候。')
+    await waitForText(page, statusSelector, '正在转写语音，请稍候。转写后回填输入框，请确认后发送。')
     await waitForButtonLabel(page, recordToggleSelector, '转写中')
+
+    assert.deepEqual(scenario.requestOrder, ['transcription'], '录音结束后必须先发起转写请求')
+    assert.equal(scenario.chatRequests.length, 0, '转写进行中不应提前触发 AI chat 请求')
 
     transcriptGate.resolve()
 
     await page.waitForFunction(
-      (assistantResponseText) => document.body.textContent?.includes(assistantResponseText) ?? false,
-      assistantResponseText,
+      (transcriptText) => {
+        const textarea = document.querySelector('textarea')
+        return textarea instanceof HTMLTextAreaElement && textarea.value === transcriptText
+      },
+      transcriptText,
+    )
+    await waitForText(page, statusSelector, '转写后回填输入框，请确认后发送。')
+    await page.waitForFunction(
+      () => document.body.textContent?.includes('发送消息') ?? false,
     )
     await waitForButtonLabel(page, recordToggleSelector, '开始录音')
 
-    assert.equal(scenario.chatRequests.length, 1, 'happy path 应只发送一次 AI chat 请求')
-    assert.equal(scenario.chatRequests[0]?.message, transcriptText, 'chat 请求应复用转写文本发送')
+    assert.deepEqual(scenario.requestOrder, ['transcription'], '转写成功后仍不应自动触发 AI chat 请求')
+    assert.equal(scenario.chatRequests.length, 0, '转写成功只应回填草稿，不应自动发送')
 
-    await page.waitForSelector(messagePlaySelector)
-    await page.click(messagePlaySelector)
-    await waitForButtonLabel(page, messagePlaySelector, '停止播放')
+    await page.getByRole('button', { name: '发送消息' }).click()
+    await page.waitForFunction(
+      (assistantResponseText) => document.body.textContent?.includes(assistantResponseText) ?? false,
+      assistantResponseText,
+    )
+
+    assert.deepEqual(scenario.requestOrder, ['transcription', 'chat'], '显式点击发送后才应触发 AI chat 请求')
+    assert.equal(scenario.chatRequests.length, 1, 'happy path 应只发送一次 AI chat 请求')
+    assert.equal(scenario.chatRequests[0]?.message, transcriptText, 'chat 请求应使用用户确认后的草稿文本')
 
     await page.goto(`${voiceSmokeConfig.server.baseURL}/ai/history`)
     await page.waitForSelector(`[data-history-id="${happyHistoryId}"]`)
     await page.click(`[data-history-id="${happyHistoryId}"]`)
-    await page.waitForSelector(historyPlaySelector)
-    await page.click(historyPlaySelector)
-    await waitForButtonLabel(page, historyPlaySelector, '停止播放')
+    await page.waitForFunction(
+      (assistantResponseText) => document.body.textContent?.includes(assistantResponseText) ?? false,
+      assistantResponseText,
+    )
   } finally {
     await context.close()
   }
@@ -549,13 +592,6 @@ async function runErrorPath(browser) {
       intent: 'QUERY',
       sessionId: 'voice-session-error',
     },
-    speechResponses: {
-      [errorHistoryId]: {
-        message: '语音播放服务暂时不可用',
-        status: 500,
-        type: 'error',
-      },
-    },
     transcriptionResponses: [
       {
         message: '语音功能未开启',
@@ -569,7 +605,6 @@ async function runErrorPath(browser) {
   const recordToggleSelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.recordToggle}"]`
   const statusSelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.status}"]`
   const errorSelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.error}"]`
-  const messagePlaySelector = `[data-testid="${voiceSmokeConfig.voiceTestIds.messagePlay}"]`
 
   try {
     await page.goto(`${voiceSmokeConfig.server.baseURL}/ai`)
@@ -578,6 +613,7 @@ async function runErrorPath(browser) {
     await page.click(recordToggleSelector)
     await waitForText(page, statusSelector, '麦克风权限未开启，可继续输入文字消息。')
     await waitForText(page, errorSelector, '麦克风权限被拒绝，请在浏览器设置中允许访问后重试。')
+    assert.deepEqual(scenario.requestOrder, [], '麦克风权限被拒绝时不应触发转写或聊天请求')
 
     await setBrowserSmokeState(page, { mediaMode: 'success' })
     await page.click(recordToggleSelector)
@@ -585,6 +621,8 @@ async function runErrorPath(browser) {
     await page.click(recordToggleSelector)
     await waitForText(page, errorSelector, '语音功能未开启')
     await waitForButtonLabel(page, recordToggleSelector, '开始录音')
+    assert.deepEqual(scenario.requestOrder, ['transcription'], '转写失败路径也必须先只命中转写接口')
+    assert.equal(scenario.chatRequests.length, 0, '转写失败不应被误判为已发送聊天请求')
 
     await page.locator('textarea').fill('帮我查看今天可借设备')
     await page.getByRole('button', { name: '发送消息' }).click()
@@ -592,13 +630,8 @@ async function runErrorPath(browser) {
       () => document.body.textContent?.includes('当前可借设备有示波器。') ?? false,
     )
 
-    await page.waitForSelector(messagePlaySelector)
-    await page.click(messagePlaySelector)
-    await page.waitForFunction(
-      () =>
-        document.body.textContent?.includes('语音播放服务暂时不可用') ?? false,
-    )
-    await waitForButtonLabel(page, messagePlaySelector, '播放语音')
+    assert.deepEqual(scenario.requestOrder, ['transcription', 'chat'], '显式发送文字草稿后才应出现 AI chat 请求')
+    assert.equal(scenario.chatRequests[0]?.message, '帮我查看今天可借设备', '错误回退后应发送手动输入的草稿内容')
   } finally {
     await context.close()
   }
@@ -633,6 +666,6 @@ async function main() {
 
 main().catch((error) => {
   const message = error instanceof Error ? error.stack || error.message : String(error)
-  console.error(`✗ task 7 语音冒烟失败\n${message}`)
+  console.error(`✗ task 10 语音冒烟失败\n${message}`)
   process.exitCode = 1
 })
