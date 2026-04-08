@@ -87,10 +87,18 @@ class FakeScriptProcessorNode extends FakeAudioNode {
   onaudioprocess: ((event: { inputBuffer: FakeAudioBuffer }) => void) | null = null
 
   emitChunk() {
+    const leftChannel = new Float32Array(48)
+    const rightChannel = new Float32Array(48)
+
+    for (let index = 0; index < 48; index += 1) {
+      leftChannel[index] = index % 3 === 0 ? 0.5 : -0.25
+      rightChannel[index] = index % 3 === 0 ? -0.5 : 0.25
+    }
+
     this.onaudioprocess?.({
       inputBuffer: new FakeAudioBuffer([
-        new Float32Array([0, 0.25, -0.25, 0.5]),
-        new Float32Array([0, -0.25, 0.25, -0.5]),
+        leftChannel,
+        rightChannel,
       ]),
     })
   }
@@ -141,11 +149,11 @@ function readAiSource(relativePath: string) {
   return readFileSync(resolve(process.cwd(), relativePath), 'utf-8')
 }
 
-function createMediaStreamStub() {
+function createMediaStreamStub(trackSampleRate = 48_000) {
   const stopTrackMock = vi.fn()
   const track = {
     stop: stopTrackMock,
-    getSettings: () => ({ sampleRate: 48_000 }),
+    getSettings: () => ({ sampleRate: trackSampleRate }),
   }
 
   return {
@@ -503,6 +511,31 @@ describe('Ai Chat view', () => {
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(wrapper.get('.draft-value').element.textContent).toBe('查询今天空闲设备')
     expect(getVoiceStatus(wrapper).text()).toContain('转写后回填输入框，请确认后发送。')
+  })
+
+  it('WAV 导出使用 Web Audio 处理采样率，避免沿用麦克风 settings 造成时长漂移', async () => {
+    vi.useFakeTimers()
+
+    const { stream } = createMediaStreamStub(44_100)
+
+    mockMediaDevices(() => Promise.resolve(stream))
+    installAudioContext()
+    transcribeVoiceMessageMock.mockResolvedValueOnce('查询今天空闲设备')
+
+    const wrapper = await mountChatView()
+
+    await getRecordButton(wrapper).trigger('click')
+    await flushPromises()
+
+    vi.advanceTimersByTime(60_000)
+    await flushPromises()
+
+    const audioBlob = transcribeVoiceMessageMock.mock.calls[0]?.[0] as Blob
+    const audioBuffer = await audioBlob.arrayBuffer()
+    const audioView = new DataView(audioBuffer)
+
+    expect(audioView.getUint32(24, true)).toBe(16_000)
+    expect(audioView.getUint32(40, true)).toBe(32)
   })
 
   it('拒绝麦克风权限后给出中文提示，但不阻塞文字输入', async () => {

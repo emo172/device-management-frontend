@@ -14,7 +14,7 @@ interface RecorderSession {
   sourceNode: MediaStreamAudioSourceNode
   processorNode: ScriptProcessorNode
   silentGainNode: GainNode
-  sourceSampleRate: number
+  processingSampleRate: number
   chunks: Float32Array[]
 }
 
@@ -158,7 +158,7 @@ export function useAiVoiceRecorder(options: UseAiVoiceRecorderOptions = {}) {
 
     stopPromise = (async () => {
       const recordedChunks = session.chunks.map((chunk) => chunk.slice())
-      const sourceSampleRate = session.sourceSampleRate
+      const sourceSampleRate = session.processingSampleRate
 
       await releaseSession(session)
 
@@ -211,8 +211,12 @@ export function useAiVoiceRecorder(options: UseAiVoiceRecorderOptions = {}) {
       const sourceNode = audioContext.createMediaStreamSource(stream)
       const processorNode = audioContext.createScriptProcessor(4096, 2, 1)
       const silentGainNode = audioContext.createGain()
-      const sourceTrack = stream.getAudioTracks()[0]
-      const sourceSampleRate = sourceTrack?.getSettings().sampleRate || audioContext.sampleRate
+
+      /**
+       * `onaudioprocess` 里拿到的是 Web Audio 图处理后的 PCM，因此导出 WAV 时必须使用 AudioContext 的采样率。
+       * 这里不能回退到 `MediaStreamTrack.getSettings().sampleRate`，否则两者不一致时会把时长和音高一起拉偏。
+       */
+      const processingSampleRate = audioContext.sampleRate
       const chunks: Float32Array[] = []
 
       silentGainNode.gain.value = 0
@@ -244,7 +248,7 @@ export function useAiVoiceRecorder(options: UseAiVoiceRecorderOptions = {}) {
         sourceNode,
         processorNode,
         silentGainNode,
-        sourceSampleRate,
+        processingSampleRate,
         chunks,
       }
       isRecording.value = true
