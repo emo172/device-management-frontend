@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { getCategoryTree } from '@/api/categories'
@@ -436,8 +436,19 @@ async function handleConfirmSubmit() {
 }
 
 onMounted(() => {
+  /**
+   * 创建页复用共享 reservation store，因此进入页面时先清掉上一轮创建遗留的草稿态。
+   */
+  reservationStore.resetCreateDraftState()
   void loadCategoryOptions().catch(() => {})
   void loadReservationTargetUsers().catch(() => {})
+})
+
+onUnmounted(() => {
+  /**
+   * 离开创建页后不再保留已选设备与冲突列表，避免用户下次新建预约时看到上一单残留状态。
+   */
+  reservationStore.resetCreateDraftState()
 })
 </script>
 

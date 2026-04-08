@@ -520,6 +520,35 @@ describe('reservation create view', () => {
     expect(searchReservableDevicesSpy).not.toHaveBeenCalled()
   })
 
+  it('进入和离开创建页时都会清掉上一轮创建遗留的已选设备与冲突信息', async () => {
+    const reservationStore = useReservationStore()
+    reservationStore.replaceSelectedDevices([
+      {
+        deviceId: 'device-stale',
+        deviceName: '遗留设备',
+        deviceNumber: 'DEV-STALE',
+      },
+    ])
+    reservationStore.blockingDevices = [createBlockingDevice('device-stale')]
+
+    const { wrapper } = await mountCreateView()
+
+    expect(reservationStore.selectedDevices).toEqual([])
+    expect(reservationStore.blockingDevices).toEqual([])
+
+    reservationStore.upsertSelectedDevice({
+      deviceId: 'device-next',
+      deviceName: '下一台设备',
+      deviceNumber: 'DEV-NEXT',
+    })
+    reservationStore.blockingDevices = [createBlockingDevice('device-next')]
+
+    wrapper.unmount()
+
+    expect(reservationStore.selectedDevices).toEqual([])
+    expect(reservationStore.blockingDevices).toEqual([])
+  })
+
   it('时间范围合法后才会按默认分页触发可预约设备搜索', async () => {
     const { wrapper, searchReservableDevicesSpy } = await mountCreateView()
     const keywordInput = wrapper.get('[data-testid="reservation-device-search-input"] .el-input-stub')

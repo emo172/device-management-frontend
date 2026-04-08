@@ -236,6 +236,15 @@ export const useReservationStore = defineStore('reservation', {
     },
 
     /**
+     * 创建页使用的是共享 Store 草稿态。
+     * 进入或离开创建页时要单独清掉已选设备与冲突列表，避免上一单的页面级状态串到下一单创建流程里。
+     */
+    resetCreateDraftState() {
+      this.clearSelectedDevices()
+      this.clearBlockingDevices()
+    },
+
+    /**
      * 预约列表接口当前只支持 `page` 与 `size`。
      * 仪表盘与列表页都依赖这份最小读取能力，因此在 Store 里保留查询参数和分页结果。
      * 枚举别名归一化已经在 API 层完成，这里只缓存 API 真正返回的标准化结果，避免重复包一层对象。
@@ -482,8 +491,7 @@ export const useReservationStore = defineStore('reservation', {
       this.resetListState()
       this.resetCurrentReservation()
       this.currentBatch = null
-      this.clearSelectedDevices()
-      this.clearBlockingDevices()
+      this.resetCreateDraftState()
     },
   },
 })
