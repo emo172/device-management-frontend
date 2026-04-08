@@ -14,9 +14,9 @@ vi.mock('@/api/request', () => ({
 
 import {
   chatWithAi,
+  getAiCapabilities,
   getAiHistoryDetail,
   getAiHistoryList,
-  getAiHistorySpeech,
   transcribeAiSpeech,
 } from '../ai'
 
@@ -24,6 +24,17 @@ describe('ai api', () => {
   beforeEach(() => {
     getMock.mockReset()
     postMock.mockReset()
+  })
+
+  it('loads ai capabilities from the dedicated capabilities endpoint', async () => {
+    const response = {
+      chatEnabled: true,
+      speechEnabled: false,
+    }
+    getMock.mockResolvedValue(response)
+
+    await expect(getAiCapabilities()).resolves.toBe(response)
+    expect(getMock).toHaveBeenCalledWith('/ai/capabilities')
   })
 
   it('uses the dedicated ai chat endpoint', async () => {
@@ -56,11 +67,11 @@ describe('ai api', () => {
     const response = {
       transcript: '帮我查询明天可用设备',
       locale: 'zh-CN',
-      provider: 'azure',
+      provider: 'iflytek',
     }
     postMock.mockResolvedValue(response)
 
-    const audioBlob = new Blob(['voice'], { type: 'audio/webm' })
+    const audioBlob = new Blob(['voice'], { type: 'audio/wav' })
 
     await expect(transcribeAiSpeech(audioBlob)).resolves.toBe(response)
 
@@ -71,30 +82,34 @@ describe('ai api', () => {
     const fileField = formData.get('file')
 
     expect(fileField).toBeInstanceOf(File)
-    expect((fileField as File).name).toBe('voice.webm')
+    expect((fileField as File).name).toBe('voice.wav')
   })
 
-  it('loads history speech as blob instead of exposing a public audio url', async () => {
-    const audioBlob = new Blob(['audio'], { type: 'audio/mpeg' })
-    getMock.mockResolvedValue(audioBlob)
+  it('keeps wav fallback filename even when blob metadata is stale webm', async () => {
+    const response = {
+      transcript: '帮我查询明天可用设备',
+      locale: 'zh-CN',
+      provider: 'iflytek',
+    }
+    postMock.mockResolvedValue(response)
 
-    await expect(getAiHistorySpeech('history-1')).resolves.toBe(audioBlob)
-    expect(getMock).toHaveBeenCalledWith('/ai/history/history-1/speech', {
-      responseType: 'blob',
-    })
+    const audioBlob = new Blob(['voice'], { type: 'audio/webm' })
+
+    await expect(transcribeAiSpeech(audioBlob)).resolves.toBe(response)
+
+    const [, formData] = postMock.mock.calls[0] as [string, FormData]
+    const fileField = formData.get('file')
+
+    expect(fileField).toBeInstanceOf(File)
+    expect((fileField as File).name).toBe('voice.wav')
   })
 
-  it('preserves speech api failures for upper layers to surface', async () => {
+  it('preserves transcription api failures for upper layers to surface', async () => {
     const transcriptionError = new Error('语音功能未开启')
-    const playbackError = new Error('AI 历史语音播放失败，请稍后重试')
     postMock.mockRejectedValueOnce(transcriptionError)
-    getMock.mockRejectedValueOnce(playbackError)
 
-    await expect(transcribeAiSpeech(new Blob(['voice'], { type: 'audio/webm' }))).rejects.toThrow(
+    await expect(transcribeAiSpeech(new Blob(['voice'], { type: 'audio/wav' }))).rejects.toThrow(
       '语音功能未开启',
-    )
-    await expect(getAiHistorySpeech('history-2')).rejects.toThrow(
-      'AI 历史语音播放失败，请稍后重试',
     )
   })
 })

@@ -91,9 +91,7 @@ describe('request service', () => {
       config,
     })
 
-    await expect(service.get<Blob>('/ai/history/history-1/speech', { responseType: 'blob' })).resolves.toBe(
-      audioBlob,
-    )
+    await expect(service.get<Blob>('/files/demo-audio', { responseType: 'blob' })).resolves.toBe(audioBlob)
   })
 
   it('parses blob business errors into stable message text', async () => {
@@ -104,7 +102,7 @@ describe('request service', () => {
         },
         response: {
           status: 400,
-          data: new Blob([JSON.stringify({ message: 'AI 历史语音播放失败，请稍后重试' })], {
+          data: new Blob([JSON.stringify({ message: '二进制下载失败，请稍后重试' })], {
             type: 'application/json',
           }),
         },
@@ -112,9 +110,9 @@ describe('request service', () => {
     }
 
     await expect(
-      service.get<Blob>('/ai/history/history-1/speech', { responseType: 'blob' }),
-    ).rejects.toThrow('AI 历史语音播放失败，请稍后重试')
-    expect(messageErrorMock).toHaveBeenCalledWith('AI 历史语音播放失败，请稍后重试')
+      service.get<Blob>('/files/demo-audio', { responseType: 'blob' }),
+    ).rejects.toThrow('二进制下载失败，请稍后重试')
+    expect(messageErrorMock).toHaveBeenCalledWith('二进制下载失败，请稍后重试')
   })
 
   it('rejects business error and shows message', async () => {

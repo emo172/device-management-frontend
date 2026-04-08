@@ -2,8 +2,6 @@ import { reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  AI_HISTORY_PLAY_TEST_ID,
-  AI_MESSAGE_PLAY_TEST_ID,
   AI_VOICE_ERROR_TEST_ID,
   AI_VOICE_RECORD_TOGGLE_TEST_ID,
   AI_VOICE_STATUS_TEST_ID,
@@ -46,11 +44,9 @@ describe('useAiChat voice flow', () => {
     expect(AI_VOICE_RECORD_TOGGLE_TEST_ID).toBe('ai-voice-record-toggle')
     expect(AI_VOICE_STATUS_TEST_ID).toBe('ai-voice-status')
     expect(AI_VOICE_ERROR_TEST_ID).toBe('ai-voice-error')
-    expect(AI_MESSAGE_PLAY_TEST_ID).toBe('ai-message-play')
-    expect(AI_HISTORY_PLAY_TEST_ID).toBe('ai-history-play')
   })
 
-  it('transcribes recording then reuses the existing text send pipeline', async () => {
+  it('转写成功后只返回 transcript，不会自动复用文字发送链路', async () => {
     aiStoreState.currentSessionId = 'session-legacy'
 
     const { useAiChat } = await import('../useAiChat')
@@ -67,17 +63,9 @@ describe('useAiChat voice flow', () => {
           resolveTranscription = resolve
         }),
     )
-    chatMock.mockResolvedValueOnce({
-      id: 'history-voice-1',
-      sessionId: 'session-2',
-      intent: 'QUERY',
-      executeResult: 'SUCCESS',
-      aiResponse: '当前空闲设备有 2 台。',
-    })
-
     const chat = useAiChat()
-    const audioBlob = new Blob(['voice'], { type: 'audio/webm' })
-    const sendingPromise = chat.sendVoiceMessage(audioBlob)
+    const audioBlob = new Blob(['voice'], { type: 'audio/wav' })
+    const transcriptionPromise = chat.transcribeVoiceMessage(audioBlob)
 
     expect(transcribeAiSpeechMock).toHaveBeenCalledWith(audioBlob)
     expect(chat.loading.value).toBe(true)
@@ -86,32 +74,16 @@ describe('useAiChat voice flow', () => {
     resolveTranscription({
       transcript: '  查询今天空闲设备  ',
       locale: 'zh-CN',
-      provider: 'azure',
+      provider: 'iflytek',
     })
 
-    await sendingPromise
+    await expect(transcriptionPromise).resolves.toBe('查询今天空闲设备')
 
-    expect(chatMock).toHaveBeenCalledWith({
-      sessionId: 'session-legacy',
-      message: '查询今天空闲设备',
-    })
+    expect(chatMock).not.toHaveBeenCalled()
     expect(chat.loading.value).toBe(false)
     expect(chat.errorMessage.value).toBeNull()
-    expect(chat.sessionId.value).toBe('session-2')
-    expect(chat.messages.value).toHaveLength(2)
-    expect(chat.messages.value[0]).toMatchObject({
-      role: 'user',
-      content: '查询今天空闲设备',
-      status: 'sent',
-    })
-    expect(chat.messages.value[1]).toMatchObject({
-      role: 'assistant',
-      content: '当前空闲设备有 2 台。',
-      intent: 'QUERY',
-      executeResult: 'SUCCESS',
-      historyId: 'history-voice-1',
-      status: 'sent',
-    })
+    expect(chat.sessionId.value).toBe('session-legacy')
+    expect(chat.messages.value).toHaveLength(0)
   })
 
   it('surfaces transcription failure cleanly without polluting the existing message list', async () => {
@@ -126,7 +98,7 @@ describe('useAiChat voice flow', () => {
     })
 
     const chat = useAiChat()
-    const result = await chat.sendVoiceMessage(new Blob(['voice'], { type: 'audio/webm' }))
+    const result = await chat.transcribeVoiceMessage(new Blob(['voice'], { type: 'audio/wav' }))
 
     expect(result).toBeNull()
     expect(chatMock).not.toHaveBeenCalled()
