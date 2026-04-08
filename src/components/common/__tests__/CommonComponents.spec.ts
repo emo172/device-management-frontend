@@ -210,7 +210,7 @@ describe('common business helpers', () => {
     expect((wrapper.vm as { resetCount: number }).resetCount).toBe(1)
   })
 
-  it('ConfirmDialog 取消时关闭弹窗，确认时仅上抛确认事件等待父层处理', async () => {
+  it('ConfirmDialog 取消时关闭弹窗，且 loading 态不会继续上抛确认事件', async () => {
     const { module, error } = await loadComponent('ConfirmDialog')
 
     expect(error).toBeNull()
@@ -255,8 +255,89 @@ describe('common business helpers', () => {
     await wrapper.get('.confirm-dialog__confirm').trigger('click')
 
     expect(wrapper.emitted('cancel')).toEqual([[]])
-    expect(wrapper.emitted('confirm')).toEqual([[]])
+    expect(wrapper.emitted('confirm')).toBeUndefined()
     expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
+  })
+
+  it('ConfirmDialog 非 loading 且未禁用时会正常上抛确认事件', async () => {
+    const { module, error } = await loadComponent('ConfirmDialog')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        modelValue: true,
+        title: '确认提交',
+        message: '请确认当前操作',
+        loading: false,
+        confirmDisabled: false,
+      },
+      global: {
+        ...createMountGlobals({
+          ElButton: {
+            props: ['loading', 'disabled', 'type'],
+            emits: ['click'],
+            template:
+              "<button :data-loading=\"loading ? 'true' : 'false'\" :data-disabled=\"disabled ? 'true' : 'false'\" :disabled=\"disabled\" @click=\"$emit('click')\"><slot /></button>",
+          },
+          ElDialog: {
+            props: ['modelValue', 'title'],
+            emits: ['update:modelValue', 'close'],
+            template: '<section><header>{{ title }}</header><slot /><slot name="footer" /></section>',
+          },
+        }),
+      },
+    })
+
+    await wrapper.get('.confirm-dialog__confirm').trigger('click')
+
+    expect(wrapper.emitted('confirm')).toEqual([[]])
+  })
+
+  it('ConfirmDialog 在 loading 或显式禁用时不会继续上抛确认事件', async () => {
+    const { module, error } = await loadComponent('ConfirmDialog')
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const wrapper = mount(module.default, {
+      props: {
+        modelValue: true,
+        title: '确认提交',
+        message: '请确认当前操作',
+        loading: false,
+        confirmDisabled: true,
+      },
+      global: {
+        ...createMountGlobals({
+          ElButton: {
+            props: ['loading', 'disabled', 'type'],
+            emits: ['click'],
+            template:
+              "<button :data-loading=\"loading ? 'true' : 'false'\" :data-disabled=\"disabled ? 'true' : 'false'\" :disabled=\"disabled\" @click=\"$emit('click')\"><slot /></button>",
+          },
+          ElDialog: {
+            props: ['modelValue', 'title'],
+            emits: ['update:modelValue', 'close'],
+            template: '<section><header>{{ title }}</header><slot /><slot name="footer" /></section>',
+          },
+        }),
+      },
+    })
+
+    await wrapper.get('.confirm-dialog__confirm').trigger('click')
+
+    expect(wrapper.get('.confirm-dialog__confirm').attributes('data-disabled')).toBe('true')
+    expect(wrapper.emitted('confirm')).toBeUndefined()
   })
 
   it('EmptyState 支持展示说明与动作入口', async () => {

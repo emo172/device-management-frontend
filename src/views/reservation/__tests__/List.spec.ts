@@ -66,26 +66,60 @@ async function loadListView() {
   }
 }
 
-const reservationRecord: ReservationListItemResponse = {
-  id: 'reservation-1',
-  batchId: null,
-  userId: 'user-1',
-  userName: 'demo-user',
-  createdBy: 'user-1',
-  createdByName: 'demo-user',
-  reservationMode: 'SELF',
-  deviceId: 'device-1',
-  deviceName: '示波器',
-  deviceNumber: 'DEV-001',
-  startTime: '2026-03-18T09:00:00',
-  endTime: '2026-03-18T10:00:00',
-  purpose: '课程实验',
-  status: 'APPROVED',
-  signStatus: 'NOT_CHECKED_IN',
-  approvalModeSnapshot: 'DEVICE_ONLY',
-  cancelReason: null,
-  cancelTime: null,
+function createReservationRecord(
+  overrides?: Partial<ReservationListItemResponse>,
+): ReservationListItemResponse {
+  return {
+    id: 'reservation-1',
+    batchId: null,
+    userId: 'user-1',
+    userName: 'demo-user',
+    createdBy: 'user-1',
+    createdByName: 'demo-user',
+    reservationMode: 'SELF',
+    deviceId: 'device-1',
+    deviceName: '示波器',
+    deviceNumber: 'DEV-001',
+    startTime: '2026-03-18T09:00:00',
+    endTime: '2026-03-18T10:00:00',
+    purpose: '课程实验',
+    status: 'APPROVED',
+    signStatus: 'NOT_CHECKED_IN',
+    approvalModeSnapshot: 'DEVICE_ONLY',
+    cancelReason: null,
+    cancelTime: null,
+    ...overrides,
+  }
 }
+
+const reservationRecord = createReservationRecord()
+const multiDeviceReservationRecord = createReservationRecord({
+  id: 'reservation-2',
+  deviceId: 'device-2',
+  deviceName: '频谱分析仪',
+  deviceNumber: 'DEV-002',
+  deviceCount: 3,
+  devices: [
+    {
+      deviceId: 'device-2',
+      deviceName: '频谱分析仪',
+      deviceNumber: 'DEV-002',
+    },
+    {
+      deviceId: 'device-3',
+      deviceName: '信号发生器',
+      deviceNumber: 'DEV-003',
+    },
+    {
+      deviceId: 'device-4',
+      deviceName: '万用表',
+      deviceNumber: 'DEV-004',
+    },
+  ],
+  primaryDeviceId: 'device-2',
+  primaryDeviceName: '频谱分析仪',
+  primaryDeviceNumber: 'DEV-002',
+})
 
 function createReservationDetailResponse(
   overrides?: Partial<ReservationDetailResponse>,
@@ -245,6 +279,62 @@ describe('reservation list view', () => {
     expect(detailButton.find('.el-icon-stub').exists()).toBe(true)
     expect(detailButton.find('svg').exists()).toBe(true)
     expect(linkButton.classes()).not.toContain('app-detail-action')
+  })
+
+  it('列表页与摘要卡片对多设备预约显示主设备摘要和数量事实，单设备仍保持旧文案', async () => {
+    const { module, error } = await loadListView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const reservationStore = useReservationStore()
+    reservationStore.list = [reservationRecord, multiDeviceReservationRecord]
+    reservationStore.total = 2
+
+    vi.spyOn(reservationStore, 'fetchReservationList').mockResolvedValue({
+      total: 2,
+      records: [reservationRecord, multiDeviceReservationRecord],
+    })
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          EmptyState: { template: '<div><slot /></div>' },
+          Pagination: { template: '<div class="pagination-stub"></div>' },
+          CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          ElButton: elButtonStub,
+          ElIcon: elIconStub,
+          ElTable: { template: '<div><slot /></div>' },
+          ElTableColumn: createElTableColumnStub(multiDeviceReservationRecord),
+        },
+        directives: {
+          loading: {
+            mounted() {},
+            updated() {},
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('示波器')
+    expect(wrapper.text()).toContain('频谱分析仪 等 3 台设备')
+    expect(wrapper.text()).toContain('DEV-002 · 共 3 台')
+    expect(wrapper.get('.reservation-list-view__link').text()).toContain('频谱分析仪 等 3 台设备')
   })
 
   it('普通用户进入页面会拉取列表，并支持详情跳转与取消动作', async () => {

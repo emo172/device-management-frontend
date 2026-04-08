@@ -44,6 +44,37 @@ const reservationDetail = computed<ReservationDetailResponse | null>(() => {
 
   return currentReservation
 })
+const reservationDevices = computed(() => {
+  if (!reservationDetail.value) {
+    return []
+  }
+
+  if (Array.isArray(reservationDetail.value.devices) && reservationDetail.value.devices.length > 0) {
+    return reservationDetail.value.devices
+  }
+
+  return [
+    {
+      deviceId: reservationDetail.value.deviceId,
+      deviceName: reservationDetail.value.deviceName,
+      deviceNumber: reservationDetail.value.deviceNumber,
+    },
+  ]
+})
+const reservationDeviceCount = computed(() => {
+  if (!reservationDetail.value) {
+    return 0
+  }
+
+  if (
+    typeof reservationDetail.value.deviceCount === 'number' &&
+    reservationDetail.value.deviceCount > 0
+  ) {
+    return reservationDetail.value.deviceCount
+  }
+
+  return reservationDevices.value.length
+})
 const approvalModeLabelMap = ApprovalModeLabel as Record<string, string>
 const reservationModeLabelMap = ReservationModeLabel as Record<string, string>
 const canGoToCheckIn = computed(() => {
@@ -123,6 +154,9 @@ onUnmounted(() => {
               <el-descriptions-item label="设备编号">{{
                 reservationDetail.deviceNumber
               }}</el-descriptions-item>
+              <el-descriptions-item label="设备数量">
+                {{ reservationDeviceCount }} 台设备
+              </el-descriptions-item>
               <el-descriptions-item label="预约人">{{
                 reservationDetail.userName
               }}</el-descriptions-item>
@@ -150,6 +184,26 @@ onUnmounted(() => {
               </el-descriptions-item>
               <el-descriptions-item label="预约备注" :span="2">
                 {{ formatEmptyValue(reservationDetail.remark, '暂无备注') }}
+              </el-descriptions-item>
+              <el-descriptions-item label="设备清单" :span="2">
+                <!-- 列表页只显示主设备摘要避免布局膨胀；详情页再按稳定顺序展开完整设备数组，帮助用户核对整单预约范围。 -->
+                <div class="reservation-detail-view__device-list">
+                  <p class="reservation-detail-view__device-summary">
+                    共 {{ reservationDeviceCount }} 台设备
+                  </p>
+                  <ul class="reservation-detail-view__device-items">
+                    <li
+                      v-for="device in reservationDevices"
+                      :key="device.deviceId"
+                      class="reservation-detail-view__device-item"
+                    >
+                      <span class="reservation-detail-view__device-name">{{ device.deviceName }}</span>
+                      <span class="reservation-detail-view__device-number">
+                        {{ formatEmptyValue(device.deviceNumber, '暂无编号') }}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </el-descriptions-item>
             </el-descriptions>
           </el-card>
@@ -233,6 +287,42 @@ onUnmounted(() => {
 
 .reservation-detail-view__card--full {
   grid-column: 1 / -1;
+}
+
+.reservation-detail-view__device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reservation-detail-view__device-summary {
+  margin: 0;
+  font-weight: 600;
+  color: var(--app-text-primary);
+}
+
+.reservation-detail-view__device-items {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reservation-detail-view__device-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--app-text-secondary);
+}
+
+.reservation-detail-view__device-name {
+  color: var(--app-text-primary);
+  font-weight: 600;
+}
+
+.reservation-detail-view__device-number {
+  color: var(--app-text-secondary);
 }
 
 // 详情页的描述表和审批信息是深色模式最容易发白的区域，页面层显式收口后才不会被 Element Plus 默认浅色表面覆盖。

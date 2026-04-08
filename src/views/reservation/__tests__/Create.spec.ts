@@ -1,15 +1,14 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { computed, defineComponent } from 'vue'
+import { computed, defineComponent, ref, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ReservationResponse } from '@/api/reservations'
+import * as categoryApi from '@/api/categories'
+import * as deviceApi from '@/api/devices'
+import type { BlockingDeviceResponse, ReservationResponse } from '@/api/reservations'
 import { FreezeStatus, UserRole } from '@/enums'
 import { createAppPinia } from '@/stores'
 import { useAuthStore } from '@/stores/modules/auth'
-import { useDeviceStore } from '@/stores/modules/device'
 import { useReservationStore } from '@/stores/modules/reservation'
 import { useUserStore } from '@/stores/modules/user'
 
@@ -18,8 +17,11 @@ const successMock = vi.fn()
 const warningMock = vi.fn()
 const reservationViewModules = import.meta.glob('../*.vue')
 
-function readReservationViewSource(fileName: string) {
-  return readFileSync(resolve(process.cwd(), `src/views/reservation/${fileName}`), 'utf-8')
+interface ReservationFormValue {
+  startTime: string
+  endTime: string
+  purpose: string
+  remark: string
 }
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -67,9 +69,22 @@ async function loadCreateView() {
   }
 }
 
+function createDeviceRecord(index: number) {
+  return {
+    id: `device-${index}`,
+    name: `设备 ${index}`,
+    deviceNumber: `DEV-${String(index).padStart(3, '0')}`,
+    categoryId: index <= 10 ? 'cat-root' : 'cat-lab',
+    categoryName: index <= 10 ? '基础设备' : '实验设备',
+    status: 'AVAILABLE',
+    description: `设备 ${index} 描述`,
+    location: `A-${100 + index}`,
+  }
+}
+
 function createReservationActionResponse(
-  overrides?: Partial<ReservationResponse>,
-): ReservationResponse {
+  overrides?: Partial<ReservationResponse & { deviceCount: number }>,
+) {
   return {
     id: 'reservation-1',
     batchId: null,
@@ -79,11 +94,27 @@ function createReservationActionResponse(
     createdByName: 'demo-user',
     reservationMode: 'SELF',
     deviceId: 'device-1',
-    deviceName: '示波器',
+    deviceName: '设备 1',
     deviceNumber: 'DEV-001',
+    deviceCount: 2,
+    devices: [
+      {
+        deviceId: 'device-1',
+        deviceName: '设备 1',
+        deviceNumber: 'DEV-001',
+      },
+      {
+        deviceId: 'device-2',
+        deviceName: '设备 2',
+        deviceNumber: 'DEV-002',
+      },
+    ],
+    primaryDeviceId: 'device-1',
+    primaryDeviceName: '设备 1',
+    primaryDeviceNumber: 'DEV-001',
     deviceStatus: 'AVAILABLE',
-    startTime: '2026-03-18T09:00:00',
-    endTime: '2026-03-18T10:00:00',
+    startTime: '2026-04-08T09:00:00',
+    endTime: '2026-04-08T10:00:00',
     purpose: '课程实验',
     remark: '',
     status: 'PENDING_DEVICE_APPROVAL',
@@ -100,40 +131,57 @@ function createReservationActionResponse(
     cancelReason: null,
     cancelTime: null,
     checkedInAt: null,
-    createdAt: '2026-03-16T08:00:00',
-    updatedAt: '2026-03-16T08:00:00',
+    createdAt: '2026-04-07T08:00:00',
+    updatedAt: '2026-04-07T08:00:00',
+    ...overrides,
+  } as ReservationResponse & { deviceCount: number }
+}
+
+function createBlockingDevice(
+  deviceId: string,
+  overrides?: Partial<BlockingDeviceResponse>,
+): BlockingDeviceResponse {
+  return {
+    deviceId,
+    deviceName: `冲突设备 ${deviceId}`,
+    reasonCode: 'DEVICE_TIME_CONFLICT',
+    reasonMessage: `${deviceId} 时间冲突`,
     ...overrides,
   }
 }
 
-interface SelectOptionSnapshot {
-  label: string
-  value: string
-}
-
-function collectSelectOptionSnapshots(nodes: Array<{ children?: unknown; props?: unknown }>) {
-  const options: SelectOptionSnapshot[] = []
-
-  nodes.forEach((node) => {
-    if (Array.isArray(node.children)) {
-      options.push(
-        ...collectSelectOptionSnapshots(
-          node.children as Array<{ children?: unknown; props?: unknown }>,
-        ),
-      )
-    }
-
-    const props = node.props as Record<string, unknown> | null | undefined
-
-    if (typeof props?.value === 'string' && typeof props?.label === 'string') {
-      options.push({
-        value: props.value,
-        label: props.label,
-      })
-    }
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
   })
 
-  return options
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
+interface TreeOptionSnapshot {
+  label?: string
+  value?: string
+  children?: TreeOptionSnapshot[]
+}
+
+function flattenTreeOptions(nodes: TreeOptionSnapshot[] = []): Array<{ label: string; value: string }> {
+  return nodes.flatMap((node) => {
+    const current =
+      typeof node.label === 'string' && typeof node.value === 'string'
+        ? [{ label: node.label, value: node.value }]
+        : []
+
+    const children = Array.isArray(node.children) ? flattenTreeOptions(node.children) : []
+
+    return [...current, ...children]
+  })
 }
 
 const appSelectStub = defineComponent({
@@ -143,9 +191,16 @@ const appSelectStub = defineComponent({
   emits: ['update:modelValue'],
   setup(props, { emit, slots }) {
     const selectedLabel = computed(() => {
-      const options = collectSelectOptionSnapshots(
-        (slots.default?.() as Array<{ children?: unknown; props?: unknown }> | undefined) ?? [],
-      )
+      const nodes = (slots.default?.() as Array<{ children?: unknown; props?: unknown }> | undefined) ?? []
+      const options = nodes.flatMap((node) => {
+        const optionProps = node.props as Record<string, unknown> | undefined
+
+        if (typeof optionProps?.value === 'string' && typeof optionProps?.label === 'string') {
+          return [{ label: optionProps.label, value: optionProps.value }]
+        }
+
+        return []
+      })
 
       return options.find((option) => option.value === props.modelValue)?.label ?? ''
     })
@@ -160,49 +215,279 @@ const appSelectStub = defineComponent({
     }
   },
   template:
-    '<div class="app-select-stub" :class="$attrs.class" :data-placeholder="placeholder" :data-selected-label="selectedLabel"><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="handleChange"><slot /></select><span class="app-select-stub__selected-label">{{ selectedLabel }}</span></div>',
+    '<div class="app-select-stub" :class="$attrs.class" :data-selected-label="selectedLabel"><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="handleChange"><slot /></select><span class="app-select-stub__selected-label">{{ selectedLabel }}</span></div>',
 })
 
-function createInteractiveReservationFormStubs() {
+const appTreeSelectStub = defineComponent({
+  name: 'AppTreeSelect',
+  inheritAttrs: false,
+  props: ['modelValue', 'data', 'placeholder', 'disabled'],
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    const options = computed(() => flattenTreeOptions((props.data as TreeOptionSnapshot[]) ?? []))
+
+    function handleChange(event: Event) {
+      emit('update:modelValue', (event.target as HTMLSelectElement).value || null)
+    }
+
+    return {
+      handleChange,
+      options,
+    }
+  },
+  template:
+    '<div class="app-tree-select-stub" :class="$attrs.class"><select class="app-tree-select-stub__control" :value="modelValue || null" :disabled="disabled" @change="handleChange"><option value="">全部分类</option><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select></div>',
+})
+
+const confirmDialogStub = defineComponent({
+  name: 'ConfirmDialog',
+  inheritAttrs: false,
+  props: {
+    modelValue: Boolean,
+    title: String,
+    message: String,
+    loading: Boolean,
+    confirmDisabled: Boolean,
+  },
+  emits: ['confirm', 'update:modelValue'],
+  setup(props, { emit }) {
+    const keepVisibleDuringClose = ref(props.modelValue)
+
+    watch(
+      () => props.modelValue,
+      (value) => {
+        if (value) {
+          keepVisibleDuringClose.value = true
+        }
+      },
+      { immediate: true },
+    )
+
+    function handleConfirm() {
+      if (props.loading || props.confirmDisabled) {
+        return
+      }
+
+      emit('confirm')
+    }
+
+    return {
+      handleConfirm,
+      keepVisibleDuringClose,
+    }
+  },
+  template:
+    '<div v-if="modelValue || keepVisibleDuringClose" v-bind="$attrs" class="confirm-dialog-stub"><h3 class="confirm-dialog-stub__title">{{ title }}</h3><p class="confirm-dialog-stub__message">{{ message }}</p><button type="button" class="confirm-submit" :disabled="loading || confirmDisabled" @click="handleConfirm"></button></div>',
+})
+
+function createCreateViewStubs() {
   return {
-    ConfirmDialog: {
-      props: ['modelValue'],
-      emits: ['confirm', 'update:modelValue'],
-      template:
-        '<div><span v-if="modelValue" class="confirm-open">open</span><button v-if="modelValue" type="button" class="confirm-submit" @click="$emit(\'confirm\')"></button></div>',
+    ConsolePageHero: {
+      template: '<section class="console-page-hero"><slot name="actions" /></section>',
     },
-    ElButton: {
-      emits: ['click'],
+    ConsoleDetailLayout: {
       template:
-        '<button type="button" :class="$attrs.class" @click="$emit(\'click\')"><slot /></button>',
+        '<div class="console-detail-layout"><div class="console-detail-layout__main"><slot name="main" /></div><div class="console-detail-layout__aside"><slot name="aside" /></div></div>',
     },
-    ElCard: { template: '<div><slot /></div>' },
-    ElRadioGroup: { template: '<div><slot /></div>' },
-    ElRadioButton: { template: '<button type="button"><slot /></button>' },
-    ElForm: { template: '<form><slot /></form>' },
-    ElFormItem: { template: '<div><slot /></div>' },
+    ConsoleAsidePanel: {
+      template: '<aside class="console-aside-panel"><slot /></aside>',
+    },
+    ConsoleFilterPanel: {
+      template:
+        '<section class="console-filter-panel"><div class="console-filter-panel__fields"><slot /></div><div class="console-filter-panel__actions"><slot name="actions" /></div></section>',
+    },
+    ReservationForm: {
+      props: ['initialValue', 'selectedDeviceCount', 'serverConflictMessage', 'submitting'],
+      emits: ['change', 'submit', 'clear-conflict'],
+      setup(
+        _props: unknown,
+        { emit }: { emit: (event: string, value: ReservationFormValue) => void },
+      ) {
+        const validFormValue = {
+          startTime: '2026-04-08T09:00:00',
+          endTime: '2026-04-08T10:00:00',
+          purpose: '课程实验',
+          remark: '请准备样品',
+        }
+
+        function emitInvalidTime() {
+          emit('change', {
+            startTime: '',
+            endTime: '',
+            purpose: '课程实验',
+            remark: '',
+          })
+        }
+
+        function emitValidTime() {
+          emit('change', validFormValue)
+        }
+
+        function emitSubmit() {
+          emit('submit', validFormValue)
+        }
+
+        return {
+          emitInvalidTime,
+          emitSubmit,
+          emitValidTime,
+        }
+      },
+      template:
+        '<div class="reservation-form-stub"><button type="button" class="reservation-form-emit-invalid-time" @click="emitInvalidTime"></button><button type="button" class="reservation-form-emit-valid-time" @click="emitValidTime"></button><button type="button" class="reservation-form-submit" @click="emitSubmit"></button><span class="reservation-form-selected-count">{{ selectedDeviceCount }}</span><span class="reservation-form-start-time">{{ initialValue.startTime }}</span><span class="reservation-form-end-time">{{ initialValue.endTime }}</span><span class="reservation-form-purpose">{{ initialValue.purpose }}</span><span class="reservation-form-remark">{{ initialValue.remark }}</span><span class="reservation-form-conflict">{{ serverConflictMessage }}</span></div>',
+    },
+    ConfirmDialog: confirmDialogStub,
+    ElCard: {
+      template:
+        '<section class="el-card-stub"><div class="el-card-stub__header"><slot name="header" /></div><div class="el-card-stub__body"><slot /></div></section>',
+    },
+    ElRadioGroup: {
+      template: '<div class="el-radio-group-stub"><slot /></div>',
+    },
+    ElRadioButton: {
+      template: '<button type="button" class="el-radio-button-stub"><slot /></button>',
+    },
     ElInput: {
-      props: ['modelValue'],
+      inheritAttrs: false,
+      props: ['modelValue', 'disabled', 'placeholder'],
       emits: ['update:modelValue'],
       template:
-        '<input :class="$attrs.class" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+        '<input v-bind="$attrs" class="el-input-stub" :value="modelValue" :disabled="disabled" :placeholder="placeholder" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
+    AppTreeSelect: appTreeSelectStub,
     AppSelect: appSelectStub,
     ElOption: {
       props: ['label', 'value'],
       template: '<option :value="value">{{ label }}</option>',
     },
-    TimeRangePicker: {
-      props: ['modelValue'],
-      emits: ['update:modelValue'],
+    ElButton: {
+      inheritAttrs: false,
+      emits: ['click'],
       template:
-        '<button type="button" class="time-range-picker" @click="$emit(\'update:modelValue\', { startTime: \'2026-03-18T09:00:00\', endTime: \'2026-03-18T10:00:00\' })"></button>',
+        '<button type="button" v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
     },
-    ConflictWarning: {
-      props: ['localWarnings', 'serverConflictMessage'],
+    Pagination: {
+      props: ['currentPage', 'pageSize', 'total', 'disabled'],
+      emits: ['change'],
       template:
-        '<div class="conflict-warning-stub">{{ localWarnings?.join(\'|\') }}{{ serverConflictMessage }}</div>',
+        '<div class="pagination-stub"><button type="button" class="pagination-page-1" :disabled="disabled" @click="$emit(\'change\', { currentPage: 1, pageSize })"></button><button type="button" class="pagination-page-2" :disabled="disabled" @click="$emit(\'change\', { currentPage: 2, pageSize })"></button></div>',
     },
+  }
+}
+
+async function mountCreateView(options?: {
+  searchImplementation?: typeof deviceApi.searchReservableDevices
+  role?: UserRole
+  reservationTargetUsers?: Array<{
+    id: string
+    username: string
+    email: string
+    realName: string
+    phone: string
+    status: number
+    freezeStatus: FreezeStatus
+    roleId: string
+    roleName: UserRole.USER
+  }>
+}) {
+  const { module, error } = await loadCreateView()
+
+  expect(error).toBeNull()
+  expect(module).toBeTruthy()
+
+  if (!module) {
+    throw new Error('Create.vue failed to load')
+  }
+
+  const authStore = useAuthStore()
+  authStore.setCurrentUser({
+    email: 'user@example.com',
+    phone: '13800138000',
+    realName: options?.role === UserRole.SYSTEM_ADMIN ? '系统管理员' : '普通用户',
+    role: options?.role ?? UserRole.USER,
+    userId: 'user-1',
+    username: options?.role === UserRole.SYSTEM_ADMIN ? 'sys-admin' : 'user',
+  })
+
+  const reservationStore = useReservationStore()
+  const createReservationSpy = vi
+    .spyOn(reservationStore, 'createReservation')
+    .mockResolvedValue(createReservationActionResponse())
+  const createProxyReservationSpy = vi
+    .spyOn(reservationStore, 'createProxyReservation')
+    .mockResolvedValue(
+      createReservationActionResponse({
+        reservationMode: 'ON_BEHALF',
+      }),
+    )
+  const userStore = useUserStore()
+  const fetchReservationTargetUsersSpy = vi
+    .spyOn(userStore, 'fetchReservationTargetUsers')
+    .mockResolvedValue(
+      options?.reservationTargetUsers ?? [
+        {
+          id: 'target-user-1',
+          username: 'student-01',
+          email: 'student-01@example.com',
+          realName: '张三',
+          phone: '13800138001',
+          status: 1,
+          freezeStatus: FreezeStatus.NORMAL,
+          roleId: 'role-user',
+          roleName: UserRole.USER,
+        },
+      ],
+    )
+
+  vi.spyOn(categoryApi, 'getCategoryTree').mockResolvedValue([
+    {
+      id: 'cat-root',
+      name: '基础设备',
+      parentId: null,
+      sortOrder: 1,
+      description: '基础设备',
+      defaultApprovalMode: 'DEVICE_ONLY',
+      children: [
+        {
+          id: 'cat-lab',
+          name: '实验设备',
+          parentId: 'cat-root',
+          sortOrder: 2,
+          description: '实验设备',
+          defaultApprovalMode: 'DEVICE_ONLY',
+          children: [],
+        },
+      ],
+    },
+  ])
+
+  const searchReservableDevicesSpy = vi
+    .spyOn(deviceApi, 'searchReservableDevices')
+    .mockImplementation(
+      options?.searchImplementation ??
+        (async (params) => ({
+          total: 0,
+          records: [],
+        })),
+    )
+
+  const wrapper = mount(module.default, {
+    global: {
+      stubs: createCreateViewStubs(),
+    },
+  })
+
+  await flushPromises()
+
+  return {
+    authStore,
+    createReservationSpy,
+    createProxyReservationSpy,
+    fetchReservationTargetUsersSpy,
+    reservationStore,
+    searchReservableDevicesSpy,
+    userStore,
+    wrapper,
   }
 }
 
@@ -214,761 +499,430 @@ describe('reservation create view', () => {
     setActivePinia(createAppPinia())
   })
 
-  it('普通用户创建预约时加载可预约设备并在确认后提交本人预约', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'user@example.com',
-      phone: '13800138000',
-      realName: '普通用户',
-      role: UserRole.USER,
-      userId: 'user-1',
-      username: 'user',
-    })
-
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 2,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-        {
-          id: 'device-2',
-          name: '损坏设备',
-          deviceNumber: 'DEV-002',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'BORROWED',
-          description: '不可预约',
-          location: 'A-102',
-        },
-      ],
-    })
-    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue(
-      createReservationActionResponse(),
+  it('时间范围未合法前不会请求可预约设备搜索', async () => {
+    const { wrapper, searchReservableDevicesSpy } = await mountCreateView()
+    const keywordInput = wrapper.get('[data-testid="reservation-device-search-input"] .el-input-stub')
+    const categoryFilter = wrapper.get(
+      '[data-testid="reservation-device-category-filter"] .app-tree-select-stub__control',
     )
+    const searchButton = wrapper.get('.reservation-create-page__filter-submit')
 
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: createInteractiveReservationFormStubs(),
-      },
-    })
+    expect(searchReservableDevicesSpy).not.toHaveBeenCalled()
+    expect(keywordInput.attributes('disabled')).toBeDefined()
+    expect(categoryFilter.attributes('disabled')).toBeDefined()
+    expect(searchButton.attributes('disabled')).toBeDefined()
 
+    await wrapper.get('.reservation-form-emit-invalid-time').trigger('click')
+    await keywordInput.setValue('示波器')
+    await wrapper.get('.reservation-create-page__filter-submit').trigger('click')
     await flushPromises()
 
-    expect(deviceStore.fetchDeviceList).toHaveBeenCalledWith({ page: 1, size: 100 })
-    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
-    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
-    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
-
-    expect(deviceSelectRoot.findAll('option')).toHaveLength(1)
-
-    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-1')
-    await wrapper.get('.time-range-picker').trigger('click')
-    await wrapper.get('.reservation-form__purpose').setValue('课程实验')
-
-    await wrapper.get('.reservation-form__submit').trigger('click')
-    expect(wrapper.find('.confirm-open').exists()).toBe(true)
-
-    await wrapper.get('.confirm-submit').trigger('click')
-
-    expect(reservationStore.createReservation).toHaveBeenCalledWith({
-      deviceId: 'device-1',
-      startTime: '2026-03-18T09:00:00',
-      endTime: '2026-03-18T10:00:00',
-      purpose: '课程实验',
-      remark: '',
-    })
-    expect(pushMock).toHaveBeenCalledWith('/reservations/reservation-1')
-    expect(successMock).toHaveBeenCalledWith('预约创建成功')
+    expect(searchReservableDevicesSpy).not.toHaveBeenCalled()
   })
 
-  it('创建页在选择设备后保留已选设备文案直到确认提交', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'user@example.com',
-      phone: '13800138000',
-      realName: '普通用户',
-      role: UserRole.USER,
-      userId: 'user-1',
-      username: 'user',
-    })
-
-    const deviceStore = useDeviceStore()
+  it('进入和离开创建页时都会清掉上一轮创建遗留的已选设备与冲突信息', async () => {
     const reservationStore = useReservationStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 2,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-        {
-          id: 'device-2',
-          name: '频谱仪',
-          deviceNumber: 'DEV-002',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-102',
-        },
-      ],
-    })
-    vi.spyOn(reservationStore, 'createReservation').mockResolvedValue(
-      createReservationActionResponse(),
-    )
-
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: createInteractiveReservationFormStubs(),
+    reservationStore.replaceSelectedDevices([
+      {
+        deviceId: 'device-stale',
+        deviceName: '遗留设备',
+        deviceNumber: 'DEV-STALE',
       },
+    ])
+    reservationStore.blockingDevices = [createBlockingDevice('device-stale')]
+
+    const { wrapper } = await mountCreateView()
+
+    expect(reservationStore.selectedDevices).toEqual([])
+    expect(reservationStore.blockingDevices).toEqual([])
+
+    reservationStore.upsertSelectedDevice({
+      deviceId: 'device-next',
+      deviceName: '下一台设备',
+      deviceNumber: 'DEV-NEXT',
     })
+    reservationStore.blockingDevices = [createBlockingDevice('device-next')]
 
-    await flushPromises()
+    wrapper.unmount()
 
-    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
-
-    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-1')
-    await wrapper.get('.time-range-picker').trigger('click')
-    await wrapper.get('.reservation-form__purpose').setValue('课程实验')
-
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('示波器（DEV-001）')
-    expect(deviceSelectRoot.text()).toContain('示波器（DEV-001）')
-
-    await wrapper.get('.reservation-form__submit').trigger('click')
-
-    expect(wrapper.find('.confirm-open').exists()).toBe(true)
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('示波器（DEV-001）')
-    expect(deviceSelectRoot.text()).toContain('示波器（DEV-001）')
-
-    await wrapper.get('.confirm-submit').trigger('click')
-    await flushPromises()
-
-    expect(reservationStore.createReservation).toHaveBeenCalledWith({
-      deviceId: 'device-1',
-      startTime: '2026-03-18T09:00:00',
-      endTime: '2026-03-18T10:00:00',
-      purpose: '课程实验',
-      remark: '',
-    })
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('示波器（DEV-001）')
-    expect(deviceSelectRoot.text()).toContain('示波器（DEV-001）')
+    expect(reservationStore.selectedDevices).toEqual([])
+    expect(reservationStore.blockingDevices).toEqual([])
   })
 
-  it('创建页在选择时间范围后提交 ISO 时间字符串', async () => {
-    const { module, error } = await loadCreateView()
+  it('时间范围合法后才会按默认分页触发可预约设备搜索', async () => {
+    const { wrapper, searchReservableDevicesSpy } = await mountCreateView()
+    const keywordInput = wrapper.get('[data-testid="reservation-device-search-input"] .el-input-stub')
+    const categoryFilter = wrapper.get(
+      '[data-testid="reservation-device-category-filter"] .app-tree-select-stub__control',
+    )
+    const searchButton = wrapper.get('.reservation-create-page__filter-submit')
 
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'user@example.com',
-      phone: '13800138000',
-      realName: '普通用户',
-      role: UserRole.USER,
-      userId: 'user-1',
-      username: 'user',
-    })
-
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 1,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-      ],
-    })
-    const createReservationSpy = vi
-      .spyOn(reservationStore, 'createReservation')
-      .mockResolvedValue(createReservationActionResponse())
-
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: createInteractiveReservationFormStubs(),
-      },
-    })
-
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
     await flushPromises()
 
+    expect(keywordInput.attributes('disabled')).toBeUndefined()
+    expect(categoryFilter.attributes('disabled')).toBeUndefined()
+    expect(searchButton.attributes('disabled')).toBeUndefined()
+    expect(searchReservableDevicesSpy).toHaveBeenCalledTimes(1)
+    expect(searchReservableDevicesSpy).toHaveBeenCalledWith({
+      startTime: '2026-04-08T09:00:00',
+      endTime: '2026-04-08T10:00:00',
+      q: undefined,
+      categoryId: undefined,
+      includeDescendants: true,
+      page: 1,
+      size: 10,
+    })
+  })
+
+  it('分类与关键字会联合带入可预约设备搜索参数', async () => {
+    const { wrapper, searchReservableDevicesSpy } = await mountCreateView()
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="reservation-device-search-input"] .el-input-stub').setValue('激光')
     await wrapper
-      .get('.reservation-form__device.app-select-stub .app-select-stub__control')
-      .setValue('device-1')
-    await wrapper.get('.time-range-picker').trigger('click')
-    await wrapper.get('.reservation-form__purpose').setValue('课程实验')
-    await wrapper.get('.reservation-form__submit').trigger('click')
+      .get('[data-testid="reservation-device-category-filter"] .app-tree-select-stub__control')
+      .setValue('cat-lab')
+    await wrapper.get('.reservation-create-page__filter-submit').trigger('click')
+    await flushPromises()
 
-    expect(wrapper.find('.confirm-open').exists()).toBe(true)
+    expect(searchReservableDevicesSpy).toHaveBeenLastCalledWith({
+      startTime: '2026-04-08T09:00:00',
+      endTime: '2026-04-08T10:00:00',
+      q: '激光',
+      categoryId: 'cat-lab',
+      includeDescendants: true,
+      page: 1,
+      size: 10,
+    })
+  })
+
+  it('已选设备会在翻页和换筛选后继续保留', async () => {
+    const pageOneRecords = Array.from({ length: 10 }, (_, index) => createDeviceRecord(index + 1))
+    const pageTwoRecords = [createDeviceRecord(11), createDeviceRecord(12)]
+
+    const { reservationStore, wrapper } = await mountCreateView({
+      searchImplementation: async (params) => {
+        if (params.page === 2) {
+          return {
+            total: 12,
+            records: pageTwoRecords,
+          }
+        }
+
+        if (params.q === '实验') {
+          return {
+            total: 1,
+            records: [createDeviceRecord(12)],
+          }
+        }
+
+        return {
+          total: 12,
+          records: pageOneRecords,
+        }
+      },
+    })
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.pagination-page-2').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-11"]').trigger('click')
+
+    await wrapper.get('[data-testid="reservation-device-search-input"] .el-input-stub').setValue('实验')
+    await wrapper.get('.reservation-create-page__filter-submit').trigger('click')
+    await flushPromises()
+
+    expect(reservationStore.selectedDeviceIds).toEqual(['device-1', 'device-11'])
+    expect(wrapper.get('[data-testid="reservation-selected-count"]').text()).toContain('2')
+    expect(wrapper.get('[data-testid="reservation-selected-devices"]').text()).toContain('设备 1')
+    expect(wrapper.get('[data-testid="reservation-selected-devices"]').text()).toContain('设备 11')
+  })
+
+  it('第 11 台设备会被阻止加入已选列表', async () => {
+    const pageOneRecords = Array.from({ length: 10 }, (_, index) => createDeviceRecord(index + 1))
+    const pageTwoRecords = [createDeviceRecord(11)]
+
+    const { reservationStore, wrapper } = await mountCreateView({
+      searchImplementation: async (params) => ({
+        total: 11,
+        records: params.page === 2 ? pageTwoRecords : pageOneRecords,
+      }),
+    })
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+
+    for (const record of pageOneRecords) {
+      await wrapper.get(`[data-testid="reservation-device-select-${record.id}"]`).trigger('click')
+    }
+
+    expect(reservationStore.selectedDeviceIds).toHaveLength(10)
+
+    await wrapper.get('.pagination-page-2').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-11"]').trigger('click')
+
+    expect(reservationStore.selectedDeviceIds).toHaveLength(10)
+    expect(reservationStore.selectedDeviceIds).not.toContain('device-11')
+    expect(warningMock).toHaveBeenCalledWith('最多只能选择 10 台设备')
+  })
+
+  it('确认摘要会展示设备数量、时间范围和用途，并在成功后跳转详情页', async () => {
+    const records = [createDeviceRecord(1), createDeviceRecord(2)]
+    const { createReservationSpy, wrapper } = await mountCreateView({
+      searchImplementation: async () => ({
+        total: 2,
+        records,
+      }),
+    })
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('[data-testid="reservation-device-select-device-2"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+
+    const confirmDialog = wrapper.get('[data-testid="reservation-confirm-dialog"]')
+
+    expect(confirmDialog.text()).toContain('2 台设备')
+    expect(confirmDialog.text()).toContain('2026-04-08T09:00:00 至 2026-04-08T10:00:00')
+    expect(confirmDialog.text()).toContain('课程实验')
 
     await wrapper.get('.confirm-submit').trigger('click')
     await flushPromises()
 
-    expect(createReservationSpy).toHaveBeenCalledTimes(1)
+    expect(createReservationSpy).toHaveBeenCalledWith({
+      deviceIds: ['device-1', 'device-2'],
+      startTime: '2026-04-08T09:00:00',
+      endTime: '2026-04-08T10:00:00',
+      purpose: '课程实验',
+      remark: '请准备样品',
+    })
 
     const payload = createReservationSpy.mock.calls[0]?.[0]
 
     expect(payload).toBeDefined()
-
-    if (!payload) {
-      return
-    }
-
-    expect(payload).toMatchObject({
-      deviceId: 'device-1',
-      startTime: '2026-03-18T09:00:00',
-      endTime: '2026-03-18T10:00:00',
-      purpose: '课程实验',
-      remark: '',
-    })
-    expect(typeof payload.startTime).toBe('string')
-    expect(typeof payload.endTime).toBe('string')
-    expect(payload.startTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
-    expect(payload.endTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+    expect(payload).not.toHaveProperty('deviceId')
+    expect(pushMock).toHaveBeenCalledWith('/reservations/reservation-1')
+    expect(successMock).toHaveBeenCalledWith('预约创建成功')
   })
 
-  it('系统管理员可切换代预约并加载 USER 角色目标用户', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'admin@example.com',
-      phone: '13800138000',
-      realName: '系统管理员',
-      role: UserRole.SYSTEM_ADMIN,
-      userId: 'admin-1',
-      username: 'admin',
-    })
-
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-    const userStore = useUserStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 1,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-      ],
-    })
-    vi.spyOn(userStore, 'fetchReservationTargetUsers').mockResolvedValue([
-      {
-        id: 'user-1',
-        username: 'user-1',
-        email: 'user1@example.com',
-        realName: '普通用户',
-        phone: '13800138000',
-        status: 1,
-        freezeStatus: FreezeStatus.NORMAL,
-        roleId: 'role-user',
-        roleName: UserRole.USER,
-      },
-    ])
-    vi.spyOn(reservationStore, 'createProxyReservation').mockResolvedValue(
-      createReservationActionResponse({
-        id: 'reservation-2',
-        userName: '普通用户',
-        createdBy: 'admin-1',
-        createdByName: 'admin',
-        reservationMode: 'ON_BEHALF',
-        status: 'PENDING_SYSTEM_APPROVAL',
+  it('409 冲突失败后会渲染阻塞设备列表并保留表单与已选状态', async () => {
+    const records = [createDeviceRecord(1), createDeviceRecord(2)]
+    const blockingDevices = [
+      createBlockingDevice('device-1', {
+        deviceName: '设备 1',
+        reasonMessage: '设备 1 在当前时间段已被占用',
       }),
+      createBlockingDevice('device-2', {
+        deviceName: '设备 2',
+        reasonMessage: '设备 2 在当前时间段已被占用',
+      }),
+    ]
+    const { createReservationSpy, reservationStore, wrapper } = await mountCreateView({
+      searchImplementation: async () => ({
+        total: 2,
+        records,
+      }),
+    })
+
+    createReservationSpy.mockImplementationOnce(async () => {
+      reservationStore.blockingDevices = blockingDevices
+      throw new Error('预约冲突')
+    })
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('[data-testid="reservation-device-select-device-2"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+    await wrapper.get('.confirm-submit').trigger('click')
+    await flushPromises()
+
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(wrapper.get('.reservation-form-start-time').text()).toBe('2026-04-08T09:00:00')
+    expect(wrapper.get('.reservation-form-end-time').text()).toBe('2026-04-08T10:00:00')
+    expect(wrapper.get('.reservation-form-purpose').text()).toBe('课程实验')
+    expect(wrapper.get('.reservation-form-remark').text()).toBe('请准备样品')
+    expect(wrapper.get('.reservation-form-conflict').text()).toContain('设备 1 在当前时间段已被占用')
+    expect(wrapper.get('[data-testid="reservation-selected-devices"]').text()).toContain('设备 1')
+    expect(wrapper.get('[data-testid="reservation-selected-devices"]').text()).toContain('设备 2')
+    expect(reservationStore.selectedDeviceIds).toEqual(['device-1', 'device-2'])
+    expect(wrapper.get('[data-testid="reservation-blocking-devices"]').text()).toContain('设备 1')
+    expect(wrapper.get('[data-testid="reservation-blocking-devices"]').text()).toContain('设备 2')
+    expect(wrapper.get('[data-testid="reservation-blocking-device-device-1"]').text()).toContain(
+      '设备 1 在当前时间段已被占用',
     )
-
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: {
-          ReservationForm: {
-            props: ['deviceOptions'],
-            emits: ['submit'],
-            methods: {
-              emitPayload() {
-                this.$emit('submit', {
-                  deviceId: 'device-1',
-                  startTime: '2026-03-18T09:00:00',
-                  endTime: '2026-03-18T10:00:00',
-                  purpose: '代同学预约实验',
-                  remark: '请准时到场',
-                })
-              },
-            },
-            template: '<button class="emit-form" @click="emitPayload"></button>',
-          },
-          ConfirmDialog: {
-            props: ['modelValue'],
-            emits: ['confirm', 'update:modelValue'],
-            template:
-              '<div><button v-if="modelValue" class="confirm-submit" @click="$emit(\'confirm\')"></button></div>',
-          },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElCard: { template: '<div><slot /></div>' },
-          ElRadioGroup: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="proxy-mode" @click="$emit(\'update:modelValue\', \'proxy\')"></button><slot /></div>',
-          },
-          ElRadioButton: { template: '<button><slot /></button>' },
-          AppSelect: {
-            name: 'AppSelect',
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="target-user" @click="$emit(\'update:modelValue\', \'user-1\')"></button><slot /></div>',
-          },
-          ElOption: { template: '<div><slot /></div>' },
-        },
-      },
-    })
-
-    await flushPromises()
-
-    expect(userStore.fetchReservationTargetUsers).toHaveBeenCalledWith({ page: 1, size: 100 })
-    expect(wrapper.find('.console-detail-layout').exists()).toBe(true)
-    expect(wrapper.find('.console-aside-panel').exists()).toBe(true)
-
-    await wrapper.get('.proxy-mode').trigger('click')
-    await wrapper.get('.target-user').trigger('click')
-    await wrapper.get('.emit-form').trigger('click')
-    await wrapper.get('.confirm-submit').trigger('click')
-
-    expect(reservationStore.createProxyReservation).toHaveBeenCalledWith({
-      targetUserId: 'user-1',
-      deviceId: 'device-1',
-      startTime: '2026-03-18T09:00:00',
-      endTime: '2026-03-18T10:00:00',
-      purpose: '代同学预约实验',
-      remark: '请准时到场',
-    })
-    expect(pushMock).toHaveBeenCalledWith('/reservations/reservation-2')
+    expect(wrapper.get('[data-testid="reservation-blocking-device-device-2"]').text()).toContain(
+      '设备 2 在当前时间段已被占用',
+    )
   })
 
-  it('系统管理员从代预约切回本人预约后会清空旧目标用户，重新进入代预约时必须重新选择', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'admin@example.com',
-      phone: '13800138000',
-      realName: '系统管理员',
-      role: UserRole.SYSTEM_ADMIN,
-      userId: 'admin-1',
-      username: 'admin',
+  it('请求进行中不会重复调用创建接口', async () => {
+    const records = [createDeviceRecord(1)]
+    const deferred = createDeferred<ReturnType<typeof createReservationActionResponse>>()
+    const { createReservationSpy, wrapper } = await mountCreateView({
+      searchImplementation: async () => ({
+        total: 1,
+        records,
+      }),
     })
 
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-    const userStore = useUserStore()
+    createReservationSpy.mockReturnValueOnce(deferred.promise)
 
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 1,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-      ],
-    })
-    vi.spyOn(userStore, 'fetchReservationTargetUsers').mockResolvedValue([
-      {
-        id: 'user-1',
-        username: 'user-1',
-        email: 'user1@example.com',
-        realName: '普通用户',
-        phone: '13800138000',
-        status: 1,
-        freezeStatus: FreezeStatus.NORMAL,
-        roleId: 'role-user',
-        roleName: UserRole.USER,
-      },
-    ])
-    const createProxyReservationSpy = vi
-      .spyOn(reservationStore, 'createProxyReservation')
-      .mockResolvedValue(createReservationActionResponse({ id: 'reservation-2' }))
-
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: {
-          ReservationForm: {
-            props: ['deviceOptions'],
-            emits: ['submit'],
-            methods: {
-              emitPayload() {
-                this.$emit('submit', {
-                  deviceId: 'device-1',
-                  startTime: '2026-03-18T09:00:00',
-                  endTime: '2026-03-18T10:00:00',
-                  purpose: '代同学预约实验',
-                  remark: '请准时到场',
-                })
-              },
-            },
-            template: '<button class="emit-form" @click="emitPayload"></button>',
-          },
-          ConfirmDialog: {
-            props: ['modelValue'],
-            emits: ['confirm', 'update:modelValue'],
-            template:
-              '<div><button v-if="modelValue" class="confirm-submit" @click="$emit(\'confirm\')"></button></div>',
-          },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElCard: { template: '<div><slot /></div>' },
-          ElRadioGroup: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="self-mode" @click="$emit(\'update:modelValue\', \'self\')"></button><button class="proxy-mode" @click="$emit(\'update:modelValue\', \'proxy\')"></button><slot /></div>',
-          },
-          ElRadioButton: { template: '<button><slot /></button>' },
-          AppSelect: {
-            name: 'AppSelect',
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="target-user" @click="$emit(\'update:modelValue\', \'user-1\')"></button><slot /></div>',
-          },
-          ElOption: { template: '<div><slot /></div>' },
-        },
-      },
-    })
-
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
     await flushPromises()
-    await wrapper.get('.proxy-mode').trigger('click')
-    await wrapper.get('.target-user').trigger('click')
-    await wrapper.get('.self-mode').trigger('click')
-    await wrapper.get('.proxy-mode').trigger('click')
-    await wrapper.get('.emit-form').trigger('click')
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+
+    const createViewVm = wrapper.vm as unknown as {
+      handleConfirmSubmit: () => Promise<void>
+    }
+    const firstSubmit = createViewVm.handleConfirmSubmit()
+    const secondSubmit = createViewVm.handleConfirmSubmit()
+
+    expect(createReservationSpy).toHaveBeenCalledTimes(1)
+
+    deferred.resolve(createReservationActionResponse())
+    await Promise.all([firstSubmit, secondSubmit])
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/reservations/reservation-1')
+  })
+
+  it('失败路径下快速重复点击确认按钮也只会发送一次创建请求', async () => {
+    const records = [createDeviceRecord(1)]
+    const blockingDevices = [
+      createBlockingDevice('device-1', {
+        deviceName: '设备 1',
+        reasonMessage: '设备 1 在当前时间段已被占用',
+      }),
+    ]
+    const { createReservationSpy, reservationStore, wrapper } = await mountCreateView({
+      searchImplementation: async () => ({
+        total: 1,
+        records,
+      }),
+    })
+
+    createReservationSpy.mockImplementation(async () => {
+      reservationStore.blockingDevices = blockingDevices
+      throw new Error('预约冲突')
+    })
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+
+    const confirmButton = wrapper.get('.confirm-submit')
+
+    await confirmButton.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('.confirm-submit').attributes('disabled')).toBeDefined()
+
+    await confirmButton.trigger('click')
+    await flushPromises()
+
+    expect(createReservationSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="reservation-blocking-devices"]').text()).toContain('设备 1')
+    expect(wrapper.get('.reservation-form-conflict').text()).toContain('设备 1 在当前时间段已被占用')
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('系统管理员未选择目标用户时不会退回本人预约提交', async () => {
+    const records = [createDeviceRecord(1)]
+    const { createProxyReservationSpy, createReservationSpy, wrapper } = await mountCreateView({
+      role: UserRole.SYSTEM_ADMIN,
+      searchImplementation: async () => ({
+        total: 1,
+        records,
+      }),
+    })
+
+    expect(wrapper.text()).not.toContain('本人预约')
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+    await flushPromises()
 
     expect(warningMock).toHaveBeenCalledWith('代预约必须先选择目标用户')
-    expect(createProxyReservationSpy).not.toHaveBeenCalled()
     expect(wrapper.find('.confirm-submit').exists()).toBe(false)
-  })
-
-  it('确认提交前若目标用户被非字符串值冲空，则页面会回退为空并阻止代预约提交', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'admin@example.com',
-      phone: '13800138000',
-      realName: '系统管理员',
-      role: UserRole.SYSTEM_ADMIN,
-      userId: 'admin-1',
-      username: 'admin',
-    })
-
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-    const userStore = useUserStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 1,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-      ],
-    })
-    vi.spyOn(userStore, 'fetchReservationTargetUsers').mockResolvedValue([
-      {
-        id: 'user-1',
-        username: 'user-1',
-        email: 'user1@example.com',
-        realName: '普通用户',
-        phone: '13800138000',
-        status: 1,
-        freezeStatus: FreezeStatus.NORMAL,
-        roleId: 'role-user',
-        roleName: UserRole.USER,
-      },
-    ])
-    const createProxyReservationSpy = vi
-      .spyOn(reservationStore, 'createProxyReservation')
-      .mockResolvedValue(createReservationActionResponse({ id: 'reservation-2' }))
-
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: {
-          ReservationForm: {
-            props: ['deviceOptions'],
-            emits: ['submit'],
-            methods: {
-              emitPayload() {
-                this.$emit('submit', {
-                  deviceId: 'device-1',
-                  startTime: '2026-03-18T09:00:00',
-                  endTime: '2026-03-18T10:00:00',
-                  purpose: '代同学预约实验',
-                  remark: '请准时到场',
-                })
-              },
-            },
-            template: '<button class="emit-form" @click="emitPayload"></button>',
-          },
-          ConfirmDialog: {
-            props: ['modelValue'],
-            emits: ['confirm', 'update:modelValue'],
-            template:
-              '<div><span v-if="modelValue" class="confirm-open">open</span><button v-if="modelValue" class="confirm-submit" @click="$emit(\'confirm\')"></button></div>',
-          },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElCard: { template: '<div><slot /></div>' },
-          ElRadioGroup: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="proxy-mode" @click="$emit(\'update:modelValue\', \'proxy\')"></button><slot /></div>',
-          },
-          ElRadioButton: { template: '<button><slot /></button>' },
-          AppSelect: {
-            name: 'AppSelect',
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="target-user" @click="$emit(\'update:modelValue\', \'user-1\')"></button><button class="target-user-invalid" @click="$emit(\'update:modelValue\', { id: \'user-1\' })"></button><slot /></div>',
-          },
-          ElOption: { template: '<div><slot /></div>' },
-        },
-      },
-    })
-
-    await flushPromises()
-    await wrapper.get('.proxy-mode').trigger('click')
-    await wrapper.get('.target-user').trigger('click')
-    await wrapper.get('.emit-form').trigger('click')
-
-    expect(wrapper.find('.confirm-open').exists()).toBe(true)
-
-    await wrapper.get('.target-user-invalid').trigger('click')
-    await wrapper.get('.confirm-submit').trigger('click')
-
-    expect(warningMock).toHaveBeenCalledWith('代预约必须先选择目标用户')
+    expect(createReservationSpy).not.toHaveBeenCalled()
     expect(createProxyReservationSpy).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
-  it('系统管理员代预约未选择目标用户时给出显式提示', async () => {
-    const { module, error } = await loadCreateView()
-
-    expect(error).toBeNull()
-    expect(module).toBeTruthy()
-
-    if (!module) {
-      return
-    }
-
-    const authStore = useAuthStore()
-    authStore.setCurrentUser({
-      email: 'admin@example.com',
-      phone: '13800138000',
-      realName: '系统管理员',
-      role: UserRole.SYSTEM_ADMIN,
-      userId: 'admin-1',
-      username: 'admin',
-    })
-
-    const deviceStore = useDeviceStore()
-    const reservationStore = useReservationStore()
-    const userStore = useUserStore()
-
-    vi.spyOn(deviceStore, 'fetchDeviceList').mockResolvedValue({
-      total: 1,
-      records: [
-        {
-          id: 'device-1',
-          name: '示波器',
-          deviceNumber: 'DEV-001',
-          categoryId: 'cat-1',
-          categoryName: '测试设备',
-          status: 'AVAILABLE',
-          description: '可预约',
-          location: 'A-101',
-        },
-      ],
-    })
-    vi.spyOn(userStore, 'fetchReservationTargetUsers').mockResolvedValue([])
-    const createProxyReservationSpy = vi
-      .spyOn(reservationStore, 'createProxyReservation')
-      .mockResolvedValue(
-        createReservationActionResponse({
-          id: 'reservation-2',
-          userName: '普通用户',
-          createdBy: 'admin-1',
-          createdByName: 'admin',
-          reservationMode: 'ON_BEHALF',
-          status: 'PENDING_SYSTEM_APPROVAL',
+  it('系统管理员默认以代预约语义提交并携带 targetUserId', async () => {
+    const records = [createDeviceRecord(1)]
+    const { createProxyReservationSpy, createReservationSpy, fetchReservationTargetUsersSpy, wrapper } =
+      await mountCreateView({
+        role: UserRole.SYSTEM_ADMIN,
+        searchImplementation: async () => ({
+          total: 1,
+          records,
         }),
-      )
+      })
 
-    const wrapper = mount(module.default, {
-      global: {
-        stubs: {
-          ReservationForm: {
-            props: ['deviceOptions'],
-            emits: ['submit'],
-            methods: {
-              emitPayload() {
-                this.$emit('submit', {
-                  deviceId: 'device-1',
-                  startTime: '2026-03-18T09:00:00',
-                  endTime: '2026-03-18T10:00:00',
-                  purpose: '代同学预约实验',
-                  remark: '请准时到场',
-                })
-              },
-            },
-            template: '<button class="emit-form" @click="emitPayload"></button>',
-          },
-          ConfirmDialog: {
-            props: ['modelValue'],
-            emits: ['confirm', 'update:modelValue'],
-            template:
-              '<div><button v-if="modelValue" class="confirm-submit" @click="$emit(\'confirm\')"></button></div>',
-          },
-          ElButton: {
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')"><slot /></button>',
-          },
-          ElCard: { template: '<div><slot /></div>' },
-          ElRadioGroup: {
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template:
-              '<div><button class="proxy-mode" @click="$emit(\'update:modelValue\', \'proxy\')"></button><slot /></div>',
-          },
-          ElRadioButton: { template: '<button><slot /></button>' },
-          AppSelect: {
-            name: 'AppSelect',
-            props: ['modelValue'],
-            emits: ['update:modelValue'],
-            template: '<div><slot /></div>',
-          },
-          ElOption: { template: '<div><slot /></div>' },
-        },
-      },
-    })
+    expect(wrapper.text()).not.toContain('本人预约')
 
+    await wrapper
+      .get('.reservation-create-page__target-user .app-select-stub__control')
+      .setValue('target-user-1')
+
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
     await flushPromises()
-    await wrapper.get('.proxy-mode').trigger('click')
-    await wrapper.get('.emit-form').trigger('click')
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
+    await wrapper.get('.confirm-submit').trigger('click')
+    await flushPromises()
 
-    expect(warningMock).toHaveBeenCalledWith('代预约必须先选择目标用户')
-    expect(createProxyReservationSpy).not.toHaveBeenCalled()
-    expect(wrapper.find('.confirm-submit').exists()).toBe(false)
+    expect(fetchReservationTargetUsersSpy).toHaveBeenCalledWith({ page: 1, size: 100 })
+    expect(createReservationSpy).not.toHaveBeenCalled()
+    expect(createProxyReservationSpy).toHaveBeenCalledWith({
+      targetUserId: 'target-user-1',
+      deviceIds: ['device-1'],
+      startTime: '2026-04-08T09:00:00',
+      endTime: '2026-04-08T10:00:00',
+      purpose: '课程实验',
+      remark: '请准备样品',
+    })
+    expect(pushMock).toHaveBeenCalledWith('/reservations/reservation-1')
   })
 
-  it('创建页源码改为消费主题 token，避免模式卡片和约束侧栏在深色下退回默认白底', () => {
-    const source = readReservationViewSource('Create.vue')
+  it('提交阶段遇到非冲突普通错误时会重新抛出', async () => {
+    const records = [createDeviceRecord(1)]
+    const { createReservationSpy, wrapper } = await mountCreateView({
+      searchImplementation: async () => ({
+        total: 1,
+        records,
+      }),
+    })
 
-    // 创建页同时承接模式切换和约束说明，必须锁定主卡片与侧栏 token，避免深色下出现两块脱离主题的浅色面板。
-    expect(source).toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
-    expect(source).toContain('<AppSelect')
-    expect(source).toContain('var(--app-surface-card)')
-    expect(source).toContain('var(--app-tone-brand-surface)')
-    expect(source).toContain('var(--app-border-soft)')
-    expect(source).toContain('var(--app-shadow-card)')
+    createReservationSpy.mockRejectedValueOnce(new Error('服务器异常'))
 
-    const hardcodedColorPattern = /#[0-9a-fA-F]{3,8}\b|rgba?\(/
+    await wrapper.get('.reservation-form-emit-valid-time').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reservation-device-select-device-1"]').trigger('click')
+    await wrapper.get('.reservation-form-submit').trigger('click')
 
-    expect(source).not.toContain('<el-select')
-    expect(source).not.toMatch(hardcodedColorPattern)
+    await expect(
+      (
+        wrapper.vm as unknown as {
+          handleConfirmSubmit: () => Promise<void>
+        }
+      ).handleConfirmSubmit(),
+    ).rejects.toThrow('服务器异常')
+    expect(successMock).not.toHaveBeenCalled()
   })
 })

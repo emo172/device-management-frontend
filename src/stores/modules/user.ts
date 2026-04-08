@@ -151,6 +151,47 @@ function syncRolePermissionTreeSelection(
   }))
 }
 
+/**
+ * 代预约目标用户选择器必须能覆盖完整 USER 列表，不能因为只取第一页就把后续用户永久藏掉。
+ * 当前后端列表接口只有基础分页，因此这里按页顺序聚合并去重，再交给创建页使用。
+ */
+async function collectReservationTargetUsers(query: userApi.UserListQuery) {
+  const pageSize = Math.max(query.size ?? 100, 1)
+  const targetUsers: userApi.UserListItemResponse[] = []
+  const seenUserIds = new Set<string>()
+  let currentPage = Math.max(query.page ?? 1, 1)
+  let expectedPageCount = currentPage
+
+  do {
+    const result = await userApi.getUserList({
+      ...query,
+      page: currentPage,
+      size: pageSize,
+    })
+
+    expectedPageCount = Math.max(expectedPageCount, Math.ceil(result.total / pageSize) || currentPage)
+
+    result.records
+      .filter((user) => user.roleName === UserRole.USER)
+      .forEach((user) => {
+        if (seenUserIds.has(user.id)) {
+          return
+        }
+
+        seenUserIds.add(user.id)
+        targetUsers.push(user)
+      })
+
+    if (result.records.length === 0 || currentPage >= expectedPageCount) {
+      break
+    }
+
+    currentPage += 1
+  } while (true)
+
+  return targetUsers
+}
+
 function createDefaultState(): UserStoreState {
   return {
     roleList: [],
@@ -198,14 +239,13 @@ export const useUserStore = defineStore('user', {
 
     /**
      * 代预约只能指向普通用户。
-     * Store 在读取后立即过滤非 USER 角色，避免创建页把系统管理员或设备管理员误暴露成可预约目标。
+     * Store 在读取后立即过滤非 USER 角色，并按页聚合完整结果，避免创建页只拿到前 100 条目标用户。
      */
     async fetchReservationTargetUsers(query: userApi.UserListQuery = { page: 1, size: 100 }) {
       startListLoading(this)
 
       try {
-        const result = await userApi.getUserList(query)
-        this.reservationTargetUsers = result.records.filter((user) => user.roleName === 'USER')
+        this.reservationTargetUsers = await collectReservationTargetUsers(query)
         return this.reservationTargetUsers
       } finally {
         finishListLoading(this)

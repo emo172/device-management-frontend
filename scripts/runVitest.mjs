@@ -8,13 +8,12 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const SCRIPT_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
-const REPOSITORY_ROOT = path.resolve(SCRIPT_DIRECTORY, '..')
 const MIRROR_ROOT = path.join(os.tmpdir(), 'device-management-vitest')
 const MANIFEST_NAME = '.mirror-manifest.json'
 
 /**
  * 在 WSL 的 /mnt 挂载目录下运行 vitest 会触发 Bus error。
- * 这里把测试命令切换到 Linux 原生目录执行，避免后续开发每次手动复制仓库。
+ * 这里把测试命令切换到 Linux 原生目录执行，避免开发者在挂载目录里直接跑单测时再次踩到环境问题。
  */
 export function getExecutionMode(cwd) {
   return cwd.startsWith('/mnt/') ? 'mirrored' : 'direct'
@@ -45,7 +44,7 @@ function escapeWindowsCommandArgument(argument) {
 
 /**
  * Windows 下的 npm/npx 实际是 `.cmd` 启动脚本，需要显式交给 `cmd.exe /c` 执行。
- * 这样既能兼容本地 VSCode 的 Windows Node 运行时，也能避免 `shell: true` 带来的弃用告警。
+ * 这样既兼容本地 VSCode 的 Windows Node 运行时，也避免 `shell: true` 带来的额外噪音。
  */
 export function getCommandInvocation(
   command,
@@ -78,6 +77,7 @@ function hashContent(content) {
 
 async function readManifest(mirrorDirectory) {
   const manifestPath = path.join(mirrorDirectory, MANIFEST_NAME)
+
   if (!existsSync(manifestPath)) {
     return null
   }
@@ -144,8 +144,6 @@ async function ensureDependencies(sourceDirectory, mirrorDirectory) {
     await runCommand('npm', ['install'], { cwd: mirrorDirectory })
     await writeManifest(mirrorDirectory, nextManifest)
   }
-
-  return shouldInstall
 }
 
 function runCommand(command, args, options) {
@@ -196,7 +194,9 @@ async function runVitest() {
 
   const mirrorDirectory = await prepareMirror(sourceDirectory)
 
-  // 让测试输出仍然能够关联到原仓库路径，避免开发者在 /tmp 中找文件。
+  /**
+   * 把原仓库路径透传给子进程，给后续自定义 reporter 或排障脚本保留可读取的源目录上下文。
+   */
   await runCommand('npx', ['vitest', ...vitestArgs], {
     cwd: mirrorDirectory,
     env: {

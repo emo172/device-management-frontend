@@ -31,6 +31,41 @@ const timeRangeText = computed(
   () =>
     `${formatDateTime(props.reservation.startTime)} - ${formatDateTime(props.reservation.endTime)}`,
 )
+const deviceCount = computed(() => {
+  if (typeof props.reservation.deviceCount === 'number' && props.reservation.deviceCount > 0) {
+    return props.reservation.deviceCount
+  }
+
+  if (Array.isArray(props.reservation.devices) && props.reservation.devices.length > 0) {
+    return props.reservation.devices.length
+  }
+
+  return 1
+})
+const primaryDeviceName = computed(
+  () => props.reservation.primaryDeviceName || props.reservation.deviceName,
+)
+const primaryDeviceNumber = computed(
+  () => props.reservation.primaryDeviceNumber || props.reservation.deviceNumber,
+)
+/**
+ * 卡片与列表表格都只承担“先识别这是不是多设备预约”的职责。
+ * 因此卡片继续保留紧凑摘要，只表达主设备和数量事实，完整 `devices[]` 留给详情页展开。
+ */
+const deviceTitle = computed(() => {
+  if (deviceCount.value <= 1) {
+    return primaryDeviceName.value
+  }
+
+  return `${primaryDeviceName.value} 等 ${deviceCount.value} 台设备`
+})
+const deviceEyebrow = computed(() => {
+  if (deviceCount.value <= 1) {
+    return primaryDeviceNumber.value
+  }
+
+  return `${primaryDeviceNumber.value} · 共 ${deviceCount.value} 台`
+})
 const showCancelAction = computed(
   () => props.allowUserActions && canCancelReservation(props.reservation),
 )
@@ -46,8 +81,8 @@ const showCancelHint = computed(
   <article class="reservation-card">
     <div class="reservation-card__top">
       <div>
-        <p class="reservation-card__eyebrow">{{ reservation.deviceNumber }}</p>
-        <h3 class="reservation-card__title">{{ reservation.deviceName }}</h3>
+        <p class="reservation-card__eyebrow">{{ deviceEyebrow }}</p>
+        <h3 class="reservation-card__title">{{ deviceTitle }}</h3>
       </div>
       <ReservationStatusTag :status="reservation.status" />
     </div>

@@ -1,7 +1,6 @@
-import { mount } from '@vue/test-utils'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { computed, defineComponent, ref } from 'vue'
+import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 const formComponentModules = import.meta.glob('../*.vue')
@@ -33,23 +32,7 @@ function readReservationFormSource() {
   return readFileSync(resolve(process.cwd(), 'src/components/form/ReservationForm.vue'), 'utf-8')
 }
 
-const deviceOptions = [
-  {
-    id: 'device-1',
-    name: '示波器',
-    deviceNumber: 'DEV-001',
-    status: 'AVAILABLE',
-  },
-  {
-    id: 'device-2',
-    name: '频谱仪',
-    deviceNumber: 'DEV-002',
-    status: 'AVAILABLE',
-  },
-]
-
 interface ReservationFormValue {
-  deviceId: string
   startTime: string
   endTime: string
   purpose: string
@@ -57,77 +40,18 @@ interface ReservationFormValue {
 }
 
 const validInitialValue: ReservationFormValue = {
-  deviceId: 'device-1',
-  startTime: '2026-03-18T09:00:00',
-  endTime: '2026-03-18T10:00:00',
+  startTime: '2026-04-08T09:00:00',
+  endTime: '2026-04-08T10:00:00',
   purpose: '课程实验',
   remark: '',
 }
 
 const invalidDurationInitialValue: ReservationFormValue = {
-  deviceId: 'device-1',
-  startTime: '2026-03-18T09:00:00',
-  endTime: '2026-03-18T09:10:00',
+  startTime: '2026-04-08T09:00:00',
+  endTime: '2026-04-08T09:10:00',
   purpose: '课程实验',
   remark: '',
 }
-
-interface SelectOptionSnapshot {
-  label: string
-  value: string
-}
-
-function collectSelectOptionSnapshots(nodes: Array<{ children?: unknown; props?: unknown }>) {
-  const options: SelectOptionSnapshot[] = []
-
-  nodes.forEach((node) => {
-    if (Array.isArray(node.children)) {
-      options.push(
-        ...collectSelectOptionSnapshots(
-          node.children as Array<{ children?: unknown; props?: unknown }>,
-        ),
-      )
-    }
-
-    const props = node.props as Record<string, unknown> | null | undefined
-
-    if (typeof props?.value === 'string' && typeof props?.label === 'string') {
-      options.push({
-        value: props.value,
-        label: props.label,
-      })
-    }
-  })
-
-  return options
-}
-
-const appSelectStub = defineComponent({
-  name: 'AppSelect',
-  inheritAttrs: false,
-  props: ['modelValue', 'placeholder', 'disabled'],
-  emits: ['update:modelValue'],
-  setup(props, { emit, slots }) {
-    const selectedLabel = computed(() => {
-      const options = collectSelectOptionSnapshots(
-        (slots.default?.() as Array<{ children?: unknown; props?: unknown }> | undefined) ?? [],
-      )
-
-      return options.find((option) => option.value === props.modelValue)?.label ?? ''
-    })
-
-    function handleChange(event: Event) {
-      emit('update:modelValue', (event.target as HTMLSelectElement).value)
-    }
-
-    return {
-      handleChange,
-      selectedLabel,
-    }
-  },
-  template:
-    '<div class="app-select-stub" :class="$attrs.class" :style="$attrs.style" :data-placeholder="placeholder" :data-selected-label="selectedLabel"><select class="app-select-stub__control" :value="modelValue" :disabled="disabled" @change="handleChange"><slot /></select><span class="app-select-stub__selected-label">{{ selectedLabel }}</span></div>',
-})
 
 function createComponentStubs(options?: { interactiveTimeRangePicker?: boolean }) {
   const { interactiveTimeRangePicker = true } = options ?? {}
@@ -136,27 +60,24 @@ function createComponentStubs(options?: { interactiveTimeRangePicker?: boolean }
     ElForm: { template: '<form><slot /></form>' },
     ElFormItem: { template: '<div><slot /></div>' },
     ElButton: {
+      inheritAttrs: false,
       emits: ['click'],
       template:
-        '<button class="reservation-form__submit" @click="$emit(\'click\')"><slot /></button>',
+        '<button type="button" v-bind="$attrs" class="reservation-form__submit" @click="$emit(\'click\')"><slot /></button>',
     },
     ElInput: {
+      inheritAttrs: false,
       props: ['modelValue', 'type'],
       emits: ['update:modelValue'],
       template:
-        '<input :class="$attrs.class" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
-    },
-    AppSelect: appSelectStub,
-    ElOption: {
-      props: ['label', 'value'],
-      template: '<option :value="value">{{ label }}</option>',
+        '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
     TimeRangePicker: interactiveTimeRangePicker
       ? {
           props: ['modelValue'],
           emits: ['update:modelValue'],
           template:
-            "<button class=\"time-range-picker\" @click=\"$emit('update:modelValue', { startTime: '2026-03-18T10:00:00', endTime: '2026-03-18T11:00:00' })\"></button>",
+            "<button type=\"button\" class=\"time-range-picker\" @click=\"$emit('update:modelValue', { startTime: '2026-04-08T10:00:00', endTime: '2026-04-08T11:00:00' })\"></button>",
         }
       : {
           props: ['modelValue'],
@@ -170,69 +91,22 @@ function createComponentStubs(options?: { interactiveTimeRangePicker?: boolean }
   }
 }
 
-function mountReservationFormHarness(component: object) {
-  let submittedValue: ReservationFormValue | null = null
-
-  const ReservationFormHarness = defineComponent({
-    components: {
-      ReservationForm: component,
-    },
-    setup() {
-      const serverConflictMessage = ref('该设备在所选时间段已被预约')
-      const clearConflictCount = ref(0)
-
-      function handleClearConflict() {
-        clearConflictCount.value += 1
-        serverConflictMessage.value = ''
-      }
-
-      function handleSubmit(value: ReservationFormValue) {
-        submittedValue = value
-      }
-
-      return {
-        clearConflictCount,
-        deviceOptions,
-        handleClearConflict,
-        handleSubmit,
-        initialValue: validInitialValue,
-        serverConflictMessage,
-      }
-    },
-    template:
-      '<div><span class="reservation-form-harness__clear-count">{{ clearConflictCount }}</span><ReservationForm :initial-value="initialValue" :device-options="deviceOptions" :server-conflict-message="serverConflictMessage" @clear-conflict="handleClearConflict" @submit="handleSubmit" /></div>',
-  })
-
-  const wrapper = mount(ReservationFormHarness, {
-    global: {
-      stubs: createComponentStubs(),
-    },
-  })
-
-  return {
-    getSubmittedValue: () => submittedValue,
-    wrapper,
-  }
-}
-
 describe('ReservationForm', () => {
-  it('预约表单改为通过 AppSelect 收口设备选择，并移除局部下拉补丁', () => {
+  it('预约表单只保留时间、用途、备注与提交入口，不再承载旧单设备下拉真相', () => {
     const source = readReservationFormSource()
 
-    expect(source).toContain('var(--app-border-soft)')
-    expect(source).toContain('var(--app-surface-card)')
-    expect(source).toContain(':deep(.el-input-number)')
-    expect(source).toContain(':deep(.el-input-number:hover)')
-    expect(source).toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
-    expect(source).toContain('<AppSelect')
-    expect(source).toContain('@update:modelValue="handleDeviceChange"')
-    expect(source).not.toContain('<el-select')
-    expect(source).not.toContain(':deep(.el-select__wrapper)')
-    expect(source).not.toContain('rgba(148, 163, 184, 0.18)')
-    expect(source).not.toContain('rgba(255, 255, 255, 0.94)')
+    expect(source).toContain('selectedDeviceCount')
+    expect(source).toContain('data-testid="reservation-form"')
+    expect(source).toContain('data-testid="reservation-time-range"')
+    expect(source).toContain('data-testid="reservation-purpose-input"')
+    expect(source).toContain('data-testid="reservation-remark-input"')
+    expect(source).toContain('data-testid="reservation-submit-button"')
+    expect(source).not.toContain('reservation-device-select')
+    expect(source).not.toContain("import AppSelect from '@/components/common/dropdown/AppSelect.vue'")
+    expect(source).not.toContain('<AppSelect')
   })
 
-  it('表单合法时提交预约，并在字段变更时清空旧冲突提示', async () => {
+  it('时间变更时会同步发出 change 事件并清空旧冲突提示', async () => {
     const { module, error } = await loadReservationForm()
 
     expect(error).toBeNull()
@@ -242,40 +116,31 @@ describe('ReservationForm', () => {
       return
     }
 
-    const { wrapper, getSubmittedValue } = mountReservationFormHarness(module.default)
-
-    const deviceSelect = wrapper.getComponent({ name: 'AppSelect' })
-    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
-
-    expect(deviceSelect.props('modelValue')).toBe('device-1')
-    expect(deviceSelect.props('placeholder')).toBe('请选择可预约设备')
-    expect(deviceSelectRoot.attributes('data-placeholder')).toBe('请选择可预约设备')
-    expect(deviceSelectRoot.findAll('option')).toHaveLength(deviceOptions.length)
-    expect(deviceSelectRoot.text()).toContain('示波器（DEV-001）')
-    expect(wrapper.get('.conflict-warning-stub').text()).toContain('该设备在所选时间段已被预约')
-
-    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-2')
-
-    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('1')
-    expect(wrapper.get('.conflict-warning-stub').text()).not.toContain('该设备在所选时间段已被预约')
-    expect(deviceSelect.props('modelValue')).toBe('device-2')
+    const wrapper = mount(module.default, {
+      props: {
+        initialValue: validInitialValue,
+        selectedDeviceCount: 1,
+        serverConflictMessage: '该设备在所选时间段已被预约',
+      },
+      global: {
+        stubs: createComponentStubs(),
+      },
+    })
 
     await wrapper.get('.time-range-picker').trigger('click')
 
-    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('2')
+    const changeEvents = wrapper.emitted('change') ?? []
 
-    await wrapper.get('.reservation-form__submit').trigger('click')
-
-    expect(getSubmittedValue()).toEqual({
-      deviceId: 'device-2',
-      startTime: '2026-03-18T10:00:00',
-      endTime: '2026-03-18T11:00:00',
+    expect(wrapper.emitted('clear-conflict')).toHaveLength(1)
+    expect(changeEvents[changeEvents.length - 1]?.[0]).toEqual({
+      startTime: '2026-04-08T10:00:00',
+      endTime: '2026-04-08T11:00:00',
       purpose: '课程实验',
       remark: '',
     })
   })
 
-  it('设备下拉在选中后显示设备名称并保留 string deviceId', async () => {
+  it('表单合法时提交时间、用途和备注，不再携带 deviceIds', async () => {
     const { module, error } = await loadReservationForm()
 
     expect(error).toBeNull()
@@ -285,34 +150,28 @@ describe('ReservationForm', () => {
       return
     }
 
-    const { wrapper, getSubmittedValue } = mountReservationFormHarness(module.default)
-    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
+    const wrapper = mount(module.default, {
+      props: {
+        initialValue: validInitialValue,
+        selectedDeviceCount: 2,
+      },
+      global: {
+        stubs: createComponentStubs({ interactiveTimeRangePicker: false }),
+      },
+    })
 
-    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
-      '示波器（DEV-001）',
-    )
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('示波器（DEV-001）')
+    await wrapper.get('[data-testid="reservation-submit-button"]').trigger('click')
 
-    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-2')
-
-    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
-      '频谱仪（DEV-002）',
-    )
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('频谱仪（DEV-002）')
-
-    await wrapper.get('.reservation-form__submit').trigger('click')
-
-    expect(getSubmittedValue()).toEqual({
-      deviceId: 'device-2',
-      startTime: '2026-03-18T09:00:00',
-      endTime: '2026-03-18T10:00:00',
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toEqual({
+      startTime: '2026-04-08T09:00:00',
+      endTime: '2026-04-08T10:00:00',
       purpose: '课程实验',
       remark: '',
     })
-    expect(typeof getSubmittedValue()?.deviceId).toBe('string')
+    expect(wrapper.emitted('submit')?.[0]?.[0]).not.toHaveProperty('deviceIds')
   })
 
-  it('设备下拉在清空冲突提示后仍显示已选设备文案', async () => {
+  it('未选择任何设备时会阻止提交并展示提醒', async () => {
     const { module, error } = await loadReservationForm()
 
     expect(error).toBeNull()
@@ -322,24 +181,20 @@ describe('ReservationForm', () => {
       return
     }
 
-    const { wrapper } = mountReservationFormHarness(module.default)
-    const deviceSelectRoot = wrapper.get('.reservation-form__device.app-select-stub')
+    const wrapper = mount(module.default, {
+      props: {
+        initialValue: validInitialValue,
+        selectedDeviceCount: 0,
+      },
+      global: {
+        stubs: createComponentStubs({ interactiveTimeRangePicker: false }),
+      },
+    })
 
-    await deviceSelectRoot.get('.app-select-stub__control').setValue('device-2')
+    await wrapper.get('[data-testid="reservation-submit-button"]').trigger('click')
 
-    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('1')
-    expect(wrapper.get('.conflict-warning-stub').text()).not.toContain('该设备在所选时间段已被预约')
-    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
-      '频谱仪（DEV-002）',
-    )
-
-    await wrapper.get('.time-range-picker').trigger('click')
-
-    expect(wrapper.get('.reservation-form-harness__clear-count').text()).toBe('2')
-    expect(deviceSelectRoot.get('.app-select-stub__selected-label').text()).toBe(
-      '频谱仪（DEV-002）',
-    )
-    expect(deviceSelectRoot.attributes('data-selected-label')).toBe('频谱仪（DEV-002）')
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(wrapper.get('.conflict-warning-stub').text()).toContain('请至少选择 1 台设备')
   })
 
   it('本地时间规则不满足时阻止提交并展示提醒', async () => {
@@ -355,16 +210,16 @@ describe('ReservationForm', () => {
     const wrapper = mount(module.default, {
       props: {
         initialValue: invalidDurationInitialValue,
-        deviceOptions,
+        selectedDeviceCount: 1,
       },
       global: {
         stubs: createComponentStubs({ interactiveTimeRangePicker: false }),
       },
     })
 
-    await wrapper.get('.reservation-form__submit').trigger('click')
+    await wrapper.get('[data-testid="reservation-submit-button"]').trigger('click')
 
     expect(wrapper.emitted('submit')).toBeUndefined()
-    expect(wrapper.text()).toContain('预约时长不能少于 30 分钟')
+    expect(wrapper.get('.conflict-warning-stub').text()).toContain('预约时长不能少于 30 分钟')
   })
 })

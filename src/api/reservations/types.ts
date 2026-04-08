@@ -19,11 +19,12 @@ export type ReservationMode = 'SELF' | 'ON_BEHALF'
 export type CheckInStatus = 'NOT_CHECKED_IN' | 'CHECKED_IN' | 'CHECKED_IN_TIMEOUT'
 
 /**
- * 单条预约创建请求。
- * 对应后端 `CreateReservationRequest`，时间字段必须是 ISO 格式字符串。
+ * 多设备单预约创建请求。
+ * 对应后端 `CreateMultiReservationRequest`，创建页正式真相已经升级为 `deviceIds[]`，
+ * 不再允许以单个 `deviceId` 作为提交流程的长期主口径。
  */
 export interface CreateReservationRequest {
-  deviceId: string
+  deviceIds: string[]
   startTime: string
   endTime: string
   purpose: string
@@ -32,10 +33,51 @@ export interface CreateReservationRequest {
 
 /**
  * 代预约请求。
- * 对应后端 `ProxyReservationRequest`，仅 SYSTEM_ADMIN 允许携带 `targetUserId` 发起。
+ * 当前多设备创建也沿用同一套 `targetUserId` 语义，仅 SYSTEM_ADMIN 允许携带该字段发起代预约。
  */
 export interface ProxyReservationRequest extends CreateReservationRequest {
   targetUserId: string
+}
+
+/**
+ * 预约设备摘要。
+ * 对应后端 `ReservationDeviceSummaryResponse`，顺序与 `reservation_device.device_order` 保持一致。
+ */
+export interface ReservationDeviceSummary {
+  deviceId: string
+  deviceName: string
+  deviceNumber: string
+}
+
+/**
+ * 多设备预约失败原因码。
+ * 该集合已经由后端集成测试锁定，前端不得自行扩展或改名。
+ */
+export type BlockingDeviceReasonCode =
+  | 'DEVICE_DUPLICATED'
+  | 'DEVICE_LIMIT_EXCEEDED'
+  | 'DEVICE_NOT_FOUND'
+  | 'DEVICE_NOT_RESERVABLE'
+  | 'DEVICE_TIME_CONFLICT'
+  | 'DEVICE_PERMISSION_DENIED'
+
+/**
+ * 多设备预约失败时的阻塞设备信息。
+ * 对应后端 `BlockingDeviceResponse`，供创建失败页或冲突提示直接消费。
+ */
+export interface BlockingDeviceResponse {
+  deviceId: string
+  deviceName: string | null
+  reasonCode: BlockingDeviceReasonCode
+  reasonMessage: string
+}
+
+/**
+ * 多设备预约失败响应。
+ * 对应后端 `MultiReservationConflictResponse`，当前通过 HTTP 409 返回。
+ */
+export interface MultiReservationConflictResponse {
+  blockingDevices: BlockingDeviceResponse[]
 }
 
 /**
@@ -129,6 +171,11 @@ export interface ReservationListItemResponse {
   deviceId: string
   deviceName: string
   deviceNumber: string
+  deviceCount?: number
+  devices?: ReservationDeviceSummary[]
+  primaryDeviceId?: string | null
+  primaryDeviceName?: string | null
+  primaryDeviceNumber?: string | null
   startTime: string
   endTime: string
   purpose: string
@@ -165,6 +212,16 @@ export interface ReservationDetailResponse extends ReservationListItemResponse {
  * 因此前端类型直接与详情口径对齐，避免 Store 和页面再维护一套更轻的旧结构。
  */
 export interface ReservationResponse extends ReservationDetailResponse {}
+
+/**
+ * 多设备预约创建成功响应。
+ * 后端 `POST /api/reservations/multi` 当前仍返回包裹型结构；前端 API 层会把内层 `reservation` 解包给 Store，
+ * 但这里仍保留原始类型，避免后续失败/成功适配再次发明并行结构。
+ */
+export interface ReservationCreateActionResponse {
+  reservation: ReservationResponse
+  deviceCount: number
+}
 
 /**
  * 预约分页响应。

@@ -8,14 +8,19 @@ import {
 
 import type {
   AuditReservationRequest,
+  BlockingDeviceResponse,
+  BlockingDeviceReasonCode,
   CancelReservationRequest,
   CheckInRequest,
   CreateReservationBatchRequest,
   CreateReservationRequest,
   ManualProcessRequest,
+  MultiReservationConflictResponse,
   ProxyReservationRequest,
   ReservationBatchResponse,
+  ReservationCreateActionResponse,
   ReservationDetailResponse,
+  ReservationDeviceSummary,
   ReservationListQuery,
   ReservationListItemResponse,
   ReservationPageResponse,
@@ -25,22 +30,78 @@ import type {
 export type {
   ApprovalMode,
   AuditReservationRequest,
+  BlockingDeviceReasonCode,
+  BlockingDeviceResponse,
   CancelReservationRequest,
   CheckInRequest,
   CheckInStatus,
   CreateReservationBatchRequest,
   CreateReservationRequest,
   ManualProcessRequest,
+  MultiReservationConflictResponse,
   ProxyReservationRequest,
   ReservationBatchItem,
   ReservationBatchResponse,
+  ReservationCreateActionResponse,
   ReservationDetailResponse,
+  ReservationDeviceSummary,
   ReservationListItemResponse,
   ReservationListQuery,
   ReservationPageResponse,
   ReservationMode,
   ReservationResponse,
 } from './types'
+
+function normalizeCreatedReservation(result: ReservationCreateActionResponse) {
+  const reservation = normalizeReservationWorkflowRecord(result.reservation)
+
+  return {
+    ...reservation,
+    deviceCount: reservation.deviceCount ?? result.deviceCount,
+  }
+}
+
+function isBlockingDeviceReasonCode(value: unknown): value is BlockingDeviceReasonCode {
+  return [
+    'DEVICE_DUPLICATED',
+    'DEVICE_LIMIT_EXCEEDED',
+    'DEVICE_NOT_FOUND',
+    'DEVICE_NOT_RESERVABLE',
+    'DEVICE_TIME_CONFLICT',
+    'DEVICE_PERMISSION_DENIED',
+  ].includes(String(value))
+}
+
+export function extractReservationBlockingDevices(error: unknown): BlockingDeviceResponse[] {
+  const blockingDevices = (
+    error as {
+      response?: {
+        data?: {
+          data?: MultiReservationConflictResponse
+        }
+      }
+    }
+  )?.response?.data?.data?.blockingDevices
+
+  if (!Array.isArray(blockingDevices)) {
+    return []
+  }
+
+  return blockingDevices
+    .filter(
+      (device): device is BlockingDeviceResponse =>
+        !!device &&
+        typeof device.deviceId === 'string' &&
+        isBlockingDeviceReasonCode(device.reasonCode) &&
+        typeof device.reasonMessage === 'string',
+    )
+    .map((device) => ({
+      deviceId: device.deviceId,
+      deviceName: typeof device.deviceName === 'string' ? device.deviceName : null,
+      reasonCode: device.reasonCode,
+      reasonMessage: device.reasonMessage,
+    }))
+}
 
 /**
  * 查询预约分页列表。
@@ -64,29 +125,33 @@ export function getReservationDetail(reservationId: string) {
 }
 
 /**
- * 创建本人预约。
- * 对应 `POST /api/reservations`，普通用户预约与本人场景统一走该接口。
+ * 创建多设备本人预约。
+ * 对应真实接口 `POST /api/reservations/multi`。
+ * 中文口径：普通用户按本人语义提交时走统一多设备创建接口，请求中不得携带 `targetUserId`，
+ * 后端会把当前登录用户作为预约归属人。
  */
 export function createReservation(data: CreateReservationRequest) {
   return request
-    .post<
-      ReservationResponse,
-      CreateReservationRequest
-    >('/reservations', normalizeReservationTimeRangePayload(data))
-    .then((result) => normalizeReservationWorkflowRecord(result))
+    .post<ReservationCreateActionResponse, CreateReservationRequest>(
+      '/reservations/multi',
+      normalizeReservationTimeRangePayload(data),
+    )
+    .then((result) => normalizeCreatedReservation(result))
 }
 
 /**
- * 创建代预约。
- * 对应 `POST /api/reservations/proxy`，只有代预约场景才允许提交 `targetUserId`。
+ * 创建多设备代预约。
+ * 对应真实接口 `POST /api/reservations/multi`。
+ * 中文口径：系统管理员代 USER 提交时仍复用统一多设备创建接口，但必须额外携带 `targetUserId`，
+ * 后端会据此判定代预约语义并校验目标角色是否合法。
  */
 export function createProxyReservation(data: ProxyReservationRequest) {
   return request
-    .post<
-      ReservationResponse,
-      ProxyReservationRequest
-    >('/reservations/proxy', normalizeReservationTimeRangePayload(data))
-    .then((result) => normalizeReservationWorkflowRecord(result))
+    .post<ReservationCreateActionResponse, ProxyReservationRequest>(
+      '/reservations/multi',
+      normalizeReservationTimeRangePayload(data),
+    )
+    .then((result) => normalizeCreatedReservation(result))
 }
 
 /**

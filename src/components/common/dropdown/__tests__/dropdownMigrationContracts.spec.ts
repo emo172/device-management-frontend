@@ -92,12 +92,12 @@ describe('dropdown migration contracts', () => {
   it('热点文件已经切到统一包装组件入口', () => {
     expect(readSource('src/components/layout/AppHeader.vue')).toContain('AppDropdown')
     expect(readSource('src/components/form/DeviceForm.vue')).toContain('AppTreeSelect')
-    expect(readSource('src/components/form/ReservationForm.vue')).toContain('AppSelect')
     expect(readSource('src/components/form/CategoryForm.vue')).toContain('AppTreeSelect')
     expect(readSource('src/components/form/CategoryForm.vue')).toContain('AppSelect')
     expect(readSource('src/views/user/RoleAssign.vue')).toContain('AppSelect')
     expect(readSource('src/views/user/Freeze.vue')).toContain('AppSelect')
     expect(readSource('src/views/notification/List.vue')).toContain('AppSelect')
+    // T7 起 ReservationForm 只负责填写时间/用途/备注，reservation 创建链路的统一下拉入口收口在 Create.vue。
     expect(readSource('src/views/reservation/Create.vue')).toContain('AppSelect')
   })
 })

@@ -9,6 +9,19 @@ export interface GetDeviceListParams extends PageParams {
 }
 
 /**
+ * 可预约设备搜索参数。
+ * 对应后端 `GET /api/devices/reservable`，创建页必须显式带上时间窗，
+ * 再按真实契约传递关键字、分类 ID、是否包含后代节点与分页信息。
+ */
+export interface SearchReservableDevicesParams extends PageParams {
+  startTime: string
+  endTime: string
+  q?: string
+  categoryId?: string
+  includeDescendants?: boolean
+}
+
+/**
  * 创建设备请求。
  * 对应后端 `CreateDeviceRequest`，创建时直接提交分类名称而不是分类 ID。
  */
