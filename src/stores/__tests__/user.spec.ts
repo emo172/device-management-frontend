@@ -144,6 +144,71 @@ describe('user store', () => {
     ])
   })
 
+  it('loads reservation target users across backend pages instead of truncating at the first page', async () => {
+    getUserListMock
+      .mockResolvedValueOnce({
+        total: 4,
+        records: [
+          {
+            id: 'user-1',
+            username: 'user-1',
+            email: 'user1@example.com',
+            realName: '普通用户甲',
+            phone: '13800138001',
+            status: 1,
+            freezeStatus: 'NORMAL',
+            roleId: 'role-user',
+            roleName: 'USER',
+          },
+          {
+            id: 'admin-1',
+            username: 'sysadmin',
+            email: 'admin@example.com',
+            realName: '系统管理员',
+            phone: '13800138002',
+            status: 1,
+            freezeStatus: 'NORMAL',
+            roleId: 'role-admin',
+            roleName: 'SYSTEM_ADMIN',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        total: 4,
+        records: [
+          {
+            id: 'user-2',
+            username: 'user-2',
+            email: 'user2@example.com',
+            realName: '普通用户乙',
+            phone: '13800138003',
+            status: 1,
+            freezeStatus: 'NORMAL',
+            roleId: 'role-user',
+            roleName: 'USER',
+          },
+          {
+            id: 'user-3',
+            username: 'user-3',
+            email: 'user3@example.com',
+            realName: '普通用户丙',
+            phone: '13800138004',
+            status: 1,
+            freezeStatus: 'NORMAL',
+            roleId: 'role-user',
+            roleName: 'USER',
+          },
+        ],
+      })
+
+    const store = useUserStore()
+    await store.fetchReservationTargetUsers({ page: 1, size: 2 })
+
+    expect(getUserListMock).toHaveBeenNthCalledWith(1, { page: 1, size: 2 })
+    expect(getUserListMock).toHaveBeenNthCalledWith(2, { page: 2, size: 2 })
+    expect(store.reservationTargetUsers.map((user) => user.id)).toEqual(['user-1', 'user-2', 'user-3'])
+  })
+
   it('updates user admin state via status role and freeze actions', async () => {
     getRoleListMock.mockResolvedValue([
       { id: 'role-1', name: 'USER', description: '普通用户' },
