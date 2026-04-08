@@ -75,17 +75,27 @@ npm run dev
 
 ## 验证命令
 
-```bash
-npm run type-check
-npm run build
-npm run test:unit
-```
-
-需要一次性执行完整前端校验时，可直接运行：
+reservation-create 的当前主说明位于后端仓库 `docs/mainline-integration-notes.md`；该文档中的固定主顺序仍是“后端测试 → 前端 type-check/build/unit → 浏览器 E2E”。这里仅镜像保留前端侧快捷命令与本轮真实结果。
 
 ```bash
+./mvnw clean verify
 npm run type-check && npm run build && npm run test:unit
+node scripts/e2e/seed-reservation-create.mjs --scenario happy-path
+node scripts/e2e/seed-reservation-create.mjs --scenario atomic-failure
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome npx playwright test e2e/reservation-create.spec.ts --config=playwright.reservation.config.mjs
 ```
+
+- `seed-reservation-create.mjs` 现在会直接调用真实 backend internal seed 入口，并在当前环境下自动启动或复用可用的 backend 实例；按计划执行上述命令时，不需要再额外补跑计划外的手动 backend 启动命令。
+- 当前环境的浏览器验证必须显式带上 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome`。
+
+### 最新自动验证记录
+
+- 2026-04-07：后端 `./mvnw clean verify` 通过。
+- 2026-04-07：前端 `npm run type-check && npm run build && npm run test:unit` 通过。
+- 2026-04-07：`npm run type-check && npm run build` 通过。
+- 2026-04-07：`node scripts/e2e/seed-reservation-create.mjs --scenario happy-path` 通过，真实 backend seed/startup 复用 `http://localhost:18080`。
+- 2026-04-07：`node scripts/e2e/seed-reservation-create.mjs --scenario atomic-failure` 通过，复用同一 backend 并返回真实冲突设备信息。
+- 2026-04-07：`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/google-chrome npx playwright test e2e/reservation-create.spec.ts --config=playwright.reservation.config.mjs` 通过，汇总为 `2 passed`。
 
 如需补做桌面版 Chrome / Edge 的语音冒烟，可额外运行：
 
