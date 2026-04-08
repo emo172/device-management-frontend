@@ -23,14 +23,59 @@ describe('reservations api', () => {
     putMock.mockReset()
   })
 
-  it('creates self reservation and proxy reservation with backend routes', async () => {
-    const reservation = { id: 'reservation-1', reservationMode: 'SELF' }
-    const proxyReservation = { id: 'reservation-2', reservationMode: 'ON_BEHALF' }
+  it('creates self reservation and proxy reservation with backend multi-device route', async () => {
+    const reservation = {
+      reservation: {
+        id: 'reservation-1',
+        reservationMode: 'SELF',
+        deviceId: 'device-1',
+        deviceName: '示波器',
+        deviceNumber: 'DEV-001',
+        deviceCount: 2,
+        devices: [
+          {
+            deviceId: 'device-1',
+            deviceName: '示波器',
+            deviceNumber: 'DEV-001',
+          },
+          {
+            deviceId: 'device-2',
+            deviceName: '频谱仪',
+            deviceNumber: 'DEV-002',
+          },
+        ],
+        primaryDeviceId: 'device-1',
+        primaryDeviceName: '示波器',
+        primaryDeviceNumber: 'DEV-001',
+      },
+      deviceCount: 2,
+    }
+    const proxyReservation = {
+      reservation: {
+        id: 'reservation-2',
+        reservationMode: 'ON_BEHALF',
+        deviceId: 'device-3',
+        deviceName: '逻辑分析仪',
+        deviceNumber: 'DEV-003',
+        deviceCount: 1,
+        devices: [
+          {
+            deviceId: 'device-3',
+            deviceName: '逻辑分析仪',
+            deviceNumber: 'DEV-003',
+          },
+        ],
+        primaryDeviceId: 'device-3',
+        primaryDeviceName: '逻辑分析仪',
+        primaryDeviceNumber: 'DEV-003',
+      },
+      deviceCount: 1,
+    }
     postMock.mockResolvedValueOnce(reservation)
     postMock.mockResolvedValueOnce(proxyReservation)
 
     const createPayload = {
-      deviceId: 'device-1',
+      deviceIds: ['device-1', 'device-2'],
       startTime: '2026-03-16T09:00:00',
       endTime: '2026-03-16T10:00:00',
       purpose: '课程实验',
@@ -42,14 +87,14 @@ describe('reservations api', () => {
     }
 
     await expect(reservationApi.createReservation(createPayload)).resolves.toMatchObject(
-      reservation,
+      reservation.reservation,
     )
     await expect(reservationApi.createProxyReservation(proxyPayload)).resolves.toMatchObject(
-      proxyReservation,
+      proxyReservation.reservation,
     )
 
-    expect(postMock).toHaveBeenNthCalledWith(1, '/reservations', createPayload)
-    expect(postMock).toHaveBeenNthCalledWith(2, '/reservations/proxy', proxyPayload)
+    expect(postMock).toHaveBeenNthCalledWith(1, '/reservations/multi', createPayload)
+    expect(postMock).toHaveBeenNthCalledWith(2, '/reservations/multi', proxyPayload)
   })
 
   it('uses dedicated audit and check-in endpoints for reservation workflow', async () => {
@@ -127,6 +172,17 @@ describe('reservations api', () => {
           deviceId: 'device-1',
           deviceName: '示波器',
           deviceNumber: 'DEV-001',
+          deviceCount: 1,
+          devices: [
+            {
+              deviceId: 'device-1',
+              deviceName: '示波器',
+              deviceNumber: 'DEV-001',
+            },
+          ],
+          primaryDeviceId: 'device-1',
+          primaryDeviceName: '示波器',
+          primaryDeviceNumber: 'DEV-001',
           startTime: '2026-03-16T09:00:00',
           endTime: '2026-03-16T10:00:00',
           purpose: '课程实验',
@@ -154,17 +210,22 @@ describe('reservations api', () => {
 
   it('标准化预约请求时间，并把旧别名响应归一到主展示口径', async () => {
     postMock.mockResolvedValue({
-      id: 'reservation-legacy',
-      batchId: null,
-      userId: 'user-2',
-      createdBy: 'admin-1',
-      reservationMode: 'PROXY',
-      deviceId: 'device-1',
-      status: 'PENDING_SYSTEM_APPROVAL',
-      signStatus: 'NOT_SIGNED',
-      approvalModeSnapshot: 'DEVICE_AND_SYSTEM',
-      deviceApproverId: 'device-admin-1',
-      systemApproverId: null,
+      reservation: {
+        id: 'reservation-legacy',
+        batchId: null,
+        userId: 'user-2',
+        createdBy: 'admin-1',
+        reservationMode: 'PROXY',
+        deviceId: 'device-1',
+        deviceName: '示波器',
+        deviceNumber: 'DEV-001',
+        status: 'PENDING_SYSTEM_APPROVAL',
+        signStatus: 'NOT_SIGNED',
+        approvalModeSnapshot: 'DEVICE_AND_SYSTEM',
+        deviceApproverId: 'device-admin-1',
+        systemApproverId: null,
+      },
+      deviceCount: 1,
     })
     getMock.mockResolvedValue({
       total: 1,
@@ -176,10 +237,10 @@ describe('reservations api', () => {
           userName: 'demo-user',
           createdBy: 'admin-1',
           createdByName: 'demo-admin',
-          reservationMode: 'PROXY',
-          deviceId: 'device-1',
-          deviceName: '示波器',
-          deviceNumber: 'DEV-001',
+            reservationMode: 'PROXY',
+            deviceId: 'device-1',
+            deviceName: '示波器',
+            deviceNumber: 'DEV-001',
           startTime: '2026-03-16T09:00:00',
           endTime: '2026-03-16T10:00:00',
           purpose: '课程实验',
@@ -195,7 +256,7 @@ describe('reservations api', () => {
     await expect(
       reservationApi.createProxyReservation({
         targetUserId: 'user-2',
-        deviceId: 'device-1',
+        deviceIds: ['device-1'],
         startTime: '2026-03-16T09:00:00.987',
         endTime: '2026-03-16T10:00:00.456',
         purpose: '课程实验',
@@ -205,6 +266,17 @@ describe('reservations api', () => {
       reservationMode: 'ON_BEHALF',
       signStatus: 'NOT_CHECKED_IN',
       approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+      deviceCount: 1,
+      devices: [
+        {
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+        },
+      ],
+      primaryDeviceId: 'device-1',
+      primaryDeviceName: '示波器',
+      primaryDeviceNumber: 'DEV-001',
     })
 
     await expect(reservationApi.getReservationList({ page: 1, size: 10 })).resolves.toMatchObject({
@@ -214,13 +286,15 @@ describe('reservations api', () => {
           reservationMode: 'ON_BEHALF',
           signStatus: 'NOT_CHECKED_IN',
           approvalModeSnapshot: 'DEVICE_THEN_SYSTEM',
+          deviceCount: 1,
+          primaryDeviceId: 'device-1',
         }),
       ],
     })
 
-    expect(postMock).toHaveBeenCalledWith('/reservations/proxy', {
+    expect(postMock).toHaveBeenCalledWith('/reservations/multi', {
       targetUserId: 'user-2',
-      deviceId: 'device-1',
+      deviceIds: ['device-1'],
       startTime: '2026-03-16T09:00:00',
       endTime: '2026-03-16T10:00:00',
       purpose: '课程实验',
@@ -240,6 +314,17 @@ describe('reservations api', () => {
       deviceId: 'device-1',
       deviceName: '示波器',
       deviceNumber: 'DEV-001',
+      deviceCount: 1,
+      devices: [
+        {
+          deviceId: 'device-1',
+          deviceName: '示波器',
+          deviceNumber: 'DEV-001',
+        },
+      ],
+      primaryDeviceId: 'device-1',
+      primaryDeviceName: '示波器',
+      primaryDeviceNumber: 'DEV-001',
       startTime: '2026-03-18T09:00:00',
       endTime: '2026-03-18T10:00:00',
       purpose: '课程实验',
@@ -280,5 +365,37 @@ describe('reservations api', () => {
     expect(postMock).toHaveBeenCalledWith('/reservations/reservation-1/cancel', {
       reason: '课程调整',
     })
+  })
+
+  it('parses blockingDevices from multi-reservation conflict errors', () => {
+    const conflictPayload = {
+      blockingDevices: [
+        {
+          deviceId: 'device-2',
+          deviceName: '频谱仪',
+          reasonCode: 'DEVICE_TIME_CONFLICT',
+          reasonMessage: '该设备在所选时间段已被预约',
+        },
+        {
+          deviceId: 'missing-device-id',
+          deviceName: null,
+          reasonCode: 'DEVICE_NOT_FOUND',
+          reasonMessage: '设备不存在',
+        },
+      ],
+    }
+
+    const error = {
+      response: {
+        data: {
+          data: conflictPayload,
+        },
+      },
+    }
+
+    expect(reservationApi.extractReservationBlockingDevices(error)).toEqual(
+      conflictPayload.blockingDevices,
+    )
+    expect(reservationApi.extractReservationBlockingDevices(new Error('network error'))).toEqual([])
   })
 })

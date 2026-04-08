@@ -15,6 +15,10 @@ withDefaults(
     confirmText?: string
     cancelText?: string
     loading?: boolean
+    /**
+     * 父层可在提交完成前继续锁住确认机会，覆盖弹窗关闭过渡期里按钮仍短暂可见的场景。
+     */
+    confirmDisabled?: boolean
     /** 高风险操作可显式切到 danger，普通确认保持 primary。 */
     confirmType?: ConfirmButtonType
   }>(),
@@ -22,6 +26,7 @@ withDefaults(
     confirmText: '确认',
     cancelText: '取消',
     loading: false,
+    confirmDisabled: false,
     confirmType: 'primary',
   },
 )
@@ -37,7 +42,11 @@ function handleCancel() {
   emit('update:modelValue', false)
 }
 
-function handleConfirm() {
+function handleConfirm(loading: boolean, confirmDisabled: boolean) {
+  if (loading || confirmDisabled) {
+    return
+  }
+
   emit('confirm')
 }
 </script>
@@ -63,7 +72,8 @@ function handleConfirm() {
           class="confirm-dialog__confirm"
           :type="confirmType"
           :loading="loading"
-          @click="handleConfirm"
+          :disabled="loading || confirmDisabled"
+          @click="handleConfirm(loading, confirmDisabled)"
         >
           {{ confirmText }}
         </el-button>

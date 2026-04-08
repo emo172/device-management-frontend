@@ -1,4 +1,5 @@
 import request from '@/api/request'
+import { normalizeReservationTimeRangePayload } from '@/utils'
 
 import type {
   CreateDeviceRequest,
@@ -6,6 +7,7 @@ import type {
   DevicePageResponse,
   DeviceResponse,
   GetDeviceListParams,
+  SearchReservableDevicesParams,
   UpdateDeviceRequest,
   UpdateDeviceStatusRequest,
 } from './types'
@@ -16,6 +18,7 @@ export type {
   DevicePageResponse,
   DeviceResponse,
   GetDeviceListParams,
+  SearchReservableDevicesParams,
   UpdateDeviceRequest,
   UpdateDeviceStatusRequest,
 } from './types'
@@ -26,6 +29,17 @@ export type {
  */
 export function getDeviceList(params: GetDeviceListParams) {
   return request.get<DevicePageResponse>('/devices', { params })
+}
+
+/**
+ * 查询指定时间窗内可预约的设备。
+ * 对应 `GET /api/devices/reservable`，创建页必须先拿到合法时间范围，
+ * 才允许把关键字、分类树和分页条件一起发给后端真相源。
+ */
+export function searchReservableDevices(params: SearchReservableDevicesParams) {
+  return request.get<DevicePageResponse>('/devices/reservable', {
+    params: normalizeReservationTimeRangePayload(params),
+  })
 }
 
 /**

@@ -40,6 +40,28 @@ interface ReservationState {
   currentBatch: reservationApi.ReservationBatchResponse | null
   /** 通用加载态，供列表与管理页复用。 */
   loading: boolean
+  /** 创建页的正式选中设备真相。 */
+  selectedDevices: reservationApi.ReservationDeviceSummary[]
+  /** 最近一次多设备创建失败的阻塞设备列表。 */
+  blockingDevices: reservationApi.BlockingDeviceResponse[]
+}
+
+function normalizeSelectedDevices(devices: reservationApi.ReservationDeviceSummary[]) {
+  const deviceMap = new Map<string, reservationApi.ReservationDeviceSummary>()
+
+  devices.forEach((device) => {
+    if (!device.deviceId || deviceMap.has(device.deviceId)) {
+      return
+    }
+
+    deviceMap.set(device.deviceId, {
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+      deviceNumber: device.deviceNumber,
+    })
+  })
+
+  return Array.from(deviceMap.values())
 }
 
 function replaceReservationInList(
@@ -175,6 +197,8 @@ function createDefaultState(): ReservationState {
     currentReservation: null,
     currentBatch: null,
     loading: false,
+    selectedDevices: [],
+    blockingDevices: [],
   }
 }
 
@@ -186,7 +210,31 @@ function createDefaultState(): ReservationState {
 export const useReservationStore = defineStore('reservation', {
   state: (): ReservationState => createDefaultState(),
 
+  getters: {
+    selectedDeviceIds: (state) => state.selectedDevices.map((device) => device.deviceId),
+  },
+
   actions: {
+    replaceSelectedDevices(devices: reservationApi.ReservationDeviceSummary[]) {
+      this.selectedDevices = normalizeSelectedDevices(devices)
+    },
+
+    upsertSelectedDevice(device: reservationApi.ReservationDeviceSummary) {
+      this.selectedDevices = normalizeSelectedDevices([...this.selectedDevices, device])
+    },
+
+    removeSelectedDevice(deviceId: string) {
+      this.selectedDevices = this.selectedDevices.filter((device) => device.deviceId !== deviceId)
+    },
+
+    clearSelectedDevices() {
+      this.selectedDevices = []
+    },
+
+    clearBlockingDevices() {
+      this.blockingDevices = []
+    },
+
     /**
      * 预约列表接口当前只支持 `page` 与 `size`。
      * 仪表盘与列表页都依赖这份最小读取能力，因此在 Store 里保留查询参数和分页结果。
@@ -210,18 +258,32 @@ export const useReservationStore = defineStore('reservation', {
      * 本人预约成功后保留最新结果，供创建成功页、详情抽屉和后续借出流程继续衔接。
      */
     async createReservation(payload: reservationApi.CreateReservationRequest) {
-      const reservation = await reservationApi.createReservation(payload)
-      this.currentReservation = reservation
-      return reservation
+      this.clearBlockingDevices()
+
+      try {
+        const reservation = await reservationApi.createReservation(payload)
+        this.currentReservation = reservation
+        return reservation
+      } catch (error) {
+        this.blockingDevices = reservationApi.extractReservationBlockingDevices(error)
+        throw error
+      }
     },
 
     /**
      * 代预约只能复用后端专用接口，避免把目标用户 ID 误塞进本人预约请求体。
      */
     async createProxyReservation(payload: reservationApi.ProxyReservationRequest) {
-      const reservation = await reservationApi.createProxyReservation(payload)
-      this.currentReservation = reservation
-      return reservation
+      this.clearBlockingDevices()
+
+      try {
+        const reservation = await reservationApi.createProxyReservation(payload)
+        this.currentReservation = reservation
+        return reservation
+      } catch (error) {
+        this.blockingDevices = reservationApi.extractReservationBlockingDevices(error)
+        throw error
+      }
     },
 
     /**
@@ -420,6 +482,8 @@ export const useReservationStore = defineStore('reservation', {
       this.resetListState()
       this.resetCurrentReservation()
       this.currentBatch = null
+      this.clearSelectedDevices()
+      this.clearBlockingDevices()
     },
   },
 })

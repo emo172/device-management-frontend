@@ -12,6 +12,7 @@ const {
   createReservationBatchMock,
   createReservationMock,
   deviceAuditReservationMock,
+  extractReservationBlockingDevicesMock,
   getReservationDetailMock,
   getReservationListMock,
   getReservationBatchDetailMock,
@@ -24,6 +25,7 @@ const {
   createReservationBatchMock: vi.fn(),
   createReservationMock: vi.fn(),
   deviceAuditReservationMock: vi.fn(),
+  extractReservationBlockingDevicesMock: vi.fn(),
   getReservationDetailMock: vi.fn(),
   getReservationListMock: vi.fn(),
   getReservationBatchDetailMock: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock('@/api/reservations', () => ({
   createReservation: createReservationMock,
   createReservationBatch: createReservationBatchMock,
   deviceAuditReservation: deviceAuditReservationMock,
+  extractReservationBlockingDevices: extractReservationBlockingDevicesMock,
   getReservationDetail: getReservationDetailMock,
   getReservationList: getReservationListMock,
   getReservationBatchDetail: getReservationBatchDetailMock,
@@ -56,6 +59,7 @@ describe('reservation store', () => {
     createReservationBatchMock.mockReset()
     createReservationMock.mockReset()
     deviceAuditReservationMock.mockReset()
+    extractReservationBlockingDevicesMock.mockReset()
     getReservationDetailMock.mockReset()
     getReservationListMock.mockReset()
     getReservationBatchDetailMock.mockReset()
@@ -80,7 +84,7 @@ describe('reservation store', () => {
 
     const store = useReservationStore()
     await store.createReservation({
-      deviceId: 'device-1',
+      deviceIds: ['device-1'],
       startTime: '2026-03-15T10:00:00',
       endTime: '2026-03-15T11:00:00',
       purpose: '实验',
@@ -147,7 +151,7 @@ describe('reservation store', () => {
     const store = useReservationStore()
     await store.createProxyReservation({
       targetUserId: 'user-2',
-      deviceId: 'device-2',
+      deviceIds: ['device-2'],
       startTime: '2026-03-15T12:00:00',
       endTime: '2026-03-15T13:00:00',
       purpose: '代预约',
@@ -162,6 +166,98 @@ describe('reservation store', () => {
       approved: true,
       remark: '通过',
     })
+  })
+
+  it('tracks selected devices independently from search result arrays', () => {
+    const store = useReservationStore()
+    const selectedDevices = [
+      {
+        deviceId: 'device-1',
+        deviceName: '示波器',
+        deviceNumber: 'DEV-001',
+      },
+    ]
+
+    store.replaceSelectedDevices(selectedDevices)
+    selectedDevices[0]!.deviceName = '被外部篡改的设备名'
+
+    expect(store.selectedDevices).toEqual([
+      {
+        deviceId: 'device-1',
+        deviceName: '示波器',
+        deviceNumber: 'DEV-001',
+      },
+    ])
+    expect(store.selectedDeviceIds).toEqual(['device-1'])
+
+    store.upsertSelectedDevice({
+      deviceId: 'device-2',
+      deviceName: '频谱仪',
+      deviceNumber: 'DEV-002',
+    })
+    store.removeSelectedDevice('device-1')
+
+    expect(store.selectedDeviceIds).toEqual(['device-2'])
+    expect(store.selectedDevices).toEqual([
+      {
+        deviceId: 'device-2',
+        deviceName: '频谱仪',
+        deviceNumber: 'DEV-002',
+      },
+    ])
+  })
+
+  it('stores blockingDevices when multi-device create fails and clears them after success', async () => {
+    const createConflict = new Error('create conflict')
+    const blockingDevices = [
+      {
+        deviceId: 'device-2',
+        deviceName: '频谱仪',
+        reasonCode: 'DEVICE_TIME_CONFLICT',
+        reasonMessage: '该设备在所选时间段已被预约',
+      },
+    ]
+
+    createReservationMock.mockRejectedValueOnce(createConflict)
+    extractReservationBlockingDevicesMock.mockReturnValue(blockingDevices)
+    createReservationMock.mockResolvedValueOnce({
+      id: 'reservation-4',
+      batchId: null,
+      userId: 'user-1',
+      createdBy: 'user-1',
+      reservationMode: 'SELF',
+      deviceId: 'device-1',
+      status: 'PENDING_DEVICE_APPROVAL',
+      signStatus: 'NOT_CHECKED_IN',
+      approvalModeSnapshot: 'DEVICE_ONLY',
+      deviceApproverId: null,
+      systemApproverId: null,
+    })
+
+    const store = useReservationStore()
+
+    await expect(
+      store.createReservation({
+        deviceIds: ['device-1', 'device-2'],
+        startTime: '2026-03-15T10:00:00',
+        endTime: '2026-03-15T11:00:00',
+        purpose: '实验',
+        remark: '备注',
+      }),
+    ).rejects.toBe(createConflict)
+
+    expect(store.blockingDevices).toEqual(blockingDevices)
+    expect(extractReservationBlockingDevicesMock).toHaveBeenCalledWith(createConflict)
+
+    await store.createReservation({
+      deviceIds: ['device-1'],
+      startTime: '2026-03-16T10:00:00',
+      endTime: '2026-03-16T11:00:00',
+      purpose: '补测',
+      remark: '备注',
+    })
+
+    expect(store.blockingDevices).toEqual([])
   })
 
   it('签到后保留当前详情上下文，避免签到页丢失设备与审批展示字段', async () => {

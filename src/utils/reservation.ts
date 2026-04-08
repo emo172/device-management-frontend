@@ -59,6 +59,20 @@ type ReservationWorkflowSnapshot = {
   reservationMode?: string
   signStatus?: string
   approvalModeSnapshot?: string
+  deviceId?: string | null
+  deviceName?: string | null
+  deviceNumber?: string | null
+  deviceCount?: number
+  devices?:
+    | Array<{
+        deviceId?: string | null
+        deviceName?: string | null
+        deviceNumber?: string | null
+      }>
+    | null
+  primaryDeviceId?: string | null
+  primaryDeviceName?: string | null
+  primaryDeviceNumber?: string | null
 }
 
 const ONE_MINUTE = 60 * 1000
@@ -84,6 +98,18 @@ const CHECK_IN_COMPLETED_STATUSES = new Set([
 
 function toDate(dateValue: string): Date {
   return new Date(dateValue)
+}
+
+function toReservationDeviceSummary(device: {
+  deviceId?: string | null
+  deviceName?: string | null
+  deviceNumber?: string | null
+}) {
+  return {
+    deviceId: device.deviceId ?? '',
+    deviceName: device.deviceName ?? '',
+    deviceNumber: device.deviceNumber ?? '',
+  }
 }
 
 /**
@@ -166,7 +192,7 @@ export function normalizeReservationDateTime(dateValue: string): string {
 export function normalizeReservationWorkflowRecord<T extends ReservationWorkflowSnapshot>(
   reservation: T,
 ): T {
-  return {
+  const normalizedReservation = {
     ...reservation,
     reservationMode: reservation.reservationMode
       ? normalizeReservationMode(reservation.reservationMode)
@@ -177,7 +203,49 @@ export function normalizeReservationWorkflowRecord<T extends ReservationWorkflow
     approvalModeSnapshot: reservation.approvalModeSnapshot
       ? normalizeApprovalMode(reservation.approvalModeSnapshot)
       : reservation.approvalModeSnapshot,
+  } as T & ReservationWorkflowSnapshot
+
+  const normalizedDevices = Array.isArray(reservation.devices)
+    ? reservation.devices
+        .map((device) => toReservationDeviceSummary(device))
+        .filter((device) => device.deviceId)
+    : []
+  const fallbackPrimaryDevice = [
+    {
+      deviceId: reservation.primaryDeviceId,
+      deviceName: reservation.primaryDeviceName,
+      deviceNumber: reservation.primaryDeviceNumber,
+    },
+    {
+      deviceId: reservation.deviceId,
+      deviceName: reservation.deviceName,
+      deviceNumber: reservation.deviceNumber,
+    },
+  ]
+    .map((device) => toReservationDeviceSummary(device))
+    .find((device) => device.deviceId)
+  const devices = normalizedDevices.length > 0 ? normalizedDevices : fallbackPrimaryDevice ? [fallbackPrimaryDevice] : []
+  const primaryDevice = devices[0]
+
+  if (devices.length > 0) {
+    normalizedReservation.devices = devices
   }
+
+  if (typeof reservation.deviceCount === 'number' || devices.length > 0) {
+    normalizedReservation.deviceCount =
+      typeof reservation.deviceCount === 'number' ? reservation.deviceCount : devices.length
+  }
+
+  if (primaryDevice) {
+    normalizedReservation.primaryDeviceId = reservation.primaryDeviceId ?? primaryDevice.deviceId
+    normalizedReservation.primaryDeviceName = reservation.primaryDeviceName ?? primaryDevice.deviceName
+    normalizedReservation.primaryDeviceNumber = reservation.primaryDeviceNumber ?? primaryDevice.deviceNumber
+    normalizedReservation.deviceId = normalizedReservation.primaryDeviceId
+    normalizedReservation.deviceName = normalizedReservation.primaryDeviceName
+    normalizedReservation.deviceNumber = normalizedReservation.primaryDeviceNumber
+  }
+
+  return normalizedReservation as T
 }
 
 /**
