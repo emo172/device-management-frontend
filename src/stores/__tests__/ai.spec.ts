@@ -20,12 +20,14 @@ import { useAiStore } from '../modules/ai'
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
 
-  const promise = new Promise<T>((nextResolve) => {
+  const promise = new Promise<T>((nextResolve, nextReject) => {
     resolve = nextResolve
+    reject = nextReject
   })
 
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
 
 describe('ai store', () => {
@@ -58,6 +60,41 @@ describe('ai store', () => {
     })
   })
 
+  it('drops back to fail-closed capability state as soon as a refresh starts', async () => {
+    const pendingCapabilities = createDeferred<{
+      chatEnabled: boolean
+      speechEnabled: boolean
+    }>()
+    getAiCapabilitiesMock.mockImplementationOnce(() => pendingCapabilities.promise)
+
+    const store = useAiStore()
+    store.capabilities = {
+      chatEnabled: true,
+      speechEnabled: true,
+    }
+    store.capabilitiesLoaded = true
+
+    const refreshPromise = store.fetchCapabilities()
+
+    expect(store.capabilitiesLoaded).toBe(false)
+    expect(store.capabilities).toEqual({
+      chatEnabled: false,
+      speechEnabled: false,
+    })
+
+    pendingCapabilities.resolve({
+      chatEnabled: true,
+      speechEnabled: false,
+    })
+    await refreshPromise
+
+    expect(store.capabilitiesLoaded).toBe(true)
+    expect(store.capabilities).toEqual({
+      chatEnabled: true,
+      speechEnabled: false,
+    })
+  })
+
   it('keeps ai capabilities fail-closed when the capabilities request fails', async () => {
     const capabilitiesError = new Error('能力接口加载失败')
     getAiCapabilitiesMock.mockRejectedValue(capabilitiesError)
@@ -70,6 +107,86 @@ describe('ai store', () => {
     expect(store.capabilities).toEqual({
       chatEnabled: false,
       speechEnabled: false,
+    })
+  })
+
+  it('ignores stale capability success responses when two refreshes resolve out of order', async () => {
+    const firstRequest = createDeferred<{
+      chatEnabled: boolean
+      speechEnabled: boolean
+    }>()
+    const secondRequest = createDeferred<{
+      chatEnabled: boolean
+      speechEnabled: boolean
+    }>()
+
+    getAiCapabilitiesMock
+      .mockImplementationOnce(() => firstRequest.promise)
+      .mockImplementationOnce(() => secondRequest.promise)
+
+    const store = useAiStore()
+    const firstPromise = store.fetchCapabilities()
+    const secondPromise = store.fetchCapabilities()
+
+    secondRequest.resolve({
+      chatEnabled: false,
+      speechEnabled: true,
+    })
+    await secondPromise
+
+    expect(store.capabilitiesLoaded).toBe(true)
+    expect(store.capabilities).toEqual({
+      chatEnabled: false,
+      speechEnabled: true,
+    })
+
+    firstRequest.resolve({
+      chatEnabled: true,
+      speechEnabled: false,
+    })
+    await firstPromise
+
+    expect(store.capabilitiesLoaded).toBe(true)
+    expect(store.capabilities).toEqual({
+      chatEnabled: false,
+      speechEnabled: true,
+    })
+  })
+
+  it('ignores stale capability failures after a newer refresh succeeds', async () => {
+    const firstRequest = createDeferred<{
+      chatEnabled: boolean
+      speechEnabled: boolean
+    }>()
+    const secondRequest = createDeferred<{
+      chatEnabled: boolean
+      speechEnabled: boolean
+    }>()
+
+    getAiCapabilitiesMock
+      .mockImplementationOnce(() => firstRequest.promise)
+      .mockImplementationOnce(() => secondRequest.promise)
+
+    const store = useAiStore()
+    const firstPromise = store.fetchCapabilities()
+    const secondPromise = store.fetchCapabilities()
+
+    secondRequest.resolve({
+      chatEnabled: true,
+      speechEnabled: true,
+    })
+    await secondPromise
+
+    firstRequest.reject(new Error('旧请求失败'))
+    await expect(firstPromise).resolves.toEqual({
+      chatEnabled: true,
+      speechEnabled: true,
+    })
+
+    expect(store.capabilitiesLoaded).toBe(true)
+    expect(store.capabilities).toEqual({
+      chatEnabled: true,
+      speechEnabled: true,
     })
   })
 

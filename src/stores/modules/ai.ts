@@ -12,6 +12,7 @@ function createDefaultCapabilities(): aiApi.AiCapabilitiesResponse {
 interface AiState {
   capabilities: aiApi.AiCapabilitiesResponse
   capabilitiesLoaded: boolean
+  capabilitiesRequestToken: number
   historyList: aiApi.AiHistorySummaryResponse[]
   currentHistory: aiApi.AiHistoryDetailResponse | null
   currentResult: aiApi.AiChatResponse | null
@@ -24,6 +25,7 @@ function createDefaultState(): AiState {
   return {
     capabilities: createDefaultCapabilities(),
     capabilitiesLoaded: false,
+    capabilitiesRequestToken: 0,
     historyList: [],
     currentHistory: null,
     currentResult: null,
@@ -44,15 +46,31 @@ export const useAiStore = defineStore('ai', {
   actions: {
     /**
      * AI 页面进入时先拉取当前用户能力开关，避免前端把“尚未拿到后端结果”误判成默认可用。
+     * 刷新前先主动回落到 fail-closed 默认值，避免用户二次进入聊天页时短暂沿用上一轮成功结果。
+     * 若上层触发了并发 refresh，只允许最后一次请求落库，避免慢请求把更新后的能力结果覆盖回旧值。
      * 一旦请求失败，Store 会继续保持 fail-closed 默认值，并把异常抛给上层决定是否提示用户重试。
      */
     async fetchCapabilities() {
+      const requestToken = this.capabilitiesRequestToken + 1
+      this.capabilitiesRequestToken = requestToken
+      this.capabilities = createDefaultCapabilities()
+      this.capabilitiesLoaded = false
+
       try {
         const capabilities = await aiApi.getAiCapabilities()
+
+        if (requestToken !== this.capabilitiesRequestToken) {
+          return this.capabilities
+        }
+
         this.capabilities = capabilities
         this.capabilitiesLoaded = true
         return capabilities
       } catch (error) {
+        if (requestToken !== this.capabilitiesRequestToken) {
+          return this.capabilities
+        }
+
         this.capabilities = createDefaultCapabilities()
         this.capabilitiesLoaded = false
         throw error
