@@ -45,6 +45,37 @@ const pageDescription = computed(() =>
 const reservationCards = computed(() => reservationStore.list.slice(0, 3))
 const tableData = computed(() => reservationStore.list)
 
+function getReservationDeviceCount(reservation: ReservationListItemResponse) {
+  if (typeof reservation.deviceCount === 'number' && reservation.deviceCount > 0) {
+    return reservation.deviceCount
+  }
+
+  if (Array.isArray(reservation.devices) && reservation.devices.length > 0) {
+    return reservation.devices.length
+  }
+
+  return 1
+}
+
+function getReservationPrimaryDeviceName(reservation: ReservationListItemResponse) {
+  return reservation.primaryDeviceName || reservation.deviceName
+}
+
+/**
+ * 列表页只展示“主设备 + 数量事实”，避免把完整设备数组直接摊平到表格里撑坏信息密度。
+ * 真正的全量设备明细留给详情页展示，这样用户先看清是否为多设备预约，再按需进入详情查看全部设备。
+ */
+function formatReservationDeviceSummary(reservation: ReservationListItemResponse) {
+  const deviceCount = getReservationDeviceCount(reservation)
+  const primaryDeviceName = getReservationPrimaryDeviceName(reservation)
+
+  if (deviceCount <= 1) {
+    return primaryDeviceName
+  }
+
+  return `${primaryDeviceName} 等 ${deviceCount} 台设备`
+}
+
 function buildQuery(overrides?: Partial<{ page: number; size: number }>) {
   return {
     page: overrides?.page ?? reservationStore.query.page ?? 1,
@@ -182,7 +213,7 @@ onMounted(() => {
                 type="button"
                 @click="handleDetail(scope.row.id)"
               >
-                {{ scope.row.deviceName }}
+                {{ formatReservationDeviceSummary(scope.row) }}
               </button>
             </template>
           </el-table-column>

@@ -61,7 +61,9 @@ async function loadDetailView() {
   }
 }
 
-function createReservationDetail(): ReservationDetailResponse {
+function createReservationDetail(
+  overrides?: Partial<ReservationDetailResponse>,
+): ReservationDetailResponse {
   return {
     id: 'reservation-1',
     batchId: null,
@@ -94,6 +96,7 @@ function createReservationDetail(): ReservationDetailResponse {
     checkedInAt: null,
     createdAt: '2026-03-18T08:00:00',
     updatedAt: '2026-03-18T08:40:00',
+    ...overrides,
   }
 }
 
@@ -163,7 +166,89 @@ describe('reservation detail view', () => {
     expect(wrapper.text()).toContain('设备后系统审批')
     expect(wrapper.text()).toContain('设备管理员')
     expect(wrapper.text()).toContain('系统管理员')
+    expect(wrapper.text()).toContain('1 台设备')
+    expect(wrapper.text()).toContain('DEV-001')
     expect(wrapper.find('.timeline-stub').exists()).toBe(true)
+  })
+
+  it('多设备详情展示总台数与稳定顺序的完整设备清单，单设备字段仍作为主设备兼容显示', async () => {
+    const { module, error } = await loadDetailView()
+
+    expect(error).toBeNull()
+    expect(module).toBeTruthy()
+
+    if (!module) {
+      return
+    }
+
+    const authStore = useAuthStore()
+    authStore.setCurrentUser({
+      email: 'user@example.com',
+      phone: '13800138000',
+      realName: '普通用户',
+      role: UserRole.USER,
+      userId: 'user-1',
+      username: 'user',
+    })
+
+    const reservationStore = useReservationStore()
+    const detail = createReservationDetail({
+      deviceId: 'device-2',
+      deviceName: '频谱分析仪',
+      deviceNumber: 'DEV-002',
+      deviceCount: 3,
+      devices: [
+        {
+          deviceId: 'device-2',
+          deviceName: '频谱分析仪',
+          deviceNumber: 'DEV-002',
+        },
+        {
+          deviceId: 'device-3',
+          deviceName: '信号发生器',
+          deviceNumber: 'DEV-003',
+        },
+        {
+          deviceId: 'device-4',
+          deviceName: '万用表',
+          deviceNumber: 'DEV-004',
+        },
+      ],
+      primaryDeviceId: 'device-2',
+      primaryDeviceName: '频谱分析仪',
+      primaryDeviceNumber: 'DEV-002',
+    })
+    reservationStore.currentReservation = detail
+    vi.spyOn(reservationStore, 'fetchReservationDetail').mockResolvedValue(detail)
+
+    const wrapper = mount(module.default, {
+      global: {
+        stubs: {
+          ReservationTimeline: {
+            props: ['reservation'],
+            template: '<div class="timeline-stub">{{ reservation.createdAt }}</div>',
+          },
+          ReservationStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          CheckInStatusTag: { props: ['status'], template: '<span>{{ status }}</span>' },
+          EmptyState: { template: '<div><slot /></div>' },
+          ElButton: {
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          ElDescriptions: { template: '<div><slot /></div>' },
+          ElDescriptionsItem: { template: '<div><slot /></div>' },
+          ElCard: { template: '<section><slot name="header" /><slot /></section>' },
+          ElTag: { template: '<span><slot /></span>' },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('频谱分析仪')
+    expect(wrapper.text()).toContain('3 台设备')
+    expect(wrapper.text()).toContain('信号发生器')
+    expect(wrapper.text()).toContain('DEV-003')
+    expect(wrapper.text()).toContain('万用表')
+    expect(wrapper.text()).toContain('DEV-004')
   })
 
   it('只消费与当前路由匹配的预约详情，避免上一条详情串单', async () => {
